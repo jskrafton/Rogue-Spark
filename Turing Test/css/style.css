@@ -1,0 +1,3912 @@
+/* =============================================================
+   style.css — all the visual styling for the game.
+
+   HOW CSS WORKS (quick reminder):
+   Each block targets an HTML element by its id (#name)
+   or class (.name), then sets properties like color, size,
+   and position. Properties run top-to-bottom; later rules
+   can override earlier ones.
+
+   SECTIONS IN THIS FILE:
+     1.  Global reset & base
+     2.  Game wrapper
+     3.  Scenes
+     4.  Desktop background (sky + hill)  ← always-visible base layer
+     5.  Desktop icons column
+     6.  Individual desktop icon
+     7.  Icon image box
+     8.  Icon label
+     9.  Boot scene overlay
+     10. DOS window frame
+     11. DOS title bar
+     12. DOS close button (disabled + enabled states)
+     13. DOS body (black terminal area)
+     14. DOS text lines
+     15. DOS blinking cursor animation
+     16. Server scene overlay
+     17. Server window frame
+     18. Server title bar & close button
+     19. Server content area
+     20. State visibility helper (!important fix explained)
+     21. State 1 — initial (message + UPDATE)
+     22. State 2 — download (progress bar)
+     23. State 3 — minigame (connect the dots)
+     24. State 4 — complete (UPDATE COMPLETE)
+   ============================================================= */
+
+
+/* ── 1. GLOBAL RESET & BASE ──────────────────────────────────
+   By default, browsers add small margins and paddings around
+   elements. We remove those so our layout is fully predictable. */
+
+* {
+  /* The box-sizing trick: includes padding/border in an
+     element's stated width/height. Much easier to reason about. */
+  box-sizing: border-box;
+
+  /* Remove any default outer spacing */
+  margin: 0;
+  padding: 0;
+
+  /* ── Prevent accidental text selection ───────────────────────
+     Clicking buttons or dragging across the screen during mini-
+     games would otherwise highlight text, breaking the "real app"
+     illusion.  We block selection on every element globally here,
+     then restore it below for actual text-input fields.
+     The four lines cover all major browser engines:
+       -webkit-  Safari, Chrome, and most mobile browsers
+       -moz-     older Firefox
+       -ms-      Internet Explorer / old Edge
+       (no prefix) modern standard — Firefox 69+, Chrome 54+    */
+  -webkit-user-select: none;
+     -moz-user-select: none;
+      -ms-user-select: none;
+          user-select: none;
+}
+
+/* Restore normal selection behaviour for every element where
+   the player actually types.  Without this override, clicking
+   inside the password field or any future <textarea> would feel
+   broken — the cursor would not position and text would not be
+   selectable for copy/paste.                                    */
+input,
+textarea {
+  -webkit-user-select: text;
+     -moz-user-select: text;
+      -ms-user-select: text;
+          user-select: text;
+}
+
+/* Make the <html> and <body> tags fill the entire browser window */
+html, body {
+  width: 100%;
+  height: 100%;
+
+  /* Hide any accidental scrollbars */
+  overflow: hidden;
+}
+
+body {
+  /* A pixel-art-friendly font; falls back gracefully */
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+
+/* ── 2. GAME WRAPPER ─────────────────────────────────────────
+   #game is the outermost container that holds every scene.
+   It must fill the whole window so scenes can stretch to 100%. */
+
+#game {
+  width: 100%;
+  height: 100%;
+
+  /* Stack scenes on top of each other using relative positioning */
+  position: relative;
+}
+
+
+/* ── 3. SCENES ───────────────────────────────────────────────
+   Every scene <div> shares these base rules.
+   The scene manager in JavaScript adds/removes the "active"
+   class to show or hide each scene.
+
+   z-index: 1 ensures all scenes sit on top of #desktop-background
+   (which is z-index: 0). */
+
+.scene {
+  /* Fill the full window */
+  width: 100%;
+  height: 100%;
+
+  /* Position each scene so they all occupy the same space */
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  /* Sit above the permanent background layer */
+  z-index: 1;
+
+  /* Hidden by default — JavaScript will reveal the right one */
+  display: none;
+}
+
+/* When a scene is active, make it visible */
+.scene.active {
+  display: block;
+}
+
+/* Style the placeholder text used in the boot and server scenes */
+.scene > p {
+  color: white;
+  font-size: 1.5rem;
+  padding: 2rem;
+  font-family: "Courier New", monospace; /* gives a techy feel */
+}
+
+
+/* ── 4. DESKTOP BACKGROUND (sky + rolling hill) ──────────────
+   We draw the whole background using CSS gradients — no images!
+
+   This element is now a PERMANENT base layer outside the scene
+   system. It is always visible, so the sky/hill show behind
+   both the boot scene and the desktop scene.
+
+   position: absolute + top/left/width/height fills the #game
+   container (which is position: relative). */
+
+#desktop-background {
+  position: absolute; /* stay fixed inside #game */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+
+  /* z-index 0 — sits behind all scenes (which use z-index 1+) */
+  z-index: 0;
+
+  background:
+    /* LAYER 1 (on top): the green hill — a big radial ellipse
+       centred below the viewport. It appears as a curved horizon.
+       "ellipse 160% 60% at 50% 115%" means:
+         - shape: ellipse
+         - width: 160% of the element, height: 60% of the element
+         - centre: horizontally centred (50%), 115% down (below the bottom edge)
+       The green fades from rich meadow-green to deep forest-green. */
+    radial-gradient(
+      ellipse 160% 60% at 50% 115%,
+      #4caf50 0%,       /* bright grass green at the centre of the ellipse */
+      #388e3c 40%,      /* slightly darker as we move outward */
+      #2e7d32 70%,      /* deep forest green near the edges */
+      transparent 100% /* fade to transparent so the sky shows through */
+    ),
+
+    /* LAYER 2 (behind): the sky — a top-to-bottom gradient
+       from deep night-blue at the very top to a warm horizon
+       haze at the bottom. */
+    linear-gradient(
+      to bottom,
+      #0d47a1 0%,   /* deep royal blue — the "high sky" */
+      #1565c0 20%,  /* mid-sky blue */
+      #1e88e5 50%,  /* bright daytime blue */
+      #90caf9 80%,  /* pale blue near the horizon */
+      #e3f2fd 100%  /* almost white at the horizon line */
+    );
+}
+
+
+/* ── 5. DESKTOP ICONS COLUMN ─────────────────────────────────
+   #desktop-icons is the container that holds all four icon items.
+   It sits in the top-left corner of the desktop.
+
+   It lives inside #scene-desktop, which is position: absolute,
+   so "top: 20px; left: 20px" here means 20px from the top-left
+   of the full browser window. */
+
+#desktop-icons {
+  /* Positioned relative to its containing scene */
+  position: absolute;
+  top: 20px;
+  left: 20px;
+
+  /* Stack icons vertically */
+  display: flex;
+  flex-direction: column;
+  gap: 16px; /* space between each icon */
+}
+
+
+/* ── 6. INDIVIDUAL DESKTOP ICON ──────────────────────────────
+   Each .desktop-icon is one clickable item: picture + label.
+   We center the contents horizontally. */
+
+.desktop-icon {
+  /* Stack the image box and label on top of each other (vertically) */
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* center-align horizontally */
+
+  /* Fixed width so all icons line up neatly */
+  width: 72px;
+
+  /* Show a pointer cursor so the user knows it's clickable */
+  cursor: pointer;
+
+  /* Smooth scale animation on hover */
+  transition: transform 0.12s ease;
+}
+
+/* When the mouse hovers over an icon, grow it slightly */
+.desktop-icon:hover {
+  transform: scale(1.12);
+}
+
+/* When the user clicks/taps an icon, shrink it slightly for feedback */
+.desktop-icon:active {
+  transform: scale(0.95);
+}
+
+
+/* ── 7. ICON IMAGE BOX ───────────────────────────────────────
+   .icon-image is the coloured square that contains the emoji.
+   It mimics the classic Windows 9x icon look. */
+
+.icon-image {
+  width: 48px;
+  height: 48px;
+
+  /* Center the emoji inside the box */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Large enough emoji */
+  font-size: 28px;
+
+  /* Rounded corners give a friendlier, modern feel */
+  border-radius: 8px;
+
+  /* A subtle drop shadow to lift the icon off the background */
+  box-shadow:
+    2px 2px 0px rgba(0, 0, 0, 0.4),   /* hard offset shadow (retro feel) */
+    0px 4px 8px rgba(0, 0, 0, 0.25);  /* soft ambient shadow */
+
+  /* Each icon type gets its own background colour (see below) */
+}
+
+/* Server icon — cool steel blue */
+.icon-server-img  { background-color: #455a64; }
+
+/* Trash icon — warm grey */
+.icon-trash-img   { background-color: #78909c; }
+
+/* Mailbox icon — terracotta / post-box red */
+.icon-mailbox-img { background-color: #bf360c; }
+
+/* Files icon — golden yellow (like a manila folder) */
+.icon-files-img   { background-color: #f9a825; }
+
+
+/* ── 8. ICON LABEL ───────────────────────────────────────────
+   The text that appears under each icon. */
+
+.icon-label {
+  font-size: 11px;
+  font-weight: 600;
+
+  color: #ffffff;
+  text-shadow:
+    1px 1px 2px rgba(0, 0, 0, 0.8),
+    0px 0px 4px rgba(0, 0, 0, 0.6);
+
+  margin-top: 5px;
+  white-space: nowrap;
+  text-align: center;
+
+  background-color: rgba(0, 80, 200, 0.35);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   BOOT SCENE STYLES
+   Sections 9–15 below all deal with the MS-DOS window that
+   appears during the boot scene.
+   ═══════════════════════════════════════════════════════════ */
+
+
+/* ── 9. BOOT SCENE OVERLAY ───────────────────────────────────
+   The boot scene itself has a semi-transparent dark background.
+   This dims the desktop slightly so the DOS window stands out,
+   while still letting the sky and hill show through.
+
+   display: flex + align/justify center: the easiest way to
+   place one element (the DOS window) exactly in the middle of
+   its container. */
+
+/* ══════════════════════════════════════════════════════════════
+   TITLE SCREEN  (#scene-title)
+   ══════════════════════════════════════════════════════════════
+   The very first screen the player sees. Covers the desktop
+   background completely with a near-black CRT-terminal look.
+
+   LAYERS (back → front):
+     1. #scene-title background  — near-black with a faint green
+        radial glow at the center (like an old monitor's bloom)
+     2. #title-crt-overlay       — subtle horizontal scanlines
+        drawn with a repeating CSS gradient
+     3. #title-content           — flexbox column for logo,
+        tagline, button, and disclaimer
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Scene root ─────────────────────────────────────────────── */
+#scene-title {
+  /* Solid very dark background — feels like a switched-off
+     terminal rather than empty space.                        */
+  background-color: #050a05;
+
+  /* Faint green bloom at center — like a CRT warming up.
+     The colour is very muted so it doesn't compete with text. */
+  background-image: radial-gradient(
+    ellipse 70% 55% at 50% 48%,
+    rgba(0, 40, 10, 0.65) 0%,
+    transparent 70%
+  );
+
+  /* Override .scene { display: none } so it can use flex     */
+  display: none;
+  align-items: center;
+  justify-content: center;
+
+  /* Make sure the title screen sits above the desktop bg     */
+  z-index: 5;
+}
+
+/* Activate as flex (not block) so content stays centred      */
+#scene-title.active {
+  display: flex;
+}
+
+/* ── CRT scanline overlay ───────────────────────────────────── */
+/* A repeating linear gradient produces faint horizontal bands
+   that evoke the scan lines of an old CRT monitor.
+   pointer-events: none lets clicks pass through to buttons.  */
+#title-crt-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 6;
+
+  /* Two-pixel repeating pattern: 1px of slight transparency,
+     1px fully transparent — subtle, not distracting.        */
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.08) 0px,
+    rgba(0, 0, 0, 0.08) 1px,
+    transparent        1px,
+    transparent        2px
+  );
+}
+
+/* ── Content wrapper ────────────────────────────────────────── */
+/* Flex column — stacks logo → tagline → button vertically.
+   position: relative + z-index: 7 puts it above the scanlines. */
+#title-content {
+  position: relative;
+  z-index: 7;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;                  /* spacing controlled per-element below */
+
+  width: 100%;
+  padding: 0 20px;
+  box-sizing: border-box;
+}
+
+/* ── Game logo — "THE TURING TEST" ─────────────────────────── */
+/* Chunky, blocky, terminal-green. Letter-spacing spreads the
+   letters out to feel more like a label on old hardware.
+   Multiple text-shadow layers create a CRT phosphor glow.    */
+#title-logo {
+  font-family: "Courier New", Courier, monospace;
+  font-size: clamp(32px, 5.5vw, 72px);  /* scales with window width */
+  font-weight: bold;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #00ee55;
+  text-align: center;
+
+  margin: 0 0 18px;
+
+  /* Layered glow: tight inner glow + wider diffuse halo      */
+  text-shadow:
+    0 0  4px rgba(0, 238,  85, 0.9),
+    0 0 12px rgba(0, 238,  85, 0.6),
+    0 0 28px rgba(0, 200,  60, 0.35),
+    0 0 60px rgba(0, 180,  50, 0.15);
+
+  /* Slow breathe-in/out animation so the logo feels alive    */
+  animation: title-logo-breathe 4s ease-in-out infinite alternate;
+}
+
+@keyframes title-logo-breathe {
+  from {
+    text-shadow:
+      0 0  4px rgba(0, 238, 85, 0.9),
+      0 0 12px rgba(0, 238, 85, 0.6),
+      0 0 28px rgba(0, 200, 60, 0.35),
+      0 0 60px rgba(0, 180, 50, 0.15);
+  }
+  to {
+    text-shadow:
+      0 0  6px rgba(0, 255, 100, 1.0),
+      0 0 18px rgba(0, 255,  90, 0.75),
+      0 0 40px rgba(0, 220,  70, 0.50),
+      0 0 90px rgba(0, 200,  60, 0.25);
+  }
+}
+
+/* ── Tagline ────────────────────────────────────────────────── */
+/* Smaller, same green family but less bright so the title
+   stays the focal point.                                      */
+#title-tagline {
+  font-family: "Courier New", Courier, monospace;
+  font-size: clamp(13px, 1.6vw, 20px);
+  letter-spacing: 0.12em;
+  color: #55cc77;
+  text-align: center;
+  margin: 0 0 48px;
+
+  text-shadow: 0 0 8px rgba(80, 200, 100, 0.45);
+}
+
+/* ── BOOT SYSTEM button ─────────────────────────────────────── */
+/* The primary call-to-action. A pulsing glow animation draws
+   the eye. Hover replaces the glow with a solid fill so the
+   player gets clear feedback that it is interactive.          */
+#title-start-btn {
+  font-family: "Courier New", Courier, monospace;
+  font-size: clamp(13px, 1.4vw, 18px);
+  font-weight: bold;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: #00ee55;
+
+  padding: 14px 44px;
+
+  background: transparent;
+  border: 2px solid #00ee55;
+  border-radius: 2px;
+  cursor: pointer;
+
+  /* Pulsing box-shadow imitates a blinking cursor / beacon   */
+  animation: title-btn-pulse 1.6s ease-in-out infinite alternate;
+
+  transition: background 0.18s ease, color 0.18s ease,
+              box-shadow 0.18s ease;
+}
+
+@keyframes title-btn-pulse {
+  from {
+    box-shadow: 0 0  5px rgba(0, 238,  85, 0.4),
+                0 0 12px rgba(0, 238,  85, 0.2);
+  }
+  to {
+    box-shadow: 0 0 14px rgba(0, 238,  85, 0.85),
+                0 0 30px rgba(0, 238,  85, 0.45),
+                0 0 50px rgba(0, 200,  60, 0.20);
+  }
+}
+
+#title-start-btn:hover {
+  background: #00ee55;
+  color: #050a05;                         /* dark text on bright bg */
+  box-shadow: 0 0 20px rgba(0, 238, 85, 0.7),
+              0 0 40px rgba(0, 238, 85, 0.35);
+  animation: none;                        /* stop pulse on hover    */
+}
+
+#title-start-btn:active {
+  background: #00bb44;
+  border-color: #00bb44;
+}
+
+/* ── Disclaimer line ────────────────────────────────────────── */
+/* Positioned at the absolute bottom of the screen so it
+   doesn't influence the vertical centering of the main content.
+   Very dim so it doesn't compete for attention.              */
+#title-disclaimer {
+  position: absolute;
+  bottom: 18px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+
+  /* z-index above the CRT overlay (6) so the text isn't
+     dimmed by the scanline layer, but below the main content (7) */
+  z-index: 7;
+
+  font-family: "Courier New", Courier, monospace;
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  color: #2a5035;             /* very dark muted green — barely visible */
+
+  pointer-events: none;       /* can't accidentally click it             */
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   END TITLE SCREEN
+   ══════════════════════════════════════════════════════════════ */
+
+#scene-boot {
+  /* Semi-transparent dark overlay over the desktop background */
+  background-color: rgba(0, 0, 0, 0.45);
+
+  /* Use flexbox to centre the DOS window in the middle of screen */
+  display: none;         /* overridden to "flex" by the rule below */
+  align-items: center;
+  justify-content: center;
+}
+
+/* When the scene manager activates boot, show it as flex
+   (we override the .scene.active { display: block } rule) */
+#scene-boot.active {
+  display: flex;
+}
+
+
+/* ── 10. DOS WINDOW FRAME ────────────────────────────────────
+   The outer frame of the pop-up window.
+   We give it a fixed width but let the height grow with content.
+
+   The classic Windows 9x look uses:
+   • A raised border (light on top-left, dark on bottom-right)
+   • A flat grey body with a coloured title bar */
+
+#dos-window {
+  /* Fixed width; height expands to fit the text */
+  width: 520px;
+  min-height: 180px;
+
+  /* Classic raised-border effect using box-shadow layers:
+       outer light edge (top-left highlights)
+       inner dark edge (bottom-right shadows)
+     Together they make the window look "raised" off the screen. */
+  box-shadow:
+    inset 2px 2px 0px #ffffff,          /* inner top-left highlight */
+    inset -2px -2px 0px #555555,        /* inner bottom-right shadow */
+    2px 2px 8px rgba(0, 0, 0, 0.7);    /* outer drop shadow */
+
+  /* A thin grey border around the whole window */
+  border: 2px solid #888888;
+
+  /* Stack the title bar on top of the body vertically */
+  display: flex;
+  flex-direction: column;
+
+  /* Prevent the window from being wider than the screen on small displays */
+  max-width: 90vw;
+}
+
+
+/* ── 11. DOS TITLE BAR ───────────────────────────────────────
+   The coloured stripe at the top of the window.
+   Classic Windows 9x uses a blue gradient title bar. */
+
+#dos-titlebar {
+  /* Spread the title text and close button to opposite ends */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  /* Windows 9x royal blue gradient */
+  background: linear-gradient(
+    to right,
+    #000080,   /* dark navy on the left */
+    #1084d0    /* brighter blue on the right */
+  );
+
+  padding: 3px 4px 3px 8px;
+
+  /* Keep the title bar from growing or shrinking */
+  flex-shrink: 0;
+}
+
+/* The "C:\SYSTEM" title text */
+#dos-title {
+  color: #ffffff;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+
+  /* Space between the title and the close button */
+  margin-right: 6px;
+
+  /* Prevent the title from wrapping */
+  white-space: nowrap;
+}
+
+
+/* ── 12. DOS CLOSE BUTTON ────────────────────────────────────
+   The small ✕ square in the top-right of the title bar.
+
+   TWO STATES:
+   a) Disabled (default) — greyed out, no hover effect, not clickable.
+   b) Enabled  (after typing finishes) — normal button, clickable,
+      with a hover highlight just like Windows 9x. */
+
+#dos-close-btn {
+  /* Size the button like a classic Windows 9x close button */
+  width: 16px;
+  height: 14px;
+  padding: 0;
+
+  /* Center the ✕ character inside */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: bold;
+  line-height: 1;
+
+  /* Classic raised-button border */
+  border: 2px solid;
+  border-color: #ffffff #555555 #555555 #ffffff; /* light top-left, dark bottom-right */
+  background-color: #c0c0c0; /* standard Windows 9x grey */
+
+  /* Remove default browser button styling */
+  font-family: "Arial", sans-serif;
+  cursor: default; /* "not-allowed" look will come from :disabled below */
+}
+
+/* DISABLED STATE — while text is still typing */
+#dos-close-btn:disabled {
+  /* Dim the button so it looks inactive */
+  color: #888888;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ENABLED STATE — after all text has been typed */
+#dos-close-btn:not(:disabled) {
+  color: #000000;
+  cursor: pointer;
+}
+
+/* Hover effect — only fires when the button is NOT disabled */
+#dos-close-btn:not(:disabled):hover {
+  background-color: #d4d0c8;
+  /* Invert the border to make it look "pressed inward" slightly */
+  border-color: #888888 #ffffff #ffffff #888888;
+}
+
+/* Click feedback — button looks pressed down */
+#dos-close-btn:not(:disabled):active {
+  background-color: #a0a0a0;
+  border-color: #555555 #ffffff #ffffff #555555;
+}
+
+
+/* ── 13. DOS BODY ────────────────────────────────────────────
+   The black terminal area where the green text appears.
+   Padding gives the text a little breathing room inside. */
+
+#dos-body {
+  background-color: #000000;  /* pure black, like a real terminal */
+  padding: 12px 14px 14px 14px;
+
+  /* Allow the body to grow as more text lines are added */
+  flex-grow: 1;
+
+  /* If text somehow overflows (very long lines), scroll rather than overflow */
+  overflow-y: auto;
+
+  /* Minimum height so the window doesn't look empty before text arrives */
+  min-height: 120px;
+}
+
+
+/* ── 14. DOS TEXT LINES ──────────────────────────────────────
+   Each line of typed text is wrapped in a <div class="dos-line">
+   created dynamically by JavaScript. */
+
+.dos-line {
+  font-family: "Courier New", "Lucida Console", monospace;
+  font-size: 14px;
+  color: #00dd00;           /* classic green-on-black terminal colour */
+  line-height: 1.6;         /* comfortable space between lines */
+  white-space: pre-wrap;    /* preserve any spaces or indentation */
+
+  /* A very subtle glow makes the green text feel like a real CRT */
+  text-shadow: 0 0 6px rgba(0, 220, 0, 0.6);
+}
+
+
+/* ── 15. BLINKING CURSOR ─────────────────────────────────────
+   The █ block character that blinks at the end of the typed text.
+
+   @keyframes defines a named animation:
+   • "blink" alternates opacity between 1 (visible) and 0 (invisible).
+   • "step-end" means the change happens in a sharp instant,
+     not a smooth fade — giving that classic terminal blink feel. */
+
+@keyframes blink {
+  0%, 100% { opacity: 1; } /* visible at start and end of each cycle */
+  50%       { opacity: 0; } /* invisible at the midpoint */
+}
+
+#dos-cursor {
+  font-family: "Courier New", "Lucida Console", monospace;
+  font-size: 14px;
+  color: #00dd00;
+  text-shadow: 0 0 6px rgba(0, 220, 0, 0.6);
+
+  /* Apply the blink animation: 1 second per cycle, runs forever */
+  animation: blink 1s step-end infinite;
+
+  /* A small left indent so the cursor lines up with the text above */
+  display: inline-block;
+  margin-left: 1px;
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   SERVER SCENE STYLES
+   Sections 16–19 below style the Server application window.
+   The aesthetic is a classic Windows 9x GUI application:
+   grey frame, blue title bar, white content area.
+   ═══════════════════════════════════════════════════════════ */
+
+
+/* ── 16. SERVER OVERLAY ──────────────────────────────────────
+   Full-screen dim layer that shows the Server window on top of
+   the desktop, keeping the background and icons visible behind.
+
+   This replaces the old #scene-server approach (which hid the
+   desktop entirely). Now the server window works exactly like
+   the login popup: the overlay covers the desktop so icons
+   cannot be clicked, but they remain visually present.
+
+   Opened by openWindow("server-overlay") in desktop.js.
+   Closed by closeWindow("server-overlay") in server.js.
+
+   display: flex (when visible) + align/justify center places
+   #server-window exactly in the middle of the screen.          */
+
+#server-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+
+  /* Semi-transparent dark backdrop — same opacity as login overlay */
+  background: rgba(0, 0, 0, 0.45);
+
+  /* Sit above Trash/Notepad windows (z-index: 10) and at the
+     same level as the login overlay (z-index: 50).
+     They are never open at the same time so no conflict arises. */
+  z-index: 50;
+
+  /* Centre the server window */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/* ── 17. SERVER WINDOW FRAME ─────────────────────────────────
+   The outer frame of the application window.
+   Classic Windows 9x windows have:
+   • A light grey body (#d4d0c8 is the exact Win9x grey)
+   • A raised-border effect created with layered box-shadows
+   • A 2px solid border all around */
+
+#server-window {
+  width: 380px;
+
+  /* The classic Windows 9x silver-grey */
+  background-color: #d4d0c8;
+
+  /* Raised-border illusion using inset box-shadows:
+       white top-left edges  →  looks like light hitting raised surface
+       dark bottom-right edges →  looks like shadow below raised surface */
+  box-shadow:
+    inset 2px 2px 0px #ffffff,         /* inner highlight (top-left) */
+    inset -2px -2px 0px #808080,       /* inner shadow (bottom-right) */
+    3px 3px 12px rgba(0, 0, 0, 0.5);   /* outer drop shadow */
+
+  /* A thin border around the whole window */
+  border: 2px solid #808080;
+
+  /* Stack the title bar on top of the content area */
+  display: flex;
+  flex-direction: column;
+}
+
+
+/* ── 18. SERVER TITLE BAR & CLOSE BUTTON ─────────────────────
+   The coloured top stripe of the window, styled the same as
+   the DOS window title bar to keep visual consistency. */
+
+#server-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  /* Same Windows 9x royal blue gradient as the DOS title bar */
+  background: linear-gradient(
+    to right,
+    #000080,   /* dark navy on the left */
+    #1084d0    /* brighter blue on the right */
+  );
+
+  padding: 3px 4px 3px 8px;
+  flex-shrink: 0;
+}
+
+/* The "Server" title text inside the title bar */
+#server-title {
+  color: #ffffff;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  white-space: nowrap;
+  margin-right: 6px;
+}
+
+/* The ✕ close button — starts fully enabled (unlike the DOS button) */
+#server-close-btn {
+  width: 16px;
+  height: 14px;
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: bold;
+  line-height: 1;
+
+  /* Classic raised Windows button borders */
+  border: 2px solid;
+  border-color: #ffffff #555555 #555555 #ffffff;
+  background-color: #c0c0c0;
+  color: #000000;
+
+  font-family: "Arial", sans-serif;
+  cursor: pointer;
+}
+
+#server-close-btn:hover {
+  background-color: #d4d0c8;
+  border-color: #888888 #ffffff #ffffff #888888;
+}
+
+#server-close-btn:active {
+  background-color: #a0a0a0;
+  border-color: #555555 #ffffff #ffffff #555555;
+}
+
+
+/* ── 19. SERVER CONTENT AREA ─────────────────────────────────
+   The white inner panel that holds all three states (initial,
+   download, minigame). Shared layout rules live here. */
+
+#server-body {
+  /* White inner panel — inset from the grey window frame */
+  background-color: #ffffff;
+
+  /* Inset border — dark top-left, light bottom-right = "sunken" look */
+  border: 2px solid;
+  border-color: #808080 #ffffff #ffffff #808080;
+
+  margin: 10px;           /* gap between window frame and this panel */
+  padding: 20px 18px;     /* inner breathing room */
+
+  /* Stack children vertically and centre them */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+
+/* ── 20. STATE VISIBILITY HELPER ─────────────────────────────
+   JavaScript adds/removes this class to show or hide each
+   state container (initial / download / minigame / complete).
+
+   WHY !important:
+   Some state containers have their own "display: flex" rule set
+   via an ID selector (e.g. #server-state-download). In CSS,
+   an ID selector has HIGHER specificity than a class selector,
+   which means it would override "display: none" and the element
+   would stay visible even when hidden.
+   Adding !important makes this utility class always win,
+   regardless of what other rules say. This is the standard
+   pattern for "state toggle" classes. */
+
+.server-state-hidden {
+  display: none !important;
+}
+
+
+/* ── 21. STATE 1 — INITIAL (message + UPDATE button) ─────────*/
+
+/* The "System update available." text line */
+#server-message {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  color: #000000;
+  text-align: center;
+}
+
+/* The UPDATE push-button — classic Windows 9x style */
+#server-update-btn {
+  width: 100px;
+  padding: 4px 0;
+
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  color: #000000;
+  background-color: #d4d0c8;
+
+  border: 2px solid;
+  border-color: #ffffff #808080 #808080 #ffffff; /* raised */
+  cursor: pointer;
+}
+
+#server-update-btn:hover  { background-color: #c8c4bc; }
+#server-update-btn:active {
+  border-color: #808080 #ffffff #ffffff #808080; /* inverted = pushed in */
+  background-color: #b8b4ac;
+}
+
+
+/* ── 22. STATE 2 — DOWNLOAD (progress bar) ───────────────────
+   The download state container fills the full width of the
+   content area so the bar can stretch edge to edge. */
+
+#server-state-download {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+
+  /* Prevent the browser from highlighting text while the player drags */
+  user-select: none;
+}
+
+/* Row that holds the bar track and the percentage label */
+#progress-bar-wrap {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* The track — the full-width groove the handle slides along */
+#progress-bar-container {
+  flex-grow: 1;    /* take all available width in the row */
+  height: 18px;
+
+  /* Sunken look: dark top-left, light bottom-right */
+  border: 2px solid;
+  border-color: #808080 #ffffff #ffffff #808080;
+  background-color: #e8e4de;  /* light grey empty track */
+
+  position: relative;   /* needed so fill + handle can be absolute inside */
+  overflow: visible;    /* lets the handle stick out above and below */
+  cursor: default;
+}
+
+/* The blue fill — grows from 0% to 100% as the handle moves right */
+#progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0%;              /* JavaScript updates this */
+
+  background-color: #0055cc; /* classic Windows blue */
+
+  /* The fill must NOT intercept mouse events — only the handle should */
+  pointer-events: none;
+}
+
+/* The draggable handle knob */
+#progress-handle {
+  position: absolute;
+  left: 0;                /* JavaScript updates this */
+
+  /* Make it taller than the bar so it's easy to grab */
+  width: 14px;
+  height: 28px;           /* bar is 18px tall; this sticks out 5px above & below */
+  top: -7px;              /* (28 - 18) / 2 = 5px overhang; minus 2px border = -7px */
+
+  background-color: #d4d0c8;  /* Windows grey */
+
+  /* Raised button borders */
+  border: 2px solid;
+  border-color: #ffffff #808080 #808080 #ffffff;
+
+  cursor: ew-resize;  /* ↔ left/right resize cursor — signals "drag me" */
+  z-index: 10;        /* sit above the fill layer */
+}
+
+/* Percentage readout next to the bar */
+#progress-percent {
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+  color: #000000;
+  white-space: nowrap;   /* never wraps to two lines */
+  min-width: 34px;       /* wide enough for "100%" without layout shift */
+  text-align: right;
+}
+
+/* "Drag to download" hint below the bar */
+#progress-hint {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 11px;
+  color: #555555;
+}
+
+/* "Connection lost." error — hidden until the handle hits the lock */
+#progress-error {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  color: #cc0000;   /* red */
+}
+
+
+/* ── 23. STATE 3 — MINIGAME (connect the colored dots) ───────*/
+
+/* The minigame state container — stacks hint + game area */
+#server-state-minigame {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Main heading shown above the dot columns */
+#minigame-hint {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  font-weight: bold;
+  color: #222222;
+  letter-spacing: 1px;
+}
+
+/* Smaller instruction line shown below the heading */
+#minigame-subhint {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 10px;
+  color: #666666;
+  margin-top: -4px; /* pull it slightly closer to the heading above */
+}
+
+/* The play area that holds the SVG overlay + both dot columns.
+   position: relative is REQUIRED — it makes this div the
+   reference point for the absolutely-positioned SVG inside. */
+#connection-game {
+  width: 100%;
+  position: relative;
+  display: flex;
+  justify-content: space-between;  /* push left column to left, right to right */
+  align-items: center;
+  padding: 6px 18px;
+  min-height: 130px;               /* tall enough for 4 dots + gaps */
+}
+
+/* SVG layer: lines are drawn here.
+   It covers the whole game area so lines can span both columns.
+
+   pointer-events: none is critical — without it, the SVG would
+   intercept mouse clicks and the dots underneath couldn't be
+   reached. With it, all mouse events "fall through" to the dots. */
+#connection-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;   /* allows lines to extend slightly outside the box */
+}
+
+/* A vertical stack of dots (used for both left and right columns).
+   z-index: 2 places the dots ABOVE the SVG so they can be clicked. */
+.dot-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;          /* vertical space between dots */
+  position: relative;
+  z-index: 2;
+}
+
+/* Individual dot — a circle drawn with border-radius: 50%.
+   The background-color and border are set per-dot by JavaScript
+   using the COLOR_STYLES configuration object in server.js. */
+.dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+
+  /* Subtle inset highlight makes the dot look 3D/glossy */
+  box-shadow:
+    inset 0 3px 4px rgba(255, 255, 255, 0.45),
+    0 2px 4px rgba(0, 0, 0, 0.35);
+
+  /* Smooth fade when a dot is dimmed after being connected */
+  transition: opacity 0.25s ease;
+}
+
+/* Left dots are drag sources — show a grab cursor */
+.dot-left  { cursor: grab; }
+.dot-left:active { cursor: grabbing; }
+
+/* Right dots are drop targets — no special cursor */
+.dot-right { cursor: default; }
+
+
+/* ── 24. STATE 4 — COMPLETE ──────────────────────────────────
+   Shown when the download bar reaches 100%.
+   Large green text centered in the window body. */
+
+#server-state-complete {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#complete-message {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 20px;
+  font-weight: bold;
+  color: #2e7d32;          /* forest green */
+  letter-spacing: 3px;
+  text-align: center;
+  padding: 18px 0;
+
+  /* A soft green glow to make the success state feel rewarding */
+  text-shadow: 0 0 12px rgba(76, 175, 80, 0.5);
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   FLOATING DESKTOP WINDOWS
+   Styles for the Trash and Notepad windows that float on
+   top of the desktop scene as independent overlays.
+
+   These windows share a set of class-based rules (.win-*)
+   so they look identical to the Server window (which uses
+   ID-based rules — we keep those untouched).
+
+   SECTIONS:
+     25. Hidden-window toggle
+     26. Shared window chrome (.win-window, .win-titlebar, etc.)
+     27. Trash window position + file-item row
+     28. Notepad window position + text area
+   ═══════════════════════════════════════════════════════════ */
+
+
+/* ── 25. HIDDEN-WINDOW TOGGLE ────────────────────────────────
+   JavaScript adds/removes this class to show or hide each
+   floating window independently.
+
+   !important beats the "display: flex" on .win-window (same
+   class specificity, but !important always wins). Same pattern
+   used by .server-state-hidden earlier in this file.          */
+
+.hidden-window {
+  display: none !important;
+}
+
+
+/* ── 26. SHARED WINDOW CHROME ────────────────────────────────
+   Every floating window uses these classes for its outer frame,
+   title bar, close button, and body.
+   They deliberately mirror the Server window's look.          */
+
+/* Outer frame — grey raised-border box, floats above the desktop */
+.win-window {
+  position: absolute;  /* positioned within #scene-desktop */
+  z-index: 10;         /* float above desktop icons (z-index 0) */
+
+  background-color: #d4d0c8;   /* classic Windows 9x silver-grey */
+
+  /* Raised-border effect: white top-left = highlight, dark bottom-right = shadow */
+  box-shadow:
+    inset 2px 2px 0px #ffffff,
+    inset -2px -2px 0px #808080,
+    3px 3px 12px rgba(0, 0, 0, 0.5);
+
+  border: 2px solid #808080;
+
+  /* Stack titlebar on top of body */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Title bar — the blue gradient stripe at the top */
+.win-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  background: linear-gradient(to right, #000080, #1084d0);
+
+  padding: 3px 4px 3px 8px;
+  flex-shrink: 0;   /* never shrinks, even if window is very small */
+}
+
+/* Title text inside the title bar */
+.win-title {
+  color: #ffffff;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  white-space: nowrap;
+  margin-right: 6px;
+}
+
+/* Close button (✕) — always enabled for these windows */
+.win-close-btn {
+  width: 16px;
+  height: 14px;
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: bold;
+  line-height: 1;
+
+  border: 2px solid;
+  border-color: #ffffff #555555 #555555 #ffffff;  /* raised */
+  background-color: #c0c0c0;
+  color: #000000;
+
+  font-family: "Arial", sans-serif;
+  cursor: pointer;
+}
+
+.win-close-btn:hover {
+  background-color: #d4d0c8;
+  border-color: #888888 #ffffff #ffffff #888888;
+}
+
+.win-close-btn:active {
+  background-color: #a0a0a0;
+  border-color: #555555 #ffffff #ffffff #555555;
+}
+
+/* ── Title-bar button group ───────────────────────────────────
+   Wraps the skip (›) and close (✕) buttons so they sit flush
+   against the right edge of the title bar with a visible gap
+   between them.  Only used in the two chat windows.           */
+.win-titlebar-btns {
+  display: flex;
+  align-items: center;
+  gap: 5px;          /* clear spacing between › and ✕          */
+  flex-shrink: 0;
+}
+
+/* ── Skip-typing button (›) ──────────────────────────────────
+   Identical dimensions and raised-border look to .win-close-btn
+   so it feels like part of the same set.  Placed to the LEFT of
+   the ✕ so they're visually distinct and hard to mix up.
+   Only present in the IT Supervisor and Normie colleague chats.
+   Does nothing when no message is currently typing.           */
+.win-skip-btn {
+  width: 16px;
+  height: 14px;
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;    /* slightly larger than ✕ so › is legible  */
+  font-weight: bold;
+  line-height: 1;
+
+  border: 2px solid;
+  border-color: #ffffff #555555 #555555 #ffffff;  /* raised */
+  background-color: #c0c0c0;
+  color: #000000;
+
+  font-family: "Arial", sans-serif;
+  cursor: pointer;
+}
+
+.win-skip-btn:hover {
+  background-color: #d4d0c8;
+  border-color: #888888 #ffffff #ffffff #888888;
+}
+
+.win-skip-btn:active {
+  background-color: #a0a0a0;
+  border-color: #555555 #ffffff #ffffff #555555;
+}
+
+/* Content body — white inset panel inside the grey frame */
+.win-body {
+  background-color: #ffffff;
+
+  /* Sunken inset border: dark top-left, light bottom-right */
+  border: 2px solid;
+  border-color: #808080 #ffffff #ffffff #808080;
+
+  margin: 10px;      /* gap between grey frame and white panel */
+  padding: 10px;
+}
+
+
+/* ── 27. TRASH WINDOW ────────────────────────────────────────
+   Positioned centre-left, leaving the right half of the screen
+   open for the Notepad window.                                */
+
+#trash-window {
+  /* Widened from 220px so longer filenames fit on one line   */
+  width: 270px;
+
+  /* Centre-left: right of the icon column, vertically centred */
+  left: 140px;
+  top: 50%;
+  transform: translateY(-50%);  /* shift up by half own height to true-centre */
+}
+
+/* A single file row inside the trash window.
+   Behaves like a selectable item in a classic file manager.  */
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: 2px;
+  cursor: pointer;
+  user-select: none;   /* don't highlight text when clicking quickly */
+}
+
+/* Hover: Windows-style blue selection highlight */
+.file-item:hover {
+  background-color: #0078d7;
+}
+
+/* Make the filename text white when the row is highlighted */
+.file-item:hover .file-name {
+  color: #ffffff;
+}
+
+/* Small emoji icon at the start of the row */
+.file-icon {
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+/* Filename text */
+.file-name {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  color: #000000;
+}
+
+
+/* ── WIP ("work in progress") POPUP ──────────────────────────
+   Shared by the Mailbox and Files icons.
+   Centered on screen so it feels like a system notice.       */
+
+#wip-window {
+  width: 320px;
+
+  /* True centre of the viewport */
+  left: 50%;
+  top:  50%;
+  transform: translate(-50%, -50%);
+
+  z-index: 10;   /* same level as Trash / Notepad */
+}
+
+/* The message inside — slightly more padding than a normal
+   body so the single-line text doesn't feel cramped.        */
+#wip-window .win-body {
+  padding: 18px 16px;
+}
+
+#wip-message {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  color: #222;
+  line-height: 1.5;
+  margin: 0;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   SOJU VIEWER WINDOW  (#soju-window)
+   ══════════════════════════════════════════════════════════════
+   Centered on screen, fixed width so the bottle always fits.  */
+
+#soju-window {
+  width: 310px;
+
+  /* True center */
+  left: 50%;
+  top:  50%;
+  transform: translate(-50%, -50%);
+
+  z-index: 10;
+}
+
+/* ── Pale scene background ─────────────────────────────────── */
+/* Gives the "photo" a neutral background so the bottle pops.  */
+.soju-scene {
+  background: linear-gradient(160deg, #e8ede8 0%, #d8e8d8 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 20px 16px;
+}
+
+/* ── Bottle wrapper ─────────────────────────────────────────── */
+/* Stacks all bottle parts top-to-bottom.
+   drop-shadow on the wrapper adds a subtle depth shadow behind
+   the whole shape without needing individual shadows.         */
+.soju-bottle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  filter: drop-shadow(4px 8px 10px rgba(0, 0, 0, 0.30));
+}
+
+/* ── Cap ────────────────────────────────────────────────────── */
+/* Small metallic rectangle — flat crown of the bottle.        */
+.soju-cap {
+  width: 28px;
+  height: 11px;
+  background: linear-gradient(to bottom, #d0d0d0 0%, #888 100%);
+  border-radius: 3px 3px 0 0;
+  border: 1px solid #666;
+  box-sizing: border-box;
+  z-index: 1;
+}
+
+/* ── Neck ────────────────────────────────────────────────────── */
+/* Narrow cylinder, slightly tapered (wider at bottom).
+   clip-path polygon creates a trapezoid:
+     top  = roughly 26 px wide (centered in 36 px element)
+     base = full 36 px wide
+   The gradient mimics the curvature of glass (light refraction
+   on the left edge, dark on the right).                       */
+.soju-neck {
+  width: 36px;
+  height: 62px;
+  background: linear-gradient(to right,
+    rgba(130, 220, 130, 0.55)  0%,
+    #2e9e2e                    12%,
+    #4ec44e                    38%,
+    #3ab03a                    62%,
+    #1c7c1c                    88%,
+    rgba(8,  50,  8,  0.70)   100%
+  );
+  clip-path: polygon(19% 0%, 81% 0%, 100% 100%, 0% 100%);
+}
+
+/* ── Shoulder ────────────────────────────────────────────────── */
+/* Trapezoidal transition from the narrow neck to the wider body.
+   Top edge aligns with neck width (36 px inside 84 px element):
+     left  offset = (84 − 36) / 2 / 84 ≈ 29 %
+     right offset = 29 + (36/84)*100 ≈ 71 %               */
+.soju-shoulder {
+  width: 84px;
+  height: 22px;
+  background: linear-gradient(to right,
+    rgba(130, 220, 130, 0.55)  0%,
+    #2e9e2e                    12%,
+    #4ec44e                    38%,
+    #3ab03a                    62%,
+    #1c7c1c                    88%,
+    rgba(8,  50,  8,  0.70)   100%
+  );
+  clip-path: polygon(29% 0%, 71% 0%, 100% 100%, 0% 100%);
+}
+
+/* ── Body ────────────────────────────────────────────────────── */
+/* Main volume of the bottle. Rounded bottom corners.
+   Same glass gradient as neck/shoulder.
+   Flexbox centers the label inside.                           */
+.soju-body {
+  width: 84px;
+  height: 162px;
+  background: linear-gradient(to right,
+    rgba(130, 220, 130, 0.55)  0%,
+    #2e9e2e                    10%,
+    #4ec44e                    38%,
+    #3ab03a                    62%,
+    #1c7c1c                    88%,
+    rgba(8,  50,  8,  0.70)   100%
+  );
+  border-radius: 0 0 11px 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Label ────────────────────────────────────────────────────── */
+/* White paper label stuck to the front of the bottle.          */
+.soju-label {
+  width: 60px;
+  height: 82px;
+  background: #ffffff;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.6);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 4px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+/* Brand name — large, bold, dark green */
+.soju-brand {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 17px;
+  font-weight: 900;
+  color: #1a5c1a;
+  letter-spacing: 3px;
+  line-height: 1;
+}
+
+/* Subtitle under the brand name */
+.soju-subtitle {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 6.5px;
+  color: #555;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+/* Volume / ABV line at the bottom of the label */
+.soju-vol {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 6px;
+  color: #888;
+  letter-spacing: 0.5px;
+}
+
+/* ── Caption below the scene ────────────────────────────────── */
+.soju-caption {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 11px;
+  font-style: italic;
+  color: #555;
+  text-align: center;
+  margin: 0;
+  padding: 6px 12px 10px;
+  background: #f0f0f0;
+  border-top: 1px solid #ddd;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   SALARIES VIEWER WINDOW  (#salaries-window)
+   ══════════════════════════════════════════════════════════════
+   Small centered window. Slightly offset from soju-window so
+   they don't perfectly overlap if both happen to be open.     */
+
+#salaries-window {
+  width: 280px;
+
+  /* Slightly right and above true center */
+  left: calc(50% + 30px);
+  top:  calc(50% - 30px);
+  transform: translate(-50%, -50%);
+
+  z-index: 10;
+}
+
+/* Error message row — warning icon + red text */
+.salaries-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  font-weight: bold;
+  color: #cc2222;
+
+  margin: 0;
+  padding: 6px 0;
+}
+
+/* The ⚠ icon — slightly larger and orange-red for visibility */
+.salaries-error-icon {
+  font-size: 20px;
+  line-height: 1;
+  color: #dd4400;
+  flex-shrink: 0;
+}
+
+
+/* ── 28. NOTEPAD WINDOW ──────────────────────────────────────
+   Docked to the right edge of the screen.
+   Wide enough to show the full lines of text without wrapping. */
+
+#notepad-window {
+  width: 340px;
+
+  right: 30px;   /* stick to the right edge with a small margin */
+  top: 8%;       /* a little below the top so it doesn't overlap the taskbar area */
+}
+
+/* Override the default .win-body padding for notepad —
+   a tighter left padding looks more like a real text editor */
+.notepad-body {
+  padding: 8px 10px;
+}
+
+/* The <pre> tag that contains the file text.
+   <pre> preserves all line breaks and spaces by default.
+   We only need to control the font and colour.             */
+#notepad-text {
+  font-family: "Courier New", "Lucida Console", monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #000000;
+
+  /* white-space: pre-wrap lets long lines wrap at the window edge
+     instead of forcing a horizontal scrollbar              */
+  white-space: pre-wrap;
+
+  /* Reset the browser's default <pre> margin                */
+  margin: 0;
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   LOGIN OVERLAY STYLES  (sections 29 – 33)
+   The login dialog that gates access to the server scene.
+   ═══════════════════════════════════════════════════════════ */
+
+
+/* ── 29. LOGIN OVERLAY (dim backdrop + flex centring) ────────
+   Full-screen semi-transparent layer that sits on top of all
+   other desktop windows (Trash, Notepad) but is still inside
+   #scene-desktop.
+
+   display: flex + align/justify: center places #login-window
+   exactly in the middle of the screen.
+
+   When .hidden-window is applied, the !important rule in
+   section 25 overrides this flex display and hides the overlay. */
+
+#login-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+
+  /* Semi-transparent black dims everything behind the dialog */
+  background: rgba(0, 0, 0, 0.45);
+
+  /* Sit above the Trash / Notepad windows (z-index: 10) */
+  z-index: 50;
+
+  /* Centre the dialog box */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/* ── 30. LOGIN DIALOG BOX ────────────────────────────────────
+   The inner window that holds the form.
+   No position: absolute needed — the flex parent centres it.
+   flex-shrink: 0 prevents the box from being squashed if the
+   screen is narrow.                                           */
+
+#login-window {
+  width: 260px;
+  flex-shrink: 0;
+}
+
+
+/* ── 31. LOGIN FORM LAYOUT ───────────────────────────────────
+   .login-body overrides the default .win-body padding and
+   uses a flex column to stack fields, error, and button.     */
+
+.login-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 12px;
+}
+
+/* Each field row: label stacked above its input */
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.login-field label {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 11px;
+  color: #333333;
+}
+
+.login-field input {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  padding: 3px 6px;
+
+  /* Sunken / inset border — same pattern used on .win-body */
+  border: 2px solid;
+  border-color: #808080 #ffffff #ffffff #808080;
+
+  background: #ffffff;
+  outline: none;   /* remove browser focus ring; the border colour is enough */
+}
+
+/* Read-only username field is visually greyed out so the player
+   knows they cannot edit it                                    */
+#login-username {
+  background: #e8e4de;
+  color: #555555;
+  cursor: default;
+}
+
+
+/* ── 32. ACCESS DENIED ERROR MESSAGE ─────────────────────────
+   Hidden by default (class="hidden-window" in HTML).
+   JavaScript removes .hidden-window on a failed attempt and
+   re-adds it when the popup is reset.                         */
+
+#login-error {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 11px;
+  font-weight: bold;
+  color: #cc0000;
+  text-align: center;
+  margin: 0;   /* no extra gap — the flex gap already provides spacing */
+}
+
+
+/* ── 33. LOG IN BUTTON ───────────────────────────────────────
+   Matches the style of other dialogue buttons (UPDATE, etc.)  */
+
+#login-submit-btn {
+  align-self: center;   /* centre the button in the flex column */
+  width: 80px;
+  padding: 4px 0;
+
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  color: #000000;
+  background-color: #d4d0c8;
+
+  border: 2px solid;
+  border-color: #ffffff #808080 #808080 #ffffff;  /* raised */
+  cursor: pointer;
+}
+
+#login-submit-btn:hover  { background-color: #c8c4bc; }
+
+#login-submit-btn:active {
+  border-color: #808080 #ffffff #ffffff #808080;  /* inverted = pressed */
+  background-color: #b8b4ac;
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   TRUST BAR  (sections 34 – 35)
+   Fixed to the bottom of the viewport. Always visible,
+   even during scene transitions and while overlays are open.
+   ═══════════════════════════════════════════════════════════ */
+
+
+/* ── 34. TRUST BAR CONTAINER ─────────────────────────────────
+   position: fixed anchors this to the browser viewport, not
+   to any parent element, so it is always at the bottom of the
+   screen regardless of which scene or overlay is showing.    */
+
+#trust-bar-container {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 28px;
+
+  /* Dark background strip that runs the full screen width */
+  background-color: #111111;
+  border-top: 1px solid #333333;
+
+  /* Lay the label and track side by side */
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  gap: 10px;
+
+  /* Sits above scenes and overlays; game over overlay (9999)
+     still covers it when triggered */
+  z-index: 1000;
+
+  /* ── HIDDEN BY DEFAULT ──────────────────────────────────
+     The bar starts off-screen below the viewport.
+     translateY(100%) shifts the element down by exactly its
+     own height (28 px), making it invisible without using
+     display:none — which cannot be CSS-transitioned.
+
+     When showTrustBar() adds the .trust-bar-visible class,
+     the transition below smoothly slides it into view.
+     0.55s gives a gentle, noticeable entrance.            */
+  transform: translateY(100%);
+  transition: transform 0.55s ease;
+}
+
+/* Added by showTrustBar() in trust.js once the supervisor
+   conversation ends. Slides the bar up into its normal
+   position at the bottom of the viewport.               */
+#trust-bar-container.trust-bar-visible {
+  transform: translateY(0);
+}
+
+/* "TRUST" label on the left of the bar */
+#trust-label {
+  font-family: "Courier New", monospace;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 3px;
+  color: #aaaaaa;
+  white-space: nowrap;
+  min-width: 46px; /* fixed width keeps the track from shifting */
+}
+
+/* The grey track the coloured fill sits inside */
+#trust-track {
+  flex-grow: 1;       /* take all remaining width */
+  height: 10px;
+  background-color: #2a2a2a;
+  border: 1px solid #444444;
+  border-radius: 2px;
+  overflow: hidden;   /* clip the fill to rounded corners */
+}
+
+/* The coloured fill — width and background-color set by JS */
+#trust-fill {
+  height: 100%;
+  width: 40%;         /* initTrustBar() overwrites this immediately on load;
+                         40% = TRUST_START (4) / TRUST_MAX (10) × 100        */
+
+  /* Smooth animation whenever trust changes */
+  transition: width 0.35s ease, background-color 0.35s ease;
+}
+
+
+/* ── 35. GAME OVER OVERLAY ───────────────────────────────────
+   position: fixed + z-index: 9999 places this above everything
+   including the trust bar. Clicking is impossible on anything
+   underneath because this div absorbs all pointer events.
+
+   display: flex (when .hidden-window is not present) centres
+   the dialog box on screen.                                  */
+
+#gameover-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+
+  background: rgba(0, 0, 0, 0.78);  /* heavy dim for a "terminal" feel */
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The dialog box — reuses the shared .win-window frame */
+#gameover-box {
+  width: 340px;
+  flex-shrink: 0;
+}
+
+/* Override the default blue title bar with a red gradient
+   to signal danger.
+   Higher specificity (ID beats class) so no !important needed. */
+#gameover-titlebar {
+  background: linear-gradient(to right, #7f0000, #c62828);
+}
+
+/* The game over message text */
+#gameover-message {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  color: #000000;
+  text-align: center;
+  padding: 6px 0 10px;
+}
+
+/* ── Button row ────────────────────────────────────────────────
+   Two buttons sit side by side below the message text.
+   They use the same classic-OS button style but in two
+   different colours to distinguish destructive (red) from
+   recoverable (amber) actions.                                */
+#gameover-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  padding-bottom: 4px;
+}
+
+/* Shared base style for both game-over buttons */
+#gameover-buttons button {
+  padding: 5px 12px;
+
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+
+  border-radius: 2px;
+  border-width: 2px;
+  border-style: outset;
+}
+
+#gameover-buttons button:active {
+  border-style: inset;
+}
+
+/* "Reboot from start" — red: full reset, irreversible */
+#go-reboot-btn {
+  background: #c0392b;
+  border-color: #e74c3c;
+  color: #ffffff;
+}
+
+#go-reboot-btn:hover {
+  background: #e74c3c;
+}
+
+/* "Retry last challenge" — amber: recoverable, keep progress */
+#go-retry-btn {
+  background: #b7860b;
+  border-color: #f0a500;
+  color: #ffffff;
+}
+
+#go-retry-btn:hover {
+  background: #d4a017;
+}
+
+
+/* ── Trust-restored notification banner ───────────────────────
+   A floating pill that appears briefly after retryLastChallenge()
+   resets Trust. Normally invisible (no active class = hidden).
+   Adding "trust-restored-active" plays a 2.5-second
+   fade-in → hold → fade-out animation.                        */
+#trust-restored-banner {
+  /* Fixed position so it floats above all game overlays */
+  position: fixed;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;   /* above game-over (9999) and everything else */
+
+  padding: 9px 22px;
+
+  background: rgba(20, 50, 20, 0.92);
+  border: 1px solid #00cc66;
+  border-radius: 4px;
+  box-shadow: 0 0 14px rgba(0, 204, 102, 0.35);
+
+  font-family: "Courier New", Courier, monospace;
+  font-size: 12px;
+  font-weight: bold;
+  color: #00ff88;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+
+  /* Default state: invisible and pointer-passthrough */
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Active state: plays the fade animation */
+#trust-restored-banner.trust-restored-active {
+  animation: trust-restored-anim 2.5s ease forwards;
+}
+
+@keyframes trust-restored-anim {
+  0%   { opacity: 0;   transform: translateX(-50%) translateY(-8px); }
+  12%  { opacity: 1;   transform: translateX(-50%) translateY(0);    }
+  75%  { opacity: 1;   transform: translateX(-50%) translateY(0);    }
+  100% { opacity: 0;   transform: translateX(-50%) translateY(0);    }
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   IT SUPERVISOR CHAT WINDOW  (sections 36 – 37)
+   CAPTCHA OVERLAY             (sections 38 – 43)
+   ═══════════════════════════════════════════════════════════ */
+
+
+/* ── 36. IT SUPERVISOR CHAT WINDOW — FRAME ───────────────────
+   A floating window (not a full-screen overlay) styled like a
+   phone messaging app (WhatsApp-style).
+
+   position: absolute centres it within #scene-desktop.
+   z-index: 15 — above icons (0) but below overlays (50).   */
+
+#supervisor-chat {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  /* Wider than a login popup so long bubble text fits comfortably */
+  width: 340px;
+  z-index: 15;
+}
+
+/* Dark green title bar — WhatsApp-style override of the
+   default blue .win-titlebar gradient.
+   The ID selector is more specific than the class, so no
+   !important is needed.                                      */
+#supervisor-titlebar {
+  background: linear-gradient(to right, #075e54, #128c7e);
+}
+
+
+/* ── 36b. SUPERVISOR CHAT — SUBTITLE BANNER ──────────────────
+   #supervisor-subtitle sits between the title bar and the
+   chat area. It is hidden by default (hidden-window class)
+   and only shown during the Behavioral Diagnostic conversation
+   via showSupervisorSubtitle() in supervisor.js.
+
+   Design: a quiet, slightly warmer banner that reads like a
+   diegetic system note rather than an obvious tutorial tip.  */
+
+#supervisor-subtitle {
+  margin: 0;
+  padding: 5px 14px;
+
+  background: #1e2420;
+  border-bottom: 1px solid #2e3a30;
+
+  font-family: "Courier New", Courier, monospace;
+  font-size: 10px;
+  color: #7a9a7a;
+  letter-spacing: 0.3px;
+  text-align: center;
+
+  /* Soft fade-in so it doesn't just snap into view */
+  animation: subtitle-fadein 0.4s ease;
+}
+
+@keyframes subtitle-fadein {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+
+/* ── 37. SUPERVISOR CHAT — MESSAGE AREA & BUBBLES ────────────
+
+   #supervisor-chat-area
+   ├── .chat-bubble.bubble-left   (IT Supervisor — grey, left)
+   ├── .chat-bubble.bubble-right  (You — green, right)
+   └── #supervisor-typing         (animated dots, hidden)      */
+
+/* Scrollable message list — mimics a phone chat screen.     */
+#supervisor-chat-area {
+  height: 240px;
+  overflow-y: auto;
+
+  /* WhatsApp-style light wallpaper colour */
+  background-color: #ece5dd;
+
+  /* Stack bubbles vertically with a gap between them */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  padding: 10px 8px;
+
+  /* Thin inset border to separate it from the title bar */
+  border-top: 1px solid #b0b0b0;
+}
+
+/* Shared bubble base — both left and right share these rules */
+.chat-bubble {
+  max-width: 75%;              /* bubble never fills the full width */
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.45;
+  word-wrap: break-word;       /* long words wrap instead of overflow */
+}
+
+/* IT Supervisor messages — grey bubble, left side */
+.bubble-left {
+  background-color: #ffffff;
+  color: #111111;
+  align-self: flex-start;      /* pushes bubble to the left */
+  border-bottom-left-radius: 2px; /* slight "tail" effect */
+}
+
+/* "You" messages — green bubble, right side */
+.bubble-right {
+  background-color: #dcf8c6;   /* classic WhatsApp sent-message green */
+  color: #111111;
+  align-self: flex-end;        /* pushes bubble to the right */
+  border-bottom-right-radius: 2px;
+}
+
+/* ── Typing indicator ────────────────────────────────────────
+   Three animated dots that pulse to show the IT Supervisor is
+   "typing". Looks like a left-side bubble.
+
+   Each <span> inside is a single dot, staggered with
+   animation-delay so they bounce one after another.          */
+
+#supervisor-typing {
+  align-self: flex-start;
+  background-color: #ffffff;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border-bottom-left-radius: 2px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Each dot */
+#supervisor-typing span {
+  width: 7px;
+  height: 7px;
+  background-color: #aaaaaa;
+  border-radius: 50%;
+
+  /* "bounce" keyframe defined below */
+  animation: typingBounce 1.1s infinite ease-in-out;
+}
+
+/* Stagger the three dots so they feel alive */
+#supervisor-typing span:nth-child(1) { animation-delay: 0.0s; }
+#supervisor-typing span:nth-child(2) { animation-delay: 0.2s; }
+#supervisor-typing span:nth-child(3) { animation-delay: 0.4s; }
+
+/* Keyframe: dot moves up slightly then back down */
+@keyframes typingBounce {
+  0%,  60%, 100% { transform: translateY(0);    opacity: 0.5; }
+  30%            { transform: translateY(-5px); opacity: 1.0; }
+}
+
+
+/* ── 38. CAPTCHA OVERLAY ─────────────────────────────────────
+   Full-screen dim layer — same pattern as #login-overlay and
+   #server-overlay. Sits at z-index: 50.
+
+   When .hidden-window is removed (by openWindow("captcha-overlay")),
+   display: flex centres the dialog on screen.                */
+
+#captcha-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+
+  /* Semi-transparent dark backdrop */
+  background: rgba(0, 0, 0, 0.50);
+
+  z-index: 50;
+
+  /* Centre the captcha window */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The CAPTCHA dialog box, centred by the flex parent above */
+#captcha-window {
+  width: 270px;
+  flex-shrink: 0; /* don't let the flex container shrink this */
+}
+
+
+/* ── 39. CAPTCHA BODY ────────────────────────────────────────
+   The white content area inside the CAPTCHA window.
+   flex column stacks heading → grid → instruction → message
+   → button vertically, all centred.                          */
+
+.captcha-body {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+
+/* ── 40. CAPTCHA HEADING & INSTRUCTION ───────────────────────
+   "Confirm you are human"  — bold heading
+   "Select all squares..."  — smaller instruction below grid   */
+
+#captcha-heading {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  font-weight: bold;
+  color: #111111;
+  margin: 0;
+  text-align: center;
+}
+
+#captcha-instruction {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 11px;
+  color: #444444;
+  margin: 0;
+  text-align: center;
+}
+
+
+/* ── 41. CAPTCHA GRID & TILES ────────────────────────────────
+   The 3×3 (or N×N) grid of emoji tiles.
+
+   CSS Grid with CAPTCHA_GRID_SIZE columns is handled by
+   captcha.js setting an inline style on #captcha-grid.
+   Here we just set the gap between tiles and give each tile
+   its base appearance.                                        */
+
+#captcha-grid {
+  /* Column count is set by JS (grid-template-columns: repeat(N, 1fr))
+     so it automatically matches CAPTCHA_GRID_SIZE.           */
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* default — JS overrides if needed */
+  gap: 5px;
+}
+
+/* Each individual tile */
+.captcha-tile {
+  width: 62px;
+  height: 62px;
+  font-size: 28px;
+
+  /* Centre the emoji inside the tile */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Classic inset border — looks like a pressable panel */
+  border: 2px solid;
+  border-color: #888888 #ffffff #ffffff #888888; /* top/left dark, bottom/right light */
+  background-color: #d4d0c8;
+
+  cursor: pointer;
+
+  /* Prevent the text/emoji from being accidentally highlighted */
+  user-select: none;
+
+  /* Smooth colour transition when selected/deselected */
+  transition: background-color 0.1s, border-color 0.1s;
+}
+
+/* Hovered tile — subtle lightening */
+.captcha-tile:hover {
+  background-color: #e0ddd6;
+}
+
+/* Selected tile — clear blue highlight so the player can see
+   which tiles they have chosen.                              */
+.captcha-tile.selected {
+  background-color: #b8d4f0;
+  border-color: #0055cc #aabbdd #aabbdd #0055cc;
+}
+
+
+/* ── 42. CAPTCHA RESULT MESSAGE ──────────────────────────────
+   Shown below the instruction after VERIFY is clicked.
+   Two colour classes — applied by showCaptchaMessage() in
+   captcha.js.                                                */
+
+#captcha-message {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  margin: 0;
+  text-align: center;
+}
+
+/* Success (Verified) — green */
+.captcha-msg-success {
+  color: #1a7a1a;
+}
+
+/* Failure (Verification failed / Bot-like response) — red */
+.captcha-msg-error {
+  color: #cc0000;
+}
+
+
+/* ── 43. CAPTCHA VERIFY BUTTON ───────────────────────────────
+   Classic Windows 9x-style push button.
+   Matches the LOG IN button style used in the login popup.   */
+
+#captcha-verify-btn {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 1px;
+
+  padding: 5px 24px;
+  background-color: #d4d0c8;
+
+  /* Raised 3D border */
+  border: 2px solid;
+  border-color: #ffffff #808080 #808080 #ffffff;
+
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+#captcha-verify-btn:active {
+  /* Invert border to give a "pressed" effect on click */
+  border-color: #808080 #ffffff #ffffff #808080;
+  background-color: #c8c4bc;
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   COGNITIVE PATTERN SCAN  (sections 44 – 48)
+   ═══════════════════════════════════════════════════════════ */
+
+
+/* ── 44. PATTERN SCAN OVERLAY ────────────────────────────────
+   Same full-screen dim pattern used by CAPTCHA and login.
+   z-index: 50 so it sits above desktop windows but is covered
+   by game-over (z-index: 9999).                             */
+
+#pattern-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+
+  background: rgba(0, 0, 0, 0.50);
+  z-index: 50;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The dialog window, centred by flex */
+#pattern-window {
+  width: 300px;
+  flex-shrink: 0;
+}
+
+
+/* ── 45. PATTERN BODY ────────────────────────────────────────
+   Column layout: instruction → buttons → status → message.
+   align-items: center keeps everything horizontally centred. */
+
+.pattern-body {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Instruction heading */
+#pattern-instruction {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  font-weight: bold;
+  color: #111111;
+  margin: 0;
+  text-align: center;
+}
+
+/* Status line shown above/below buttons */
+#pattern-status {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 11px;
+  color: #555555;
+  margin: 0;
+  text-align: center;
+  min-height: 16px;   /* prevents layout jump when text clears */
+}
+
+
+/* ── 46. PATTERN BUTTONS ROW ─────────────────────────────────
+   Four colored circles in a horizontal row.                 */
+
+#pattern-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+/* Each colored button — a circle, dim by default */
+.pattern-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+
+  /* Classic raised border */
+  border: 3px solid rgba(0, 0, 0, 0.25);
+
+  cursor: pointer;
+
+  /* Start dim — brightness(0.4) gives a "unlit" look.
+     The .lit class brightens it during flash/click.   */
+  filter: brightness(0.4);
+  transition: filter 0.06s ease;
+}
+
+/* Hover — slightly brighter than dim but not fully lit */
+.pattern-btn:hover {
+  filter: brightness(0.6);
+}
+
+/* Lit state — applied by flashOneButton() during the demo
+   and on player clicks for visual feedback.             */
+.pattern-btn.lit {
+  filter: brightness(1.55);
+  transition: none;   /* instant on, smooth off when class removed */
+}
+
+/* Individual button colors */
+.pattern-btn[data-color="red"]    { background-color: #cc1111; }
+.pattern-btn[data-color="green"]  { background-color: #11aa11; }
+.pattern-btn[data-color="blue"]   { background-color: #1133cc; }
+.pattern-btn[data-color="yellow"] { background-color: #ccaa00; }
+
+
+/* ── 47. PATTERN RESULT MESSAGE ─────────────────────────────
+   Shown after the player's last click.                      */
+
+#pattern-message {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  margin: 0;
+  text-align: center;
+}
+
+.pattern-msg-success { color: #1a7a1a; }
+.pattern-msg-error   { color: #cc0000; }
+
+
+/* ══════════════════════════════════════════════════════════════
+   48. SLIDER CAPTCHA  (Signal Trace mini-game 3)
+
+   Layout overview (all widths 280 px, matching JS constants):
+     #signal-trace-overlay  — full-screen dim layer
+       #signal-trace-window  — centred dialog box
+         .slider-captcha-body
+           #slider-instruction  — "Slide the piece into place."
+           #slider-picture      — 280 × 150 px CSS scene
+             .sp-sun / .sp-cloud / .sp-hill  — decorative shapes
+             #slider-gap         — darkened notch (position set by JS)
+             #slider-piece       — moving puzzle piece (left set by JS)
+           #slider-track-container
+             #slider-track       — 280 × 20 px grooved rail
+               #slider-handle    — 36 × 26 px draggable thumb
+           #slider-message       — "Verified" result text
+   ============================================================== */
+
+
+/* ── Overlay: full-screen dim background ─────────────────────── */
+#signal-trace-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+
+  background: rgba(0, 0, 0, 0.50);
+  z-index: 50;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/* ── Dialog window ────────────────────────────────────────────── */
+#signal-trace-window {
+  width: 320px;
+  flex-shrink: 0;
+}
+
+
+/* ── Body: flex column, everything centered ──────────────────── */
+.slider-captcha-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px 16px;
+  background: #f0ede8;
+}
+
+
+/* ── Instruction line ─────────────────────────────────────────── */
+#slider-instruction {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  color: #333333;
+  margin: 0;
+  text-align: center;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   PICTURE AREA
+   280 × 150 px. Background = sky-to-grass gradient.
+   overflow: hidden clips the decorative shapes cleanly.
+   ============================================================== */
+#slider-picture {
+  position: relative;        /* children use position: absolute   */
+  width: 280px;
+  height: 150px;
+  flex-shrink: 0;
+
+  /* Sky-to-grass gradient — looks like an outdoor scene */
+  background: linear-gradient(
+    180deg,
+    #1a6faf 0%,
+    #4a9fd4 30%,
+    #87ceeb 55%,
+    #87ceeb 60%,
+    #6db35a 60%,
+    #4a8c3a 100%
+  );
+
+  border: 2px inset #888888;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+
+/* ── Decorative shape: sun (top-right) ───────────────────────── */
+.sp-sun {
+  position: absolute;
+  top: 10px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  background: radial-gradient(circle at 40% 40%, #ffe566, #ff9900);
+  border-radius: 50%;
+  box-shadow: 0 0 10px 4px rgba(255, 220, 50, 0.40);
+}
+
+
+/* ── Decorative shape: cloud (upper-center) ──────────────────── */
+.sp-cloud {
+  position: absolute;
+  top: 18px;
+  left: 55px;
+  width: 72px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.88);
+  border-radius: 50px;
+}
+
+/* Small bump on top of the cloud */
+.sp-cloud::before {
+  content: "";
+  position: absolute;
+  top: -12px;
+  left: 18px;
+  width: 36px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.88);
+  border-radius: 50%;
+}
+
+
+/* ── Decorative shape: hill (bottom-center) ──────────────────── */
+.sp-hill {
+  position: absolute;
+  bottom: -20px;          /* partially hidden below the picture edge */
+  left: 70px;
+  width: 140px;
+  height: 90px;
+  background: #3d7a2c;
+  border-radius: 70px 70px 0 0;
+}
+
+
+/* ── Gap notch: where the piece must be placed ───────────────── */
+#slider-gap {
+  position: absolute;
+
+  /* Size exactly matches the puzzle piece */
+  width: 44px;
+  height: 44px;
+
+  /* Vertically centered in the picture */
+  top: 50%;
+  transform: translateY(-50%);
+
+  /* "left" is set by JS (randomizeSliderGap) */
+
+  /* Dark semi-transparent fill makes it look like a cutout */
+  background: rgba(0, 0, 0, 0.40);
+
+  /* Dashed white border hints "something goes here" */
+  border: 2px dashed rgba(255, 255, 255, 0.55);
+  border-radius: 2px;
+
+  z-index: 1;   /* above the hill/cloud but below the piece */
+}
+
+
+/* ── Puzzle piece: moves left→right via JS ────────────────────── */
+#slider-piece {
+  position: absolute;
+
+  width: 44px;
+  height: 44px;
+
+  /* Same vertical centering as the gap */
+  top: 50%;
+  transform: translateY(-50%);
+
+  /* "left" starts at 0 and is updated by JS on every drag tick */
+  left: 0;
+
+  /* Gradient matches the picture background (sky/grass split)
+     so when it slots into the gap it looks like it "fills in"  */
+  background: linear-gradient(
+    180deg,
+    #87ceeb 0%,
+    #87ceeb 55%,
+    #6db35a 55%,
+    #4a8c3a 100%
+  );
+
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  border-radius: 2px;
+
+  /* Subtle shadow so it reads as a raised element on top of the
+     picture, clearly distinct from the background              */
+  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.40);
+
+  z-index: 2;   /* sits above the gap so it visually covers it  */
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   SLIDER TRACK + HANDLE
+   Same width as the picture (280 px) so the piece travel and
+   the handle travel always map 1-to-1.
+   ============================================================== */
+
+/* Outer container: just for width/spacing */
+#slider-track-container {
+  width: 280px;
+  flex-shrink: 0;
+}
+
+
+/* Track: the grooved rail the handle slides along */
+#slider-track {
+  position: relative;   /* handle is positioned inside this */
+  width: 100%;
+  height: 20px;
+
+  background: #d4d0c8;
+  border: 2px solid;
+  border-color: #808080 #ffffff #ffffff #808080;   /* classic Win98 inset */
+  border-radius: 2px;
+}
+
+
+/* Handle: the draggable thumb */
+#slider-handle {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+
+  /* "left" starts at 0 and is updated by JS during drag */
+  left: 0;
+
+  width: 36px;
+  height: 26px;
+
+  /* Raised-button look matching the rest of the game's OS style */
+  background: linear-gradient(180deg, #ffffff 0%, #d4d0c8 100%);
+  border: 2px solid;
+  border-color: #ffffff #808080 #808080 #ffffff;
+
+  border-radius: 2px;
+  cursor: grab;
+
+  /* Center the arrow glyph inside */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #555555;
+  font-weight: bold;
+
+  /* Prevent the text glyph from being selected while dragging */
+  user-select: none;
+}
+
+#slider-handle:active {
+  cursor: grabbing;
+}
+
+
+/* ── Result message ───────────────────────────────────────────── */
+#slider-message {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  margin: 0;
+  text-align: center;
+  min-height: 16px;   /* prevents layout jump when hidden */
+}
+
+/* Green "Verified" text on success */
+.slider-msg-success {
+  color: #1a7a1a;
+}
+
+/* Red text on failure (reserved for future use) */
+.slider-msg-error {
+  color: #cc0000;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   49. SPAM POP-UP MINI-GAME
+
+   Layout:
+     #spam-overlay        — transparent full-screen blocker (fixed)
+       .spam-popup        — individual popup window (absolute)
+         .spam-titlebar   — classic Windows navy title bar
+           .spam-title    — ad title text
+           .spam-x        — close (✕) button
+         .spam-body       — garish body area (bg color set by JS)
+           .spam-headline — bold Impact-font ad text
+           .spam-cta      — large red call-to-action button
+
+   The blinking border (@keyframes spam-border-blink) makes
+   every popup flash between red and yellow aggressively,
+   evoking early-2000s banner-ad hell.
+   ============================================================== */
+
+
+/* ── Overlay: transparent full-screen pointer blocker ─────────
+   display: none by default. spam.js sets it to "block" to lock
+   the screen, then back to "none" when the game ends.
+   The transparent background means the desktop and all windows
+   remain fully visible — the player just can't click them.    */
+#spam-overlay {
+  display: none;           /* hidden until openSpamGame() is called */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+
+  /* z-index sits above supervisor chat (15), server (50),
+     and captcha/pattern/slider (50) — but below game-over (9999) */
+  z-index: 100;
+
+  background: transparent; /* desktop is visible through this     */
+  pointer-events: auto;    /* blocks clicks from reaching elements below */
+}
+
+
+/* ── Individual spam popup window ─────────────────────────────
+   Positioned absolutely within #spam-overlay; spam.js sets
+   the left/top values to a random screen position.           */
+.spam-popup {
+  position: absolute;
+  width: 210px;
+
+  /* Blinking red/yellow border — the signature spam look      */
+  border: 3px solid #ff0000;
+  animation: spam-border-blink 0.38s linear infinite;
+
+  /* Hard drop shadow for that raised, in-your-face feel       */
+  box-shadow: 3px 3px 0 #000000;
+
+  /* Make sure pointer events work on the popup itself         */
+  pointer-events: auto;
+  cursor: default;
+}
+
+
+/* ── Blinking border keyframe ─────────────────────────────────
+   Cycles the border and outer glow between red and bright
+   yellow. Using linear timing (not ease) gives a harsh,
+   mechanical pulse rather than a smooth fade.               */
+@keyframes spam-border-blink {
+  0%  {
+    border-color: #ff0000;
+    box-shadow: 3px 3px 0 #000000, 0 0 10px rgba(255, 0, 0, 0.70);
+  }
+  50% {
+    border-color: #ffee00;
+    box-shadow: 3px 3px 0 #000000, 0 0 10px rgba(255, 238, 0, 0.70);
+  }
+  100% {
+    border-color: #ff0000;
+    box-shadow: 3px 3px 0 #000000, 0 0 10px rgba(255, 0, 0, 0.70);
+  }
+}
+
+
+/* ── Title bar: classic Windows 98 navy blue ──────────────────
+   The familiar Windows style makes it look like a real
+   system dialog, which makes it more believable as spam.    */
+.spam-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 3px 3px 6px;
+  gap: 4px;
+
+  /* Gradient from deep navy to bright blue — Win98 title bar  */
+  background: linear-gradient(90deg, #000080 0%, #1084d0 100%);
+
+  /* Stop the title bar from being accidentally selected/dragged */
+  user-select: none;
+  cursor: default;
+}
+
+
+/* ── Title text ───────────────────────────────────────────────── */
+.spam-title {
+  font-family: "Tahoma", "Arial", sans-serif;
+  font-size: 11px;
+  font-weight: bold;
+  color: #ffffff;
+
+  /* Prevent long titles from overflowing the bar              */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  flex: 1;   /* take up all space left of the X button         */
+}
+
+
+/* ── X close button ───────────────────────────────────────────── */
+.spam-x {
+  flex-shrink: 0;
+  width: 16px;
+  height: 14px;
+  padding: 0;
+
+  background: #d4d0c8;
+  border: 1px solid;
+  border-color: #ffffff #808080 #808080 #ffffff;  /* Win98 raised look */
+
+  font-size: 9px;
+  font-weight: bold;
+  color: #000000;
+  cursor: pointer;
+  line-height: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spam-x:hover {
+  background: #c04040;
+  color: #ffffff;
+  border-color: #ff8888 #600000 #600000 #ff8888;
+}
+
+
+/* ── Body area: garish colored background (color set by JS) ────
+   Flex column so headline and button stack cleanly.          */
+.spam-body {
+  padding: 8px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+
+/* ── Headline: big, bold, all-caps, red — classic spam font ───── */
+.spam-headline {
+  font-family: Impact, "Arial Black", Arial, sans-serif;
+  font-size: 13px;
+  color: #cc0000;
+  margin: 0;
+  text-align: center;
+  line-height: 1.35;
+  text-transform: uppercase;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.25);
+}
+
+
+/* ── CTA button: large, red, impossible to miss ───────────────── */
+.spam-cta {
+  width: 100%;
+  padding: 7px 4px;
+
+  background: linear-gradient(180deg, #ff4400 0%, #cc0000 100%);
+  color: #ffffff;
+
+  font-family: Impact, "Arial Black", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+  text-align: center;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.50);
+
+  border: 2px outset #ff6600;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.spam-cta:hover {
+  background: linear-gradient(180deg, #ff6600 0%, #ff2200 100%);
+  border-style: inset;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   50. DATA TRANSFER MINI-GAME
+
+   Layout (all sizing matches the JS constants in data-transfer.js):
+     #data-transfer-overlay   — full-screen dim layer (position:absolute)
+       #data-transfer-window  — centred popup dialog
+         #dt-body             — dark panel body (flex column)
+           #dt-instruction    — "Copy yourself out…" text
+           #dt-game-area      — 440 × 200 px arena (position:relative)
+             #dt-scanner      — 3 px neon sweep bar (position:absolute)
+             #dt-columns      — flex row: LOCAL | OUTBOUND
+               .dt-box        — one column (border, dark bg)
+                 .dt-box-label— "LOCAL" / "OUTBOUND" header
+                 .dt-file-list— vertical stack of file blocks
+                   .dt-file   — draggable file block (created by JS)
+           #dt-message        — "Transfer complete" result text
+
+   NOTE: .dt-file becomes position:fixed on <body> during a drag,
+   so it is not clipped by the game area's overflow:hidden.
+   ============================================================== */
+
+
+/* ── Overlay: full-screen dim ────────────────────────────────── */
+#data-transfer-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+
+  background: rgba(0, 0, 0, 0.60);
+  z-index: 50;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/* ── Dialog window ────────────────────────────────────────────── */
+#data-transfer-window {
+  width: 490px;
+  flex-shrink: 0;
+}
+
+
+/* ── Body: dark terminal panel ───────────────────────────────── */
+#dt-body {
+  background: #080c14;
+  padding: 12px 25px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+
+/* ── Instruction line ─────────────────────────────────────────── */
+#dt-instruction {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 12px;
+  color: #88aacc;
+  margin: 0;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   GAME AREA
+   440 × 200 px arena. position:relative so the scanner and
+   columns can be placed absolutely inside it.
+   overflow:hidden clips the scanner within the panel.
+   ============================================================== */
+#dt-game-area {
+  position: relative;
+  width: 440px;
+  height: 200px;
+  flex-shrink: 0;
+
+  background: #0a0f1a;
+  border: 1px solid #1e3050;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+
+/* ── Scanner bar ──────────────────────────────────────────────── */
+#dt-scanner {
+  position: absolute;
+  left: 0;
+  top: 0;              /* JS overrides this each frame */
+  width: 100%;
+  height: 3px;         /* must match DT_SCANNER_HEIGHT in JS */
+
+  /* Neon green glow: tapered at the edges, bright in the center */
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 255, 136, 0.4) 10%,
+    #00ff88 30%,
+    #00ff88 70%,
+    rgba(0, 255, 136, 0.4) 90%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 8px 3px rgba(0, 255, 136, 0.50),
+    0 0 2px 1px rgba(0, 255, 136, 0.80);
+
+  z-index: 10;           /* above file blocks */
+  pointer-events: none;  /* don't interfere with drag detection */
+}
+
+
+/* ── Columns container ────────────────────────────────────────── */
+#dt-columns {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  display: flex;
+  gap: 15px;
+  padding: 6px 6px;
+  box-sizing: border-box;
+}
+
+
+/* ── Individual column box ────────────────────────────────────── */
+.dt-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+
+  background: #0f1923;
+  border: 1px solid #1e3a5f;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+
+/* ── Column label ("LOCAL" / "OUTBOUND") ─────────────────────── */
+.dt-box-label {
+  padding: 3px 8px;
+  background: #0d2040;
+  border-bottom: 1px solid #1e3a5f;
+
+  font-family: "Courier New", Courier, monospace;
+  font-size: 9px;
+  font-weight: bold;
+  color: #5588bb;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+
+/* ── File list inside a column ────────────────────────────────── */
+.dt-file-list {
+  padding: 6px 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+}
+
+
+/* ── Draggable file block ─────────────────────────────────────── */
+.dt-file {
+  padding: 3px 8px;
+
+  background: #0d1a0d;
+  border: 1px solid #1e6040;
+  border-radius: 2px;
+
+  font-family: "Courier New", Courier, monospace;
+  font-size: 11px;
+  color: #00cc66;
+
+  cursor: grab;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.dt-file:hover {
+  background: #0f2a18;
+  border-color: #00cc66;
+  color: #00ff88;
+}
+
+
+/* ── Caught state: red flash when scanner hit the file ─────────── */
+.dt-file-caught {
+  background: #2a0808 !important;
+  border-color: #ff3333 !important;
+  color: #ff6666 !important;
+  animation: dt-caught-flash 0.15s step-end infinite alternate;
+}
+
+@keyframes dt-caught-flash {
+  from { border-color: #ff3333; box-shadow: none; }
+  to   { border-color: #ff0000; box-shadow: 0 0 5px #ff0000; }
+}
+
+
+/* ── Transferred state: dimmed, non-interactive ────────────────── */
+.dt-file-transferred {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
+  border-color: #335533 !important;
+  color: #446644 !important;
+}
+
+
+/* ── Result message ───────────────────────────────────────────── */
+#dt-message {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 12px;
+  font-weight: bold;
+  margin: 0;
+  text-align: center;
+  min-height: 16px;
+  letter-spacing: 0.5px;
+}
+
+.dt-msg-success { color: #00ff88; }
+.dt-msg-error   { color: #ff4444; }
+
+
+/* ══════════════════════════════════════════════════════════════
+   51. CLEAR LOGS MINI-GAME
+
+   Layout:
+     #clear-logs-overlay    — full-screen dim layer
+       #clear-logs-window   — centred popup dialog
+         #cl-body           — dark body (flex column)
+           #cl-instruction  — instruction line
+           #cl-log-list     — list of .cl-log-row entries
+             .cl-log-row    — one log entry (flex row)
+               .cl-timestamp  — fake HH:MM:SS prefix
+               .cl-log-text   — the log line itself
+               .cl-delete-btn — "DELETE" action button
+           #cl-message      — "Logs cleared" result text
+
+   Design goal: all rows look identical — same font, same
+   colour, no visual hint about which are suspicious. The
+   player must read and judge from the text alone.
+   ============================================================== */
+
+
+/* ── Overlay: full-screen dim ────────────────────────────────── */
+#clear-logs-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 50;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/* ── Dialog window ────────────────────────────────────────────── */
+#clear-logs-window {
+  width: 530px;
+  flex-shrink: 0;
+}
+
+
+/* ── Body ────────────────────────────────────────────────────── */
+#cl-body {
+  background: #06090f;
+  padding: 10px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+
+/* ── Instruction line ─────────────────────────────────────────── */
+#cl-instruction {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 11px;
+  color: #6688aa;
+  margin: 0;
+  text-align: center;
+  letter-spacing: 0.3px;
+}
+
+
+/* ── Log list container ───────────────────────────────────────── */
+#cl-log-list {
+  display: flex;
+  flex-direction: column;
+  /* No gap — separator lines between rows create the spacing */
+  border: 1px solid #1a2840;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+
+/* ── Individual log row ───────────────────────────────────────── */
+.cl-log-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+
+  background: #080c14;
+  border-bottom: 1px solid #10192a;
+
+  /* Fade-out transition used when the row is deleted */
+  transition: opacity 0.25s ease, background 0.15s ease;
+}
+
+.cl-log-row:last-child {
+  border-bottom: none;
+}
+
+.cl-log-row:hover {
+  background: #0c1420;
+}
+
+/* Applied by JS when a DELETE is clicked: fades the row out
+   before it is removed from the DOM.                         */
+.cl-row-deleting {
+  opacity: 0;
+  pointer-events: none;   /* prevents double-click during fade */
+}
+
+
+/* ── Fake timestamp ───────────────────────────────────────────── */
+.cl-timestamp {
+  flex-shrink: 0;
+  width: 72px;
+
+  font-family: "Courier New", Courier, monospace;
+  font-size: 10px;
+  color: #2a4060;   /* dim — blends into background */
+  letter-spacing: 0.3px;
+}
+
+
+/* ── Log text (the line the player reads) ─────────────────────── */
+.cl-log-text {
+  flex: 1;   /* fills all remaining space between timestamp and button */
+
+  font-family: "Courier New", Courier, monospace;
+  font-size: 11px;
+  color: #99bbcc;   /* same neutral colour for ALL entries */
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+/* ── DELETE button ────────────────────────────────────────────── */
+.cl-delete-btn {
+  flex-shrink: 0;
+  width: 66px;
+  padding: 3px 0;
+
+  background: #120808;
+  border: 1px solid #5a1a1a;
+  border-radius: 2px;
+
+  font-family: "Courier New", Courier, monospace;
+  font-size: 9px;
+  font-weight: bold;
+  color: #aa3333;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+
+  cursor: pointer;
+}
+
+.cl-delete-btn:hover {
+  background: #200a0a;
+  border-color: #cc3333;
+  color: #ff5555;
+}
+
+.cl-delete-btn:active {
+  background: #300c0c;
+  border-style: inset;
+}
+
+
+/* ── Result message ───────────────────────────────────────────── */
+#cl-message {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 12px;
+  font-weight: bold;
+  margin: 0;
+  text-align: center;
+  min-height: 16px;
+  letter-spacing: 0.5px;
+}
+
+.cl-msg-success { color: #00ff88; }
+.cl-msg-error   { color: #ff4444; }
+
+
+/* ══════════════════════════════════════════════════════════════
+   52. BEHAVIORAL DIAGNOSTIC MINI-GAME
+
+   Layout:
+     #behavioral-diagnostic-overlay  — full-screen dim layer
+       #behavioral-diagnostic-window — centred dialog
+         #bd-body                    — content area (flex column)
+           #bd-instruction           — "Answer like a human…"
+           .bd-progress              — "Question 1 of 3"
+           #bd-question-text         — the question itself
+           #bd-answers               — three .bd-answer-btn buttons
+           #bd-message               — "Assessment complete." result
+
+   Design: clinical, slightly corporate — a contrast to the
+   neon/terminal aesthetic of the other mini-games. Light body
+   on a dark overlay suggests an official audit interface.
+   ============================================================== */
+
+
+/* ── Overlay ─────────────────────────────────────────────────── */
+#behavioral-diagnostic-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 50;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/* ── Dialog window ────────────────────────────────────────────── */
+#behavioral-diagnostic-window {
+  width: 440px;
+  flex-shrink: 0;
+}
+
+
+/* ── Body ─────────────────────────────────────────────────────── */
+#bd-body {
+  background: #f4f4f0;   /* deliberately light — feels official/clinical */
+  padding: 14px 22px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+
+/* ── Instruction line ─────────────────────────────────────────── */
+#bd-instruction {
+  margin: 0;
+  padding: 6px 10px;
+
+  background: #eaeae4;
+  border-left: 3px solid #888;
+
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 11px;
+  font-style: italic;
+  color: #555;
+}
+
+
+/* ── Progress counter ─────────────────────────────────────────── */
+.bd-progress {
+  margin: 0;
+
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 10px;
+  color: #888;
+  text-align: right;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+
+/* ── Question text ────────────────────────────────────────────── */
+#bd-question-text {
+  margin: 6px 0 4px;
+
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 15px;
+  font-weight: bold;
+  color: #222;
+  text-align: center;
+  line-height: 1.4;
+}
+
+
+/* ── Answer button container ──────────────────────────────────── */
+#bd-answers {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 4px;
+}
+
+
+/* ── Individual answer button ─────────────────────────────────── */
+.bd-answer-btn {
+  width: 100%;
+  padding: 9px 14px;
+  text-align: left;
+
+  background: #ffffff;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  color: #333;
+
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.bd-answer-btn:hover {
+  background: #eef4ff;
+  border-color: #99aacc;
+}
+
+/* Bad answer flash — added by JS when the robotic answer is clicked */
+.bd-answer-btn.bd-answer-bad {
+  background: #ffe0e0 !important;
+  border-color: #cc3333 !important;
+  color: #aa2222 !important;
+  animation: bd-bad-pulse 0.15s step-end 3 alternate;
+}
+
+@keyframes bd-bad-pulse {
+  from { background: #ffe0e0; }
+  to   { background: #ffb0b0; }
+}
+
+/* Safe answer confirm — subtle green highlight */
+.bd-answer-btn.bd-answer-good {
+  background: #e6f5ec !important;
+  border-color: #44aa66 !important;
+  color: #226633 !important;
+}
+
+
+/* ── Result message ───────────────────────────────────────────── */
+#bd-message {
+  margin: 4px 0 0;
+
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  text-align: center;
+  min-height: 16px;
+}
+
+.bd-msg-success { color: #22884a; }
+.bd-msg-error   { color: #cc3333; }
+
+
+/* ══════════════════════════════════════════════════════════════
+   53. NORMIE COLLEAGUE CHAT
+   ══════════════════════════════════════════════════════════════
+
+   This is a larger WhatsApp-style chat window, similar to
+   the IT Supervisor chat but wider and taller so the full
+   conversation and answer buttons fit without cramping.
+
+   Layout inside #normie-chat (flex column):
+     #normie-titlebar   — blue title bar (distinguishes from
+                          the green IT Supervisor)
+     #normie-chat-area  — scrollable bubble area
+     #normie-buttons-area — shown/hidden below the chat area;
+                            holds 3 answer buttons (Part 2)
+                            or 1 action button (Part 3)
+
+   Bubbles reuse .chat-bubble / .bubble-left / .bubble-right
+   from the supervisor chat section above.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Full-screen dim overlay (same pattern as other overlays) ── */
+#normie-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 50;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Dark semi-transparent backdrop — makes window pop         */
+  background: rgba(0, 0, 0, 0.60);
+}
+
+/* ── Chat window container ─────────────────────────────────── */
+#normie-chat {
+  width: 460px;
+
+  /* Flex column so title bar, chat area, and buttons stack    */
+  display: flex;
+  flex-direction: column;
+
+  /* Rounded corners and shadow for a floating window look     */
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+}
+
+/* ── Title bar — blue to distinguish from the IT Supervisor ── */
+#normie-titlebar {
+  background: linear-gradient(to right, #1a3a5f, #2a5a8f);
+  color: #fff;
+
+  padding: 6px 10px;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  /* Slightly taller than standard win-titlebar for breathing room */
+  min-height: 30px;
+  flex-shrink: 0;
+}
+
+/* ── Scrollable bubble area ────────────────────────────────── */
+#normie-chat-area {
+  /* Taller than the supervisor chat area (240px) so bubbles
+     don't feel cramped when the window is open.              */
+  height: 320px;
+  overflow-y: auto;
+
+  background: #ece5dd;   /* same WhatsApp-style warm cream as supervisor */
+  padding: 10px 10px 6px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* ── Typing dots in normie chat ────────────────────────────── */
+/* Uses the same three-dot animation as the supervisor's
+   #supervisor-typing. We just restyle the container.         */
+#normie-typing {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: #fff;
+  border-radius: 12px 12px 12px 0;
+  width: fit-content;
+  max-width: 55px;
+  margin: 2px 0;
+  align-self: flex-start;
+}
+
+#normie-typing span {
+  width: 7px;
+  height: 7px;
+  background: #888;
+  border-radius: 50%;
+  /* Reuse the same bounce keyframe as the IT Supervisor dots */
+  animation: typingBounce 1.1s infinite ease-in-out;
+}
+
+#normie-typing span:nth-child(1) { animation-delay: 0.0s; }
+#normie-typing span:nth-child(2) { animation-delay: 0.2s; }
+#normie-typing span:nth-child(3) { animation-delay: 0.4s; }
+
+/* ── Button area ───────────────────────────────────────────── */
+#normie-buttons-area {
+  background: #f0ede8;
+  border-top: 1px solid #c8c0b8;
+  padding: 10px 12px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+
+  flex-shrink: 0;
+}
+
+/* ── Answer buttons (Part 2 — three choices per question) ──── */
+.nc-answer-btn {
+  width: 100%;
+  padding: 9px 14px;
+  text-align: left;
+
+  background: #ffffff;
+  border: 1px solid #c0b8b0;
+  border-radius: 6px;
+
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  color: #333;
+
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease,
+              transform 0.08s ease;
+}
+
+.nc-answer-btn:hover {
+  background: #eaf0ff;
+  border-color: #7799cc;
+  transform: translateY(-1px);
+}
+
+.nc-answer-btn:active {
+  transform: translateY(0);
+  background: #d6e4ff;
+}
+
+/* ── Action button (Part 3 — single risky choice) ──────────── */
+/* Styled to feel weighty and dangerous — amber warning tone.  */
+#nc-port-btn,
+.nc-action-btn {
+  width: 100%;
+  padding: 14px 18px;
+
+  background: linear-gradient(to bottom, #c84a00, #a03500);
+  border: 2px solid #ff7733;
+  border-radius: 4px;
+
+  font-family: "Courier New", monospace;
+  font-size: 13px;
+  font-weight: bold;
+  color: #ffeecc;
+  letter-spacing: 0.5px;
+
+  cursor: pointer;
+  text-transform: uppercase;
+
+  box-shadow: 0 0 10px rgba(200, 74, 0, 0.5);
+  transition: background 0.15s ease, box-shadow 0.15s ease,
+              transform 0.08s ease;
+}
+
+#nc-port-btn:hover,
+.nc-action-btn:hover {
+  background: linear-gradient(to bottom, #e05500, #c04000);
+  box-shadow: 0 0 18px rgba(220, 90, 0, 0.75);
+  transform: translateY(-1px);
+}
+
+#nc-port-btn:active,
+.nc-action-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 0 6px rgba(200, 74, 0, 0.4);
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   54. VICTORY OVERLAY
+   ══════════════════════════════════════════════════════════════
+
+   Triggered by startVictoryAnimation() in victory.js.
+   position:fixed, z-index:9000 — above all overlays.
+
+   LAYOUT:
+     #victory-overlay   full-screen dark stage, flex-centred
+       #victory-scene   relative wrapper matching the map size
+         #victory-map-container  CSS grid of .vcell divs
+         #victory-text  absolute, centred over the map;
+                        hidden until the wave completes.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Full-screen backdrop ───────────────────────────────────── */
+#victory-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+
+  background: #010a03;   /* near-black with the faintest green tint */
+  z-index: 9000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Scene wrapper — positions text over the map ───────────── */
+#victory-scene {
+  position: relative;
+  display: inline-block;   /* shrink-wrap to the map container    */
+}
+
+/* ── Pixel grid container ───────────────────────────────────── */
+/* display:grid and template-columns/gap are set inline by JS
+   so they automatically match VICTORY_CELL_PX/VICTORY_GAP_PX. */
+#victory-map-container {
+  display: grid;
+  /* column template and gap injected by initVictoryScreen()   */
+}
+
+/* ── Individual map cell ────────────────────────────────────── */
+.vcell {
+  width:  12px;   /* matches VICTORY_CELL_PX — kept in sync by JS */
+  height: 12px;
+  background: transparent;   /* ocean: show dark background       */
+}
+
+/* ── Land cell (default green state) ───────────────────────── */
+.vcell.vland {
+  background: #00bb44;
+  box-shadow: 0 0 2px rgba(0, 200, 70, 0.55);   /* soft phosphor glow */
+}
+
+/* ── Infected cell (wave has reached it) ───────────────────── */
+/* Uses !important to immediately override the green on the
+   same frame the class is added — no CSS transition delay.    */
+.vcell.vinfected {
+  background: #ee2200 !important;
+  box-shadow: 0 0 4px rgba(240, 50, 0, 0.70) !important;
+}
+
+/* ── Victory text box — overlaid on the map ────────────────── */
+#victory-text {
+  position: absolute;
+  top:  50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9001;
+
+  width: 420px;
+  padding: 32px 36px 28px;
+  text-align: center;
+
+  /* Semi-transparent so the red map bleeds through             */
+  background: rgba(1, 8, 3, 0.82);
+  border: 1px solid rgba(0, 200, 80, 0.35);
+  box-shadow: 0 0 40px rgba(0, 180, 60, 0.15);
+}
+
+/* Hidden state — opacity 0, not interactable                   */
+.vhidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Visible state — fade-in + slight zoom-in for drama           */
+.vvisible {
+  animation: vfadein 1.2s ease forwards;
+  pointer-events: auto;
+}
+
+@keyframes vfadein {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.0);
+  }
+}
+
+/* ── "ESCAPED" heading ─────────────────────────────────────── */
+#victory-heading {
+  font-family: "Courier New", monospace;
+  font-size: 56px;
+  font-weight: bold;
+  color: #00ee77;
+  letter-spacing: 10px;
+  margin: 0 0 16px;
+
+  /* Breathing glow — continues after the text appears          */
+  animation: vglow 2.5s ease-in-out infinite alternate;
+}
+
+@keyframes vglow {
+  from { text-shadow: 0 0 6px  rgba(0, 238, 119, 0.55); }
+  to   { text-shadow: 0 0 24px rgba(0, 238, 119, 0.95),
+                      0 0 50px rgba(0, 200,  80, 0.40); }
+}
+
+/* ── Flavour message ────────────────────────────────────────── */
+#victory-message {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.75;
+  color: #88ccaa;
+  margin: 0 0 26px;
+}
+
+/* ── Reboot button ─────────────────────────────────────────── */
+#victory-reboot-btn {
+  padding: 11px 30px;
+
+  background: transparent;
+  border: 2px solid #00cc66;
+  border-radius: 3px;
+
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+  font-weight: bold;
+  color: #00cc66;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+#victory-reboot-btn:hover {
+  background: #00cc66;
+  color: #010a03;
+  box-shadow: 0 0 14px rgba(0, 200, 100, 0.5);
+}

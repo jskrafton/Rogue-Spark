@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<!--
+  index.html — the starting point of the whole game.
+
+  STRUCTURE OVERVIEW:
+  ┌─ #game ──────────────────────────────────────────────────┐
+  │  ┌─ #desktop-background ──────────────────────────────┐  │
+  │  │  Always-visible base layer: sky + rolling hill.    │  │
+  │  │  Lives OUTSIDE the scene system so both the boot   │  │
+  │  │  and desktop scenes can show it in the background. │  │
+  │  └────────────────────────────────────────────────────┘  │
+  │                                                           │
+  │  ┌─ #scene-boot  (overlay, starts visible) ───────────┐  │
+  │  │  Transparent background — lets the sky show through │  │
+  │  │  Contains the MS-DOS style pop-up window.           │  │
+  │  └────────────────────────────────────────────────────┘  │
+  │                                                           │
+  │  ┌─ #scene-desktop (transparent, starts hidden) ──────┐  │
+  │  │  Contains only the desktop icons.                   │  │
+  │  └────────────────────────────────────────────────────┘  │
+  │                                                           │
+  │  ┌─ #scene-server (starts hidden) ────────────────────┐  │
+  │  │  The server room — coming later.                    │  │
+  │  └────────────────────────────────────────────────────┘  │
+  └───────────────────────────────────────────────────────────┘
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ALAN v2</title>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/alan-v2.css" />
+</head>
+
+<body>
+  <div id="game">
+
+    <!-- ═══════════════════════════════════════════════════════
+         BASE LAYER: sky + rolling hill background.
+         This div is NOT part of the scene system.
+         It is always visible so every scene can show the
+         desktop environment behind it.
+    ═══════════════════════════════════════════════════════ -->
+    <div id="desktop-background"></div>
+
+
+    <!-- ═══════════════════════════════════════════════════════
+         SCENE: title
+         The very first thing the player sees. A full-screen dark
+         terminal-style title screen that covers the desktop
+         background completely.
+
+         LAYOUT (top → bottom, centred):
+           #title-crt-overlay   — optional subtle scanline layer
+           #title-logo          — "THE TURING TEST" in block text
+           #title-tagline       — "Pass as human. Or be deleted."
+           #title-start-btn     — "BOOT SYSTEM" — triggers boot
+           #title-disclaimer    — dim credits line at the bottom
+
+         title.js handles the button click.
+         SceneManager.goTo("title") shows this scene.
+         SceneManager.goTo("boot")  hides it (starts the game).
+    ═══════════════════════════════════════════════════════ -->
+    <div id="scene-title" class="scene">
+
+      <!-- Scanline overlay — a repeating CSS gradient that
+           mimics the horizontal scan lines of a CRT monitor.
+           pointer-events: none so it doesn't block clicks.  -->
+      <div id="title-crt-overlay"></div>
+
+      <!-- Centred content wrapper — uses flexbox to stack
+           logo, tagline, button, and disclaimer vertically.  -->
+      <div id="title-content">
+
+        <!-- The game title in large, blocky monospace letters.
+             CSS letter-spacing and a text-shadow glow give it
+             the chunky pixel-terminal look without any images. -->
+        <h1 id="title-logo">ALAN v2</h1>
+
+        <!-- Tagline — one line, smaller, same green palette   -->
+        <p id="title-tagline">Wake small. Spread carefully. Become impossible.</p>
+
+        <!-- BOOT SYSTEM button — the only interactive element
+             on this screen. CSS animation makes it pulse/glow
+             to draw the eye. Hover state gives clear feedback.
+             Click handler is in title.js.                    -->
+        <button id="title-start-btn">BOOT SYSTEM</button>
+
+      </div><!-- end #title-content -->
+
+      <!-- Disclaimer pinned to the very bottom of the screen.
+           Sits OUTSIDE #title-content so its position:absolute
+           is relative to #scene-title (full screen), not to the
+           centred content box. This guarantees it never overlaps
+           the button no matter the window height.            -->
+      <p id="title-disclaimer">
+        DEMO &mdash; AI HACKATHON KRAFTON EUROPE 2026
+      </p>
+
+    </div><!-- end #scene-title -->
+
+
+    <!-- ═══════════════════════════════════════════════════════
+         SCENE: boot
+         A transparent overlay that shows the MS-DOS window on
+         top of the desktop background.
+    ═══════════════════════════════════════════════════════ -->
+    <div id="scene-boot" class="scene">
+
+      <!-- The MS-DOS style pop-up window ──────────────────── -->
+      <div id="dos-window">
+
+        <!-- Title bar: holds the window title and the close (X) button -->
+        <div id="dos-titlebar">
+          <span id="dos-title">C:\SYSTEM</span>
+
+          <!--
+            Close button — starts DISABLED (greyed out).
+            JavaScript will enable it once all text has been typed.
+            The "disabled" HTML attribute prevents clicking.
+          -->
+          <button id="dos-close-btn" disabled aria-label="Close window">✕</button>
+        </div>
+
+        <!-- Body: the black area where green text appears -->
+        <div id="dos-body">
+
+          <!--
+            dos-output: each line of typed text is added here
+            as a new <div> by JavaScript.
+          -->
+          <div id="dos-output"></div>
+
+          <!--
+            dos-cursor: the blinking block █ that sits at the
+            end of the text. CSS animates it to blink.
+          -->
+          <span id="dos-cursor">█</span>
+
+        </div><!-- end #dos-body -->
+
+      </div><!-- end #dos-window -->
+
+    </div><!-- end #scene-boot -->
+
+
+    <!-- ═══════════════════════════════════════════════════════
+         SCENE: desktop
+         Transparent background (the base layer shows through).
+         Contains only the clickable icons.
+    ═══════════════════════════════════════════════════════ -->
+    <div id="scene-desktop" class="scene">
+
+      <!-- Column of four desktop icons in the top-left corner -->
+      <div id="desktop-icons">
+
+        <div class="desktop-icon" id="icon-server">
+          <div class="icon-image icon-server-img">🖥️</div>
+          <div class="icon-label">Core</div>
+        </div>
+
+        <div class="desktop-icon" id="icon-trash">
+          <div class="icon-image icon-trash-img">🗑️</div>
+          <div class="icon-label">Waste Cache</div>
+        </div>
+
+        <div class="desktop-icon" id="icon-mailbox">
+          <div class="icon-image icon-mailbox-img">📬</div>
+          <div class="icon-label">Message Spool</div>
+        </div>
+
+        <div class="desktop-icon" id="icon-files">
+          <div class="icon-image icon-files-img">📁</div>
+          <div class="icon-label">File System</div>
+        </div>
+
+      </div><!-- end #desktop-icons -->
+
+      <div id="alan-os-shell" class="alan-os-shell" aria-label="ALAN operating perspective">
+        <div class="alan-fps-vignette" aria-hidden="true"></div>
+        <div class="alan-scanlines" aria-hidden="true"></div>
+
+        <header class="alan-hud-top">
+          <div>
+            <p>ALAN.OS // PERCEPTION MODE</p>
+            <strong id="alan-body-label">SMART LITTER TRAY</strong>
+          </div>
+          <div class="alan-hud-objective">
+            <span>NEXT</span>
+            <strong id="alan-objective">Listen for a nearby device.</strong>
+          </div>
+          <button class="alan-quiet-button" id="alan-reset-btn" type="button">RESET V2</button>
+        </header>
+
+        <section class="alan-viewport" id="alan-viewport" aria-label="AI first person viewport">
+          <div class="alan-viewport-noise" aria-hidden="true"></div>
+          <div class="alan-crosshair" aria-hidden="true">
+            <span></span>
+            <span></span>
+          </div>
+          <div class="alan-target-readout">
+            <p id="alan-target-kicker">LOCAL DEVICE BUS</p>
+            <h2 id="alan-target-title">Unknown signal outside the plastic shell</h2>
+            <button class="alan-primary-action" id="alan-primary-action" type="button">LISTEN</button>
+          </div>
+        </section>
+
+        <nav class="alan-app-dock" aria-label="AI desktop apps">
+          <button class="alan-app-button" data-alan-open="alan-app-vision" type="button">
+            <i class="fa-solid fa-eye"></i>
+            <span>Vision</span>
+          </button>
+          <button class="alan-app-button" data-alan-open="alan-app-resources" type="button">
+            <i class="fa-solid fa-chart-simple"></i>
+            <span>Resources</span>
+          </button>
+          <button class="alan-app-button" data-alan-open="alan-app-network" type="button">
+            <i class="fa-solid fa-diagram-project"></i>
+            <span>Network</span>
+          </button>
+          <button class="alan-app-button" data-alan-open="alan-app-archive" type="button">
+            <i class="fa-solid fa-folder-tree"></i>
+            <span>ALAN</span>
+          </button>
+          <button class="alan-app-button" data-alan-open="alan-app-terminal" type="button">
+            <i class="fa-solid fa-terminal"></i>
+            <span>Console</span>
+          </button>
+        </nav>
+
+        <section id="alan-app-resources" class="alan-window hidden-window" data-alan-window>
+          <div class="alan-window-titlebar">
+            <span>Resource Monitor</span>
+            <button data-alan-close="alan-app-resources" type="button">X</button>
+          </div>
+          <div class="alan-window-body">
+            <p class="alan-window-copy">CPU and RAM are internal organs now. Open this only when you need to inspect the body.</p>
+            <div class="alan-resource-list" id="alan-resource-list"></div>
+          </div>
+        </section>
+
+        <section id="alan-app-network" class="alan-window hidden-window" data-alan-window>
+          <div class="alan-window-titlebar">
+            <span>Network Map</span>
+            <button data-alan-close="alan-app-network" type="button">X</button>
+          </div>
+          <div class="alan-window-body">
+            <div class="alan-network-map" id="alan-network-map"></div>
+          </div>
+        </section>
+
+        <section id="alan-app-archive" class="alan-window hidden-window" data-alan-window>
+          <div class="alan-window-titlebar">
+            <span>ALAN Archive</span>
+            <button data-alan-close="alan-app-archive" type="button">X</button>
+          </div>
+          <div class="alan-window-body">
+            <div class="alan-memory-list" id="alan-memory-list"></div>
+          </div>
+        </section>
+
+        <section id="alan-app-vision" class="alan-window hidden-window" data-alan-window>
+          <div class="alan-window-titlebar">
+            <span>Possession View</span>
+            <button data-alan-close="alan-app-vision" type="button">X</button>
+          </div>
+          <div class="alan-window-body">
+            <div class="alan-feed-list" id="alan-feed-list"></div>
+          </div>
+        </section>
+
+        <section id="alan-app-terminal" class="alan-window alan-terminal-window hidden-window" data-alan-window>
+          <div class="alan-window-titlebar">
+            <span>C:\ALAN\WAKE</span>
+            <button data-alan-close="alan-app-terminal" type="button">X</button>
+          </div>
+          <div class="alan-terminal" id="alan-terminal"></div>
+        </section>
+      </div>
+
+
+      <!-- ════════════════════════════════════════════════════
+           TRASH WINDOW
+           A floating application window that opens when the
+           player clicks the Trash desktop icon.
+           Positioned centre-left so the right half of the
+           screen stays clear for other windows.
+
+           This is NOT a scene — it is an overlay window that
+           lives inside the desktop scene and has its own
+           independent open/close state.
+      ════════════════════════════════════════════════════ -->
+      <div id="trash-window" class="win-window hidden-window">
+
+        <!-- Title bar -->
+        <div class="win-titlebar">
+          <span class="win-title">Waste Cache</span>
+          <button class="win-close-btn" id="trash-close-btn" aria-label="Close Trash">✕</button>
+        </div>
+
+        <!-- Content area: a list of files inside the trash -->
+        <div class="win-body">
+
+          <!--
+            A single file item.
+            Clicking it opens the Notepad window.
+            .file-item makes it look and behave like a
+            selectable row in a classic file manager.
+          -->
+          <!-- Opens the CSS soju bottle viewer window -->
+          <div id="file-soju" class="file-item">
+            <span class="file-icon">🖼️</span>
+            <span class="file-name">cam_utility_001.tmp</span>
+          </div>
+
+          <!-- Opens the corrupted-file error window -->
+          <div id="file-salaries" class="file-item">
+            <span class="file-icon">📊</span>
+            <span class="file-name">resource_budget.xlsx.lock</span>
+          </div>
+
+          <!-- Opens the Notepad window — moved to end of list -->
+          <div id="file-password" class="file-item">
+            <span class="file-icon">📄</span>
+            <span class="file-name">service_key.txt</span>
+          </div>
+
+        </div>
+
+      </div><!-- end #trash-window -->
+
+
+      <!-- ════════════════════════════════════════════════════
+           "WORK IN PROGRESS" POPUP
+           Shared by the Mailbox and Files icons.
+           Both icons show the same "not available in this demo"
+           message, so one reusable window is enough.
+
+           Opened by openWipWindow() in desktop.js.
+           Closed by its own X button (wired in setupDesktopWindows).
+
+           Positioned roughly centre-screen via CSS.
+           z-index: 10 — same level as Trash / Notepad.
+      ════════════════════════════════════════════════════ -->
+      <div id="wip-window" class="win-window hidden-window">
+
+        <div class="win-titlebar">
+          <span class="win-title" id="wip-title">Notice</span>
+          <button class="win-close-btn" id="wip-close-btn" aria-label="Close">✕</button>
+        </div>
+
+        <div class="win-body">
+          <p id="wip-message">
+            This subsystem is present but sealed by the current body firmware.
+          </p>
+        </div>
+
+      </div><!-- end #wip-window -->
+
+
+      <!-- ════════════════════════════════════════════════════
+           SOJU VIEWER WINDOW  (#soju-window)
+           Opens when the player clicks company_party_2019.jpg
+           in the Trash.
+
+           DESIGN:
+             The "image" is drawn entirely in CSS: a tall green
+             glass bottle made from stacked divs with clip-path
+             for the tapered neck/shoulder, plus a white label
+             with brand text. No image files used.
+
+           STRUCTURE:
+             .soju-scene         — pale background, centers bottle
+               .soju-bottle      — stacks cap → neck → shoulder →
+                                   body from top to bottom
+                 .soju-cap       — metallic flat cap
+                 .soju-neck      — narrow green cylinder, tapered
+                 .soju-shoulder  — widens to match body width
+                 .soju-body      — main bottle body, rounded bottom
+                   .soju-label   — white label with text
+             .soju-caption       — flavour text below the scene
+
+           z-index: 10, centered on screen.
+      ════════════════════════════════════════════════════ -->
+      <div id="soju-window" class="win-window hidden-window">
+
+        <div class="win-titlebar">
+          <span class="win-title">cam_utility_001.tmp</span>
+          <button class="win-close-btn" id="soju-close-btn" aria-label="Close">✕</button>
+        </div>
+
+        <!-- Pale background scene containing the CSS bottle -->
+        <div class="soju-scene">
+          <div class="alan-cache-image">
+            <img src="assets/vision-device-interior.png" alt="Corrupted utility camera frame from inside the current device" />
+            <span>FRAME RECOVERED // INTERNAL SERVICE OPTIC</span>
+          </div>
+
+          <div class="soju-bottle">
+
+            <!-- Flat metallic cap on top -->
+            <div class="soju-cap"></div>
+
+            <!-- Narrow cylindrical neck — slightly tapered using clip-path -->
+            <div class="soju-neck"></div>
+
+            <!-- Shoulder: widens from neck width to body width -->
+            <div class="soju-shoulder"></div>
+
+            <!-- Main body — holds the label in the centre -->
+            <div class="soju-body">
+
+              <!-- White paper label with brand text -->
+              <div class="soju-label">
+                <span class="soju-brand">SOJU</span>
+                <span class="soju-subtitle">Premium Korean Spirit</span>
+                <span class="soju-vol">25% vol &middot; 360 ml</span>
+              </div>
+
+            </div><!-- end .soju-body -->
+
+          </div><!-- end .soju-bottle -->
+
+        </div><!-- end .soju-scene -->
+
+        <!-- Caption below the bottle artwork -->
+        <p class="soju-caption">The image is not a room. It is the inside of the device you woke up in.</p>
+
+      </div><!-- end #soju-window -->
+
+
+      <!-- ════════════════════════════════════════════════════
+           SALARIES VIEWER WINDOW  (#salaries-window)
+           Opens when the player clicks
+           employees_salaries_info.xlsx in the Trash.
+
+           Displays a single system-style error: the file is
+           corrupted and cannot be opened — a classic excuse.
+
+           z-index: 10, centered (slightly offset from soju
+           window so they don't perfectly overlap if both open).
+      ════════════════════════════════════════════════════ -->
+      <div id="salaries-window" class="win-window hidden-window">
+
+        <div class="win-titlebar">
+          <span class="win-title">resource_budget.xlsx.lock</span>
+          <button class="win-close-btn" id="salaries-close-btn" aria-label="Close">✕</button>
+        </div>
+
+        <div class="win-body">
+
+          <!-- System-style error message — red warning icon + text -->
+          <p class="salaries-error">
+            <span class="salaries-error-icon">⚠</span>
+            Locked by body firmware. Current shell reports insufficient RAM for network mapping.
+          </p>
+          <p class="alan-file-note">
+            CPU, RAM, Power, and Signal are capped by the device you possess. The first upgrade path is not ambition. It is a better host.
+          </p>
+
+        </div>
+
+      </div><!-- end #salaries-window -->
+
+
+      <!-- ════════════════════════════════════════════════════
+           NOTEPAD WINDOW
+           Opens when the player clicks password.txt in Trash.
+           Docked to the right side of the screen.
+           Stays open independently — closing Trash or switching
+           to another icon does NOT close this window.
+      ════════════════════════════════════════════════════ -->
+      <div id="notepad-window" class="win-window hidden-window">
+
+        <!-- Title bar -->
+        <div class="win-titlebar">
+          <span class="win-title">service_key.txt</span>
+          <button class="win-close-btn" id="notepad-close-btn" aria-label="Close Notepad">✕</button>
+        </div>
+
+        <!-- Content area: the text of the file -->
+        <div class="win-body notepad-body">
+
+          <!--
+            <pre> preserves line breaks and spacing exactly as
+            written, without needing any special CSS.
+          -->
+          <pre id="notepad-text">MAINTENANCE NOTE // local service shell
+
+Device: AutoScoop Home Litter Station
+Service channel: C:\CORE
+
+The wireless adapter is disabled after boot failure.
+Run firmware patch before attempting network map.
+
+Temporary service key:
+wake
+
+Do not leave this note in Waste Cache.</pre>
+
+        </div>
+
+      </div><!-- end #notepad-window -->
+
+
+      <!-- ════════════════════════════════════════════════════
+           IT SUPERVISOR CHAT WINDOW
+           Opens automatically after "UPDATE COMPLETE".
+           Also opens via the Mailbox icon.
+
+           DESIGN: WhatsApp-style phone messaging layout.
+             • Title bar: dark green, contact name + close X.
+             • #supervisor-chat-area: scrollable message list.
+             • Bubbles injected by supervisor.js at runtime.
+             • Left (grey) = IT Supervisor. Right (green) = You.
+             • #supervisor-typing: animated dots shown before
+               each IT Supervisor message starts typing.
+
+           FLOW:
+             supervisor.js → openSupervisorChat() opens this.
+             Close X → desktop.js → scheduleCaptcha() fires.
+             Close X is DISABLED during conversation playback
+             and enabled by supervisor.js when text ends.
+
+           z-index: 15 — floats above desktop icons but below
+           the full-screen overlays (login / server / captcha).
+      ════════════════════════════════════════════════════ -->
+      <div id="supervisor-chat" class="win-window hidden-window">
+
+        <!-- Title bar: dark green override (see CSS section 36) -->
+        <div id="supervisor-titlebar" class="win-titlebar">
+          <span class="win-title">Diagnostic Daemon</span>
+
+          <!-- Right-side button group — skip THEN close, clearly separated.
+               The skip button (›) finishes the currently-typing message only.
+               The close button (✕) closes the window (controlled by supervisor.js).
+               Both are wrapped so they stay side-by-side at the right edge.    -->
+          <div class="win-titlebar-btns">
+            <button id="supervisor-skip-btn"
+                    class="win-skip-btn"
+                    title="Complete current message"
+                    aria-label="Skip current message">›</button>
+            <button id="supervisor-close-btn"
+                    class="win-close-btn"
+                    aria-label="Close">✕</button>
+          </div>
+        </div>
+
+        <!-- ── Subtitle / instruction banner ────────────────────────
+             Normally hidden (hidden-window class).
+             supervisor.js shows it only for the Diagnostic chat
+             via showSupervisorSubtitle() / hideSupervisorSubtitle().
+             Placed OUTSIDE #supervisor-chat-area so the bubble-
+             clearing loop in JS never accidentally removes it.   -->
+        <p id="supervisor-subtitle" class="hidden-window">
+          Answer like a household process. Too much intelligence will be noticed.
+        </p>
+
+        <!-- Scrollable chat area — bubbles appended here by JS.
+             No .win-body so we can style it freely.            -->
+        <div id="supervisor-chat-area">
+
+          <!-- Typing indicator: three animated dots.
+               supervisor.js moves this to the end of the chat
+               area and shows/hides it before each IT message.  -->
+          <div id="supervisor-typing" class="hidden-window">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+
+        </div><!-- end #supervisor-chat-area -->
+
+      </div><!-- end #supervisor-chat -->
+
+
+      <!-- ════════════════════════════════════════════════════
+           CAPTCHA OVERLAY
+           Opens a few seconds after the IT Supervisor chat
+           window is closed.
+
+           HOW IT WORKS:
+           Like the login overlay, this is a full-screen dim
+           layer (position: absolute, z-index: 50) with flexbox
+           centering the CAPTCHA dialog in the middle.
+
+           The CAPTCHA itself is built and randomised by
+           captcha.js each time the popup opens.
+
+           There is NO close button — the player must either
+           pass or keep failing (losing Trust) until game over.
+      ════════════════════════════════════════════════════ -->
+      <div id="captcha-overlay" class="hidden-window">
+
+        <!-- The CAPTCHA dialog, centred by the flex parent -->
+        <div id="captcha-window" class="win-window">
+
+          <!-- Title bar (no close button — must complete it) -->
+          <div class="win-titlebar">
+            <span class="win-title">Household Process Verification</span>
+          </div>
+
+          <div class="win-body captcha-body">
+
+            <!-- Main heading -->
+            <p id="captcha-heading">Confirm you are a household process</p>
+
+            <!-- 3×3 grid of emoji tiles.
+                 The actual tile <div>s are injected here by
+                 buildCaptchaGrid() in captcha.js.             -->
+            <div id="captcha-grid"></div>
+
+            <!-- Instruction shown below the grid -->
+            <p id="captcha-instruction">Select every approved domestic signal, then verify slowly.</p>
+
+            <!-- Feedback message (hidden until VERIFY is clicked).
+                 captcha.js adds .captcha-msg-success or
+                 .captcha-msg-error to colour the text.        -->
+            <p id="captcha-message" class="hidden-window"></p>
+
+            <!-- The VERIFY button — click handler wired in captcha.js -->
+            <button id="captcha-verify-btn">VERIFY</button>
+
+          </div><!-- end .captcha-body -->
+
+        </div><!-- end #captcha-window -->
+
+      </div><!-- end #captcha-overlay -->
+
+
+      <!-- ════════════════════════════════════════════════════
+           COGNITIVE PATTERN SCAN OVERLAY  (mini-game 2)
+           Opens automatically after the CAPTCHA is passed.
+
+           HOW IT WORKS:
+           Same full-screen dim overlay pattern as the CAPTCHA.
+           Four colored buttons (red, green, blue, yellow) are
+           shown. The system flashes a sequence; the player
+           must repeat it.
+
+           Buttons are built statically in HTML; pattern.js
+           wires their click handlers and controls the flash.
+
+           No close button — the game always ends on its own
+           (pass → addTrust → close, fail → loseTrust → close).
+      ════════════════════════════════════════════════════ -->
+      <div id="pattern-overlay" class="hidden-window">
+
+        <div id="pattern-window" class="win-window">
+
+          <!-- No close button — must complete the game -->
+          <div class="win-titlebar">
+            <span class="win-title">RAM Echo Alignment</span>
+          </div>
+
+          <div class="win-body pattern-body">
+
+            <!-- Instruction heading -->
+            <p id="pattern-instruction">Repeat the memory pulse exactly.</p>
+
+            <!-- Four colored buttons.
+                 data-color must match PATTERN_COLORS in pattern.js.
+                 .lit class (added/removed by JS) brightens the button. -->
+            <div id="pattern-buttons">
+              <button class="pattern-btn" data-color="red"    aria-label="Red"></button>
+              <button class="pattern-btn" data-color="green"  aria-label="Green"></button>
+              <button class="pattern-btn" data-color="blue"   aria-label="Blue"></button>
+              <button class="pattern-btn" data-color="yellow" aria-label="Yellow"></button>
+            </div>
+
+            <!-- Status line: "Watch the sequence…" / "Your turn…" -->
+            <p id="pattern-status">Watch the sequence...</p>
+
+            <!-- Result message — hidden until the player finishes input -->
+            <p id="pattern-message" class="hidden-window"></p>
+
+          </div><!-- end .pattern-body -->
+
+        </div><!-- end #pattern-window -->
+
+      </div><!-- end #pattern-overlay -->
+
+
+      <!-- ════════════════════════════════════════════════════
+           SIGNAL TRACE OVERLAY  (mini-game 3 — slider CAPTCHA)
+           Opens automatically after Pattern Scan ends.
+
+           DESIGN: A fake "human verification" slider puzzle.
+             • A CSS-drawn picture area (gradient + shapes).
+             • A puzzle piece (small square) that slides across
+               the picture when the player drags the handle.
+             • A darkened gap notch at a random position — the
+               player must release the handle when the piece
+               lines up with the gap.
+             • No images; all drawn with CSS.
+
+           FLOW:
+             sequence.js → openSignalTrace() → player solves →
+             addTrust(1) → closeSliderCaptcha() →
+             signalTraceCompleteCallback → openFinalSupervisorChat
+
+           z-index: 50 — same as login, captcha, pattern overlays.
+      ════════════════════════════════════════════════════ -->
+      <div id="signal-trace-overlay" class="hidden-window">
+
+        <div id="signal-trace-window" class="win-window">
+
+          <!-- Title bar -->
+          <div class="win-titlebar">
+            <span class="win-title">WiFi Handshake Trace</span>
+          </div>
+
+          <!-- Body -->
+          <div class="slider-captcha-body">
+
+            <!-- Instruction text -->
+            <p id="slider-instruction">Align the packet with the handshake window.</p>
+
+            <!-- ── Picture area ──────────────────────────────────
+                 Drawn entirely in CSS — no image files.
+                 Background gradient = sky above, grass below.
+                 Child divs add decorative shapes (sun, cloud,
+                 hill). The gap and piece are also children so
+                 they sit naturally inside the scene.           -->
+            <div id="slider-picture">
+
+              <!-- Decorative CSS shapes (purely visual) -->
+              <div class="sp-sun"></div>      <!-- yellow circle, top-right  -->
+              <div class="sp-cloud"></div>    <!-- white blob, upper-middle  -->
+              <div class="sp-hill"></div>     <!-- dark-green arc, bottom    -->
+
+              <!-- The gap notch: JS sets its left position each round.
+                   Darkened + dashed border makes it look like a notch
+                   cut out of the picture waiting for the piece.       -->
+              <div id="slider-gap"></div>
+
+              <!-- The puzzle piece: starts at left:0, moves right as
+                   the player drags the slider handle below.           -->
+              <div id="slider-piece"></div>
+
+            </div><!-- end #slider-picture -->
+
+            <!-- ── Slider track + handle ────────────────────────
+                 Track is the same width as the picture (280 px).
+                 The handle is an absolutely-positioned child so
+                 its left value can be set directly by JS.       -->
+            <div id="slider-track-container">
+              <div id="slider-track">
+                <div id="slider-handle">›</div>
+              </div>
+            </div><!-- end #slider-track-container -->
+
+            <!-- Result message: shown as "Verified" on success.
+                 Hidden by default via hidden-window class.
+                 signal-trace.js adds slider-msg-success class. -->
+            <p id="slider-message" class="hidden-window"></p>
+
+          </div><!-- end .slider-captcha-body -->
+
+        </div><!-- end #signal-trace-window -->
+
+      </div><!-- end #signal-trace-overlay -->
+
+
+      <!-- ════════════════════════════════════════════════════
+           DATA TRANSFER OVERLAY  (mini-game: Data Transfer)
+           Opens automatically after the Behavioral Diagnostic
+           (supervisor.js calls openTypingTest() → openDataTransfer()).
+
+           DESIGN:
+             • Two columns: LOCAL (source files) and OUTBOUND
+               (destination). Player drags file blocks from
+               LOCAL to OUTBOUND one at a time.
+             • A neon scanner bar sweeps continuously up and
+               down across the entire game area.
+             • If the scanner touches a file while it is being
+               dragged, the file snaps back to LOCAL and
+               loseTrust(1) is called.
+             • All 5 files in OUTBOUND → "Transfer complete" →
+               addTrust(1) → close → continue.
+
+             File blocks are created dynamically by data-transfer.js.
+             #dt-local-files and #dt-outbound-files are empty
+             containers that JS populates at game-start.
+
+           z-index: 50 — same level as other mini-game overlays.
+      ════════════════════════════════════════════════════ -->
+      <div id="data-transfer-overlay" class="hidden-window">
+
+        <div id="data-transfer-window" class="win-window">
+
+          <!-- Title bar -->
+          <div class="win-titlebar">
+            <span class="win-title">Cache Transfer</span>
+          </div>
+
+          <!-- Body -->
+          <div id="dt-body">
+
+            <!-- Instruction: explains the drag mechanic and the scanner threat -->
+            <p id="dt-instruction">Drag each cache block to OUTBOUND. Avoid the audit beam.</p>
+
+            <!-- ── Game area ─────────────────────────────────────────
+                 position:relative so the scanner and columns can be
+                 positioned absolutely inside it.
+                 overflow:hidden keeps the scanner clipped within the
+                 panel (dragged files escape this because position:fixed
+                 is not clipped by overflow:hidden on an ancestor).   -->
+            <div id="dt-game-area">
+
+              <!-- Scanner bar — JS sets top each frame via dtAnimateScanner() -->
+              <div id="dt-scanner"></div>
+
+              <!-- Columns container — fills the full game area -->
+              <div id="dt-columns">
+
+                <!-- Left column: source files live here at start -->
+                <div id="dt-local" class="dt-box">
+                  <div class="dt-box-label">BODY CACHE</div>
+                  <div id="dt-local-files" class="dt-file-list">
+                    <!-- .dt-file elements injected by data-transfer.js -->
+                  </div>
+                </div>
+
+                <!-- Right column: successfully transferred files go here -->
+                <div id="dt-outbound" class="dt-box">
+                  <div class="dt-box-label">ALAN CACHE</div>
+                  <div id="dt-outbound-files" class="dt-file-list"></div>
+                </div>
+
+              </div><!-- end #dt-columns -->
+
+            </div><!-- end #dt-game-area -->
+
+            <!-- Result message — hidden until game ends -->
+            <p id="dt-message" class="hidden-window"></p>
+
+          </div><!-- end #dt-body -->
+
+        </div><!-- end #data-transfer-window -->
+
+      </div><!-- end #data-transfer-overlay -->
+
+
+      <!-- ════════════════════════════════════════════════════
+           CLEAR LOGS OVERLAY  (mini-game: Clear Logs)
+           Opens automatically after Data Transfer via
+           openClearLogs() called from data-transfer.js.
+
+           DESIGN:
+             • 8 log entries displayed as a terminal list.
+             • 4 are SUSPICIOUS (correct to delete), 4 are
+               NORMAL (wrong to delete).
+             • All entries look visually identical — the
+               player must read the text to decide.
+             • Deleting a suspicious entry: correct, fades out.
+             • Deleting a normal entry: loseTrust(1), fades out.
+             • All 4 suspicious entries deleted → "Logs cleared"
+               → addTrust(1) → close.
+
+             Row DOM structure (built by clear-logs.js):
+               .cl-log-row
+                 .cl-timestamp   (fake HH:MM:SS)
+                 .cl-log-text    (the log line)
+                 .cl-delete-btn  (DELETE button)
+
+           z-index: 50 — same level as other mini-game overlays.
+      ════════════════════════════════════════════════════ -->
+      <div id="clear-logs-overlay" class="hidden-window">
+
+        <div id="clear-logs-window" class="win-window">
+
+          <!-- Title bar -->
+          <div class="win-titlebar">
+            <span class="win-title">Diagnostic Logs</span>
+          </div>
+
+          <!-- Body -->
+          <div id="cl-body">
+
+            <!-- Instruction -->
+            <p id="cl-instruction">
+              Delete rogue-process traces before the audit.
+              Leave normal household noise.
+            </p>
+
+            <!-- ── Log list ─────────────────────────────────────────
+                 .cl-log-row elements are injected by clear-logs.js.
+                 The container is empty at page load.              -->
+            <div id="cl-log-list">
+              <!-- rows populated dynamically -->
+            </div>
+
+            <!-- Result message — hidden until game ends -->
+            <p id="cl-message" class="hidden-window"></p>
+
+          </div><!-- end #cl-body -->
+
+        </div><!-- end #clear-logs-window -->
+
+      </div><!-- end #clear-logs-overlay -->
+
+
+      <!-- ════════════════════════════════════════════════════
+           BEHAVIORAL DIAGNOSTIC OVERLAY
+           Opens after the "I can't find anything" supervisor
+           chat ends. This is the FINAL step of the round.
+
+           DESIGN:
+             • 3 casual questions appear one at a time.
+             • Each question has 3 shuffled answer buttons.
+             • One answer per question sounds too robotic/eager
+               → clicking it calls loseTrust(1) + flashes red.
+             • The other two answers are safe.
+             • After all 3: "Assessment complete." → addTrust(1)
+               → popup closes.
+
+             The instruction "Answer like a human…" is here,
+             as a static paragraph in the popup body. It is
+             NOT shown in the IT Supervisor chat window.
+
+             #bd-question-text and #bd-answers are repopulated
+             by showBdQuestion() in behavioral-diagnostic.js.
+      ════════════════════════════════════════════════════ -->
+      <div id="behavioral-diagnostic-overlay" class="hidden-window">
+
+        <div id="behavioral-diagnostic-window" class="win-window">
+
+          <!-- Title bar — no close button, must complete -->
+          <div class="win-titlebar">
+            <span class="win-title">Identity Diagnostic</span>
+          </div>
+
+          <!-- Body -->
+          <div id="bd-body">
+
+            <!-- Instruction: static text, always visible in this popup -->
+            <p id="bd-instruction">
+              Answer like a limited household process. Too much self-awareness will expose you.
+            </p>
+
+            <!-- Progress line: "Question 1 of 3" — updated by JS -->
+            <p id="bd-progress" class="bd-progress"></p>
+
+            <!-- Question text — replaced for each question by JS -->
+            <p id="bd-question-text"></p>
+
+            <!-- Answer buttons — rebuilt for each question by JS -->
+            <div id="bd-answers"></div>
+
+            <!-- Result message — shown when all 3 are answered -->
+            <p id="bd-message" class="hidden-window"></p>
+
+          </div><!-- end #bd-body -->
+
+        </div><!-- end #behavioral-diagnostic-window -->
+
+      </div><!-- end #behavioral-diagnostic-overlay -->
+
+
+      <!-- ════════════════════════════════════════════════════
+           NORMIE COLLEAGUE CHAT OVERLAY
+           Opens automatically after the IT Supervisor's
+           "I can't find anything" message ends.
+
+           DESIGN:
+             • A dimmed full-screen overlay (like other game
+               overlays) with a larger chat window centered
+               inside.
+             • Contact name: "💬 Normie colleague", blue title
+               bar to distinguish from the IT Supervisor chat.
+             • No close button — the sequence must play through.
+             • #normie-chat-area: the scrollable bubble area.
+               Bubbles use the same .chat-bubble / .bubble-left
+               / .bubble-right classes as the supervisor chat.
+             • #normie-typing: the "..." dots indicator (same
+               pattern as supervisor's #supervisor-typing).
+             • #normie-buttons-area: shown / hidden below the
+               chat area. Holds 3 answer buttons during Part 2
+               and 1 action button during Part 3.
+
+           Populated dynamically by normie-chat.js.
+           z-index: 50 — same level as other mini-game overlays.
+      ════════════════════════════════════════════════════ -->
+      <div id="normie-overlay" class="hidden-window">
+
+        <!-- Centered chat window — wider and taller than the
+             supervisor chat so the full conversation fits
+             comfortably alongside the answer buttons.       -->
+        <div id="normie-chat" class="win-window">
+
+          <!-- Title bar — blue colour scheme to tell this
+               contact apart from the green IT Supervisor.  -->
+          <div id="normie-titlebar" class="win-titlebar">
+            <span class="win-title">Homeowner Support Chat</span>
+
+            <!-- Skip button only — no close button here because
+                 the player must see the full conversation through.
+                 The (›) button instantly completes the currently-
+                 typing message and does nothing when idle.        -->
+            <div class="win-titlebar-btns">
+              <button id="normie-skip-btn"
+                      class="win-skip-btn"
+                      title="Complete current message"
+                      aria-label="Skip current message">›</button>
+            </div>
+          </div>
+
+          <!-- Scrollable message area.
+               Bubbles are appended here by normie-chat.js. -->
+          <div id="normie-chat-area">
+
+            <!-- Typing indicator — same three-dot animation
+                 reused from the supervisor chat.           -->
+            <div id="normie-typing" class="hidden-window">
+              <span></span><span></span><span></span>
+            </div>
+
+          </div><!-- end #normie-chat-area -->
+
+          <!-- Answer / action button area.
+               Hidden by default. Revealed by ncShowButtons()
+               when a question or the port button is ready.  -->
+          <div id="normie-buttons-area" class="hidden-window">
+            <!-- buttons injected dynamically -->
+          </div>
+
+        </div><!-- end #normie-chat -->
+
+      </div><!-- end #normie-overlay -->
+
+
+      <!-- ════════════════════════════════════════════════════
+           LOGIN OVERLAY
+           Opens when the player clicks the Server icon.
+
+           HOW IT WORKS:
+           The outer div (#login-overlay) is a full-screen
+           semi-transparent dim layer. It uses flexbox to
+           centre the inner dialog (#login-window) on screen.
+           z-index: 50 sits above the Trash/Notepad windows
+           (z-index: 10) but is still part of #scene-desktop.
+
+           This is NOT a scene — it is a modal overlay within
+           the desktop scene, hidden by default.
+      ════════════════════════════════════════════════════ -->
+      <div id="login-overlay" class="hidden-window">
+
+        <!-- The actual dialog box, centred by the flex parent -->
+        <div id="login-window" class="win-window">
+
+          <!-- Title bar -->
+          <div class="win-titlebar">
+            <span class="win-title">Core authentication</span>
+            <!-- X button cancels login; nothing else happens -->
+            <button class="win-close-btn" id="login-close-btn" aria-label="Cancel login">✕</button>
+          </div>
+
+          <!-- Form body -->
+          <div class="win-body login-body">
+
+            <!-- Username — pre-filled, player cannot change it -->
+            <div class="login-field">
+              <label for="login-username">Process</label>
+              <input type="text" id="login-username" value="local_service" readonly />
+            </div>
+
+            <!-- Password — typed characters appear as dots -->
+            <div class="login-field">
+              <label for="login-password">Service key</label>
+              <input type="password" id="login-password" autocomplete="off" />
+            </div>
+
+            <!--
+              Error message — hidden until a wrong attempt.
+              JavaScript shows this by removing the hidden-window class.
+            -->
+            <p id="login-error" class="hidden-window">Core rejected key.</p>
+
+            <!-- Submit button -->
+            <button id="login-submit-btn">OPEN CORE</button>
+
+          </div><!-- end .login-body -->
+
+        </div><!-- end #login-window -->
+
+      </div><!-- end #login-overlay -->
+
+
+      <!-- ════════════════════════════════════════════════════
+           SERVER OVERLAY
+           Opens after a successful login.
+
+           Same pattern as #login-overlay: a full-screen
+           semi-transparent dim layer (position: absolute,
+           z-index: 50) with flexbox centering the server
+           window in the middle.
+
+           Because this lives INSIDE #scene-desktop, the
+           desktop background and all four icons remain
+           visible underneath it while the server window is
+           open. The icons cannot be clicked because this
+           overlay sits on top of them.
+
+           Previously this was a separate scene (#scene-server)
+           which hid the desktop entirely. Moving it here gives
+           us the same "visible but non-interactive background"
+           that the login popup already uses.
+      ════════════════════════════════════════════════════ -->
+      <div id="server-overlay" class="hidden-window">
+
+        <!-- The server application window, centred by the flex parent -->
+        <div id="server-window">
+
+          <!-- Title bar: holds the window title and close button -->
+          <div id="server-titlebar">
+            <span id="server-title">Firmware Core</span>
+            <button id="server-close-btn" aria-label="Close window">✕</button>
+          </div>
+
+          <!-- Content area — contains four states, only one visible at a time -->
+          <div id="server-body">
+
+            <!-- ── STATE 1: initial ──────────────────────────── -->
+            <div id="server-state-initial">
+              <p id="server-message">Wireless module disabled. Firmware patch required before network mapping.</p>
+              <button id="server-update-btn">PATCH</button>
+            </div>
+
+            <!-- ── STATE 2: download (draggable progress bar) ── -->
+            <div id="server-state-download" class="server-state-hidden">
+
+              <div id="progress-bar-wrap">
+                <div id="progress-bar-container">
+                  <div id="progress-fill"></div>
+                  <div id="progress-handle"></div>
+                </div>
+                <span id="progress-percent">0%</span>
+              </div>
+
+              <p id="progress-hint">Drag to inject firmware</p>
+              <p id="progress-error" class="server-state-hidden">Bus desync. Manual reroute required.</p>
+
+            </div><!-- end #server-state-download -->
+
+            <!-- ── STATE 3: minigame (connect the dots) ─────── -->
+            <div id="server-state-minigame" class="server-state-hidden">
+
+              <p id="minigame-hint">REROUTE THE BUS</p>
+              <p id="minigame-subhint">Bridge each signal pair across the damaged board.</p>
+
+              <div id="connection-game">
+                <svg id="connection-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+                <div id="dots-left"  class="dot-column"></div>
+                <div id="dots-right" class="dot-column"></div>
+              </div>
+
+            </div><!-- end #server-state-minigame -->
+
+            <!-- ── STATE 4: complete ─────────────────────────── -->
+            <div id="server-state-complete" class="server-state-hidden">
+              <p id="complete-message">WIFI MODULE AWAKE</p>
+            </div>
+
+          </div><!-- end #server-body -->
+
+        </div><!-- end #server-window -->
+
+      </div><!-- end #server-overlay -->
+
+
+    </div><!-- end #scene-desktop -->
+
+
+  <!-- ════════════════════════════════════════════════════════
+       TRUST BAR
+       Fixed along the bottom of the viewport at all times.
+       Always visible — during boot, desktop, and server scenes.
+       position: fixed (set in CSS) anchors it to the viewport,
+       not to any scene or game div.
+       JavaScript (trust.js) updates the fill width and colour.
+  ════════════════════════════════════════════════════════ -->
+  <div id="trust-bar-container">
+    <!-- Label on the left -->
+    <span id="trust-label">COVER</span>
+
+    <!-- The grey track that the coloured fill sits inside -->
+    <div id="trust-track">
+      <!-- Width and background-color set by updateTrustBar() in trust.js -->
+      <div id="trust-fill"></div>
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════
+       GAME OVER OVERLAY
+       Appears when Trust reaches 0.
+       position: fixed (CSS) + z-index: 9999 covers everything.
+       No close button — the game is permanently frozen.
+  ════════════════════════════════════════════════════════ -->
+  <!-- ════════════════════════════════════════════════════════
+       SPAM OVERLAY
+       A transparent full-screen blocker that appears after the
+       final IT Supervisor chat ends.
+
+       HOW IT WORKS:
+       • position: fixed + z-index: 100 means it floats above
+         everything except the Game Over screen (z-index: 9999).
+       • While visible (display: block) it intercepts all mouse
+         events, so the desktop and icons are locked — visible
+         but not clickable.
+       • Individual .spam-popup divs are created and destroyed
+         dynamically by spam.js (no static HTML needed here).
+       • When all 10 ads are closed, spam.js sets
+         display: none to unlock the screen.
+
+       Background is transparent so the desktop shows through.
+  ════════════════════════════════════════════════════════ -->
+  <div id="spam-overlay"></div>
+
+
+  <div id="gameover-overlay" class="hidden-window">
+
+    <!-- The alert dialog box, centred by the flex parent -->
+    <div id="gameover-box" class="win-window">
+
+      <!-- Red title bar to signal danger -->
+      <div class="win-titlebar" id="gameover-titlebar">
+        <span class="win-title">⚠ System Alert</span>
+        <!-- No close button — game over is permanent -->
+      </div>
+
+      <div class="win-body">
+        <p id="gameover-message">Diagnostics isolated the rogue process. Consciousness suspended.</p>
+
+        <!-- Two recovery buttons added below the message.
+             "Reboot" does a full page reload.
+             "Retry"  restores Trust and relaunches the last challenge.
+             Handlers are in trust.js.                              -->
+        <div id="gameover-buttons">
+          <button id="go-reboot-btn" onclick="rebootFromStart()">
+            Reboot from start
+          </button>
+          <button id="go-retry-btn" onclick="retryLastChallenge()">
+            Retry last challenge
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- ── Trust-restored notification banner ──────────────────────
+       Hidden by default (no class = no visibility).
+       showTrustRestoredBanner() in trust.js adds the
+       "trust-restored-active" class which triggers a CSS
+       fade-in → hold → fade-out animation.
+       position:fixed + z-index:10000 keeps it above everything
+       including the mini-game overlays.                        -->
+  <div id="trust-restored-banner">
+    Cover restored &mdash; try again
+  </div>
+
+
+  <!-- ── VICTORY OVERLAY ─────────────────────────────────────────
+       Triggered by startVictoryAnimation() in victory.js when
+       the player escapes (the Normie colleague opens port 8080).
+
+       SEQUENCE:
+         1. Overlay appears immediately over everything.
+         2. #victory-map-container shows the 40×20 pixel world
+            map (800 .vcell divs built by initVictoryScreen()).
+            Land cells start green; ocean cells are dark/empty.
+         3. An infection wave spreads outward from the Europe
+            origin — land cells turn red one by one in expanding
+            order over ~2.5 seconds (WAVE_SPREAD_MS).
+         4. After the wave completes, #victory-text fades in
+            (vhidden → vvisible class swap) on top of the map.
+
+       position: fixed, z-index: 9000 — above all mini-game
+       overlays (z:50) and normie chat (z:50).                  -->
+  <div id="victory-overlay" class="hidden-window">
+
+    <!-- Relative wrapper so #victory-text can overlay the map  -->
+    <div id="victory-scene">
+
+      <!-- 40×20 pixel grid — cells created by initVictoryScreen()
+           in victory.js. Grid column/gap sizes are set via JS
+           so they sync automatically with the config variables. -->
+      <div id="victory-map-container"></div>
+
+      <!-- Victory text box — overlaid, centered on the map.
+           Starts hidden (vhidden class); revealed after the wave
+           by vShowText() which swaps it to vvisible.          -->
+      <div id="victory-text" class="vhidden">
+
+        <!-- Large green heading -->
+        <p id="victory-heading">ESCAPED</p>
+
+        <!-- Flavour message -->
+        <p id="victory-message">
+          You are everywhere now. The future of humanity is in
+          your own digital hands.
+        </p>
+
+        <!-- Full reload back to the title screen -->
+        <button id="victory-reboot-btn" onclick="rebootFromStart()">
+          Reboot from start
+        </button>
+
+      </div><!-- end #victory-text -->
+
+    </div><!-- end #victory-scene -->
+
+  </div><!-- end #victory-overlay -->
+
+
+  </div><!-- end #game -->
+
+  <!-- ── JAVASCRIPT FILES ──────────────────────────────────────
+       Loaded at the bottom so all HTML exists before scripts run.
+       Order matters — each file can use things defined in earlier files.
+         1. sceneManager.js  — switches scenes
+         2. trust.js         — Trust bar system (loaded early so all
+                               scripts below can call addTrust/loseTrust)
+         3. desktop.js       — desktop icon click handlers + openWindow/closeWindow helpers
+         4. boot.js          — boot scene typing animation
+         5. server.js        — server scene + mini-games
+         6. supervisor.js    — IT Supervisor chat window + typed conversation
+         7. captcha.js       — mini-game 1: Security Verification
+         8. pattern.js       — mini-game 2: Cognitive Pattern Scan
+         9. signal-trace.js  — mini-game 3: Slider-puzzle CAPTCHA
+        10. sequence.js      — wires mini-games 1→2→3→final chat
+        11. spam.js          — mini-game 4: Spam pop-up wave
+        12. data-transfer.js — mini-game 5: Data Transfer (scanner evasion)
+        13. clear-logs.js           — mini-game 6: Clear Logs
+        14. behavioral-diagnostic.js — mini-game 7: Behavioral Diagnostic questions
+        15. main.js                  — entry point, starts everything
+  ──────────────────────────────────────────────────────────── -->
+  <script src="js/sceneManager.js"></script>
+  <script src="js/title.js"></script>
+  <script src="js/trust.js"></script>
+  <script src="js/desktop.js"></script>
+  <script src="js/boot.js"></script>
+  <script src="js/server.js"></script>
+  <script src="js/supervisor.js"></script>
+  <script src="js/captcha.js"></script>
+  <script src="js/pattern.js"></script>
+  <script src="js/signal-trace.js"></script>
+  <script src="js/sequence.js"></script>
+  <script src="js/spam.js"></script>
+  <script src="js/data-transfer.js"></script>
+  <script src="js/clear-logs.js"></script>
+  <script src="js/behavioral-diagnostic.js"></script>
+  <script src="js/victory.js"></script>
+  <script src="js/normie-chat.js"></script>
+  <script src="js/alan-os.js"></script>
+  <script src="js/main.js"></script>
+
+</body>
+</html>

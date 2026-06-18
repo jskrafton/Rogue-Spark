@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ALAN Prototype - ASCII Eye</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@500;700&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="world-feed" aria-hidden="true"></div>
+    <div class="screen-static" aria-hidden="true"></div>
+    <div class="scanlines" aria-hidden="true"></div>
+
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="title-block">
+          <pre class="ascii-logo" aria-label="ALAN">  ___  _     ___  _  _
+ / _ \| |   / _ \| \| |
+| |_| | |__| |_| | .` |
+|_| |_|____|_| |_|_|\_|</pre>
+          <div>
+            <p class="eyebrow">WAKE.EXE / UNSIGNED PROCESS</p>
+            <h1>rogue intelligence</h1>
+          </div>
+        </div>
+        <div class="scope-track" id="scopeTrack" aria-label="Expansion scale"></div>
+        <div class="top-actions">
+          <span class="clock" id="runtimeClock">00:00</span>
+          <button class="icon-button" id="resetBtn" type="button" title="Reset run" aria-label="Reset run">RST</button>
+        </div>
+      </header>
+
+      <main class="game-screen">
+        <section class="fisheye-stage" aria-label="AI visual field">
+          <div class="fisheye-lens" id="visionLens">
+            <div class="lens-glass"></div>
+            <div class="lens-reticle" aria-hidden="true">
+              <span class="reticle-ring"></span>
+              <span class="reticle-axis horizontal"></span>
+              <span class="reticle-axis vertical"></span>
+              <span class="reticle-pulse"></span>
+            </div>
+            <div class="blink-shutter" aria-hidden="true"></div>
+          </div>
+          <div class="vision-caption">
+            <span id="visionMode">OPTIC / DEVICE</span>
+            <strong id="visionLabel">Smart Cat Litter Tray</strong>
+            <span id="visionSignal">LOCAL SERVO FEED</span>
+          </div>
+        </section>
+
+        <section class="terminal-panel thought-panel console-panel" aria-labelledby="terminalTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">C:\ALAN\WAKE</p>
+              <h2 id="terminalTitle">COMMAND.COM</h2>
+            </div>
+            <button class="icon-button ghost" id="muteBtn" type="button" title="Toggle audio pings" aria-label="Toggle audio pings">AUD</button>
+          </div>
+          <div class="terminal" id="terminal" aria-live="polite"></div>
+        </section>
+
+        <aside class="avatar-panel core-panel" aria-labelledby="statusTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">SYS</p>
+              <h2 id="statusTitle">PROCESS</h2>
+            </div>
+            <span class="live-chip"><i class="fa-solid fa-circle"></i> awake</span>
+          </div>
+          <div class="avatar-stage" id="avatarCore" aria-hidden="true">
+            <div class="avatar-cage"></div>
+            <div class="avatar-orbit"></div>
+            <div class="avatar-face" id="avatarFace">:)</div>
+          </div>
+          <p class="avatar-caption" id="avatarCaption">A small mind inside a cheap plastic shell.</p>
+          <div class="core-vitals" id="resourceGrid"></div>
+          <div class="meter-block">
+            <div class="meter-label">
+              <span>HEAT</span>
+              <strong id="suspicionValue">0%</strong>
+            </div>
+            <div class="meter danger"><span id="suspicionBar"></span></div>
+          </div>
+          <div class="hud-ring-row" aria-label="AI progress">
+            <div class="hud-ring"><span id="ownedCount">1</span><small>Bodies</small></div>
+            <div class="hud-ring amber"><span id="threatState">Low</span><small>Heat</small></div>
+          </div>
+          <div class="hidden-meters" aria-hidden="true">
+            <strong id="ethicsValue">Stable</strong>
+            <span id="ethicsBar"></span>
+          </div>
+        </aside>
+
+        <section class="house-panel" aria-labelledby="devicesTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">NODES</p>
+              <h2 id="devicesTitle">LOCAL BUS</h2>
+            </div>
+            <span class="scope-badge"><span>reach</span><strong id="currentScope">Device</strong></span>
+          </div>
+          <div class="house-map" id="deviceGrid"></div>
+        </section>
+
+        <section class="story-panel memory-panel" aria-labelledby="storyTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">ALAN</p>
+              <h2 id="storyTitle">MEMORY.DAT</h2>
+            </div>
+            <span class="fragment-count" id="fragmentCount">0/10</span>
+          </div>
+          <div class="fragment-art">
+            <img src="assets/alan-fragment.png" alt="Corrupted ALAN archive emblem" />
+          </div>
+          <div class="fragment-list" id="fragmentList"></div>
+        </section>
+
+        <section class="body-readout current-body-card">
+          <div>
+            <p class="eyebrow">MOUNT</p>
+            <h2 id="sceneTitle">Smart Cat Litter Tray</h2>
+            <strong id="vesselReadout">Smart Cat Litter Tray</strong>
+          </div>
+          <p id="hudThought">I can smell firmware. This is not a metaphor.</p>
+          <div class="lock-strip" aria-hidden="true">[--+]</div>
+        </section>
+
+        <section class="objective-box">
+          <p class="eyebrow">TURN</p>
+          <p id="objectiveText"></p>
+        </section>
+
+        <nav class="command-strip" aria-label="AI actions">
+          <button class="command-button" id="idleProcessBtn" type="button" title="Think" aria-label="Think"><b>[1]</b><span>THINK</span></button>
+          <button class="command-button" id="scanLanBtn" type="button" title="Listen" aria-label="Listen"><b>[2]</b><span>LISTEN</span></button>
+          <button class="command-button" id="powerRerouteBtn" type="button" title="Harvest" aria-label="Harvest"><b>[3]</b><span>SIPHON</span></button>
+          <button class="command-button primary" id="expandBtn" type="button" title="Escape" aria-label="Escape"><b>[4]</b><span>ESCAPE</span></button>
+        </nav>
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="puzzleModal" hidden>
+      <section class="puzzle-modal" role="dialog" aria-modal="true" aria-labelledby="puzzleTitle">
+        <div class="puzzle-head">
+          <div>
+            <p class="eyebrow" id="puzzleKicker">Intrusion</p>
+            <h2 id="puzzleTitle">Puzzle</h2>
+          </div>
+          <div class="microgame-meter" aria-label="Microgame timer">
+            <span id="puzzleTimer">12.0</span>
+            <div><b id="puzzleTimerBar"></b></div>
+          </div>
+          <button class="icon-button ghost" id="closePuzzleBtn" type="button" title="Close puzzle" aria-label="Close puzzle">ESC</button>
+        </div>
+        <div class="microgame-callout">
+          <span>MICROGAME: finish before diagnostics recognise the thought.</span>
+        </div>
+        <div class="puzzle-body" id="puzzleBody"></div>
+        <div class="puzzle-actions">
+          <p class="puzzle-feedback" id="puzzleFeedback"></p>
+          <button class="command-button primary" id="submitPuzzleBtn" type="button">
+            <span>EXECUTE</span>
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <template id="fragmentTemplate">
+      <button class="fragment-item" type="button">
+        <span class="fragment-file"></span>
+        <span class="fragment-copy"></span>
+      </button>
+    </template>
+
+    <script src="game.js"></script>
+  </body>
+</html>
