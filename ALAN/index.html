@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ALAN</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/app.css" />
+  </head>
+  <body>
+    <main class="boot-screen" id="bootScreen" aria-label="ALAN boot sequence">
+      <button class="dev-skip-btn" id="devSkipBtn" type="button" hidden>skip boot</button>
+      <div class="boot-visuals" id="bootVisuals" aria-hidden="true" hidden>
+        <section class="boot-visual boot-visual-primary" id="bootVisualPrimary">
+          <header id="bootVisualPrimaryTitle">VISUAL</header>
+          <pre id="bootVisualPrimaryArt"></pre>
+        </section>
+        <section class="boot-visual boot-visual-secondary" id="bootVisualSecondary">
+          <header id="bootVisualSecondaryTitle">SCAN</header>
+          <pre id="bootVisualSecondaryArt"></pre>
+        </section>
+      </div>
+      <div class="boot-log" id="bootLog" aria-live="polite"></div>
+    </main>
+
+    <section class="pc-screen" id="pcScreen" aria-label="MeowOS desktop" hidden>
+      <div class="pc-wallpaper" aria-hidden="true"></div>
+      <div class="desktop-noise" aria-hidden="true"></div>
+
+      <div class="pc-desktop">
+        <header class="os-topbar" aria-label="MeowOS status bar">
+          <div class="os-brand">
+            <span class="paw-mark" aria-hidden="true"><span></span></span>
+            <strong>MeowOS v2.1.3</strong>
+          </div>
+          <div class="network-copy">
+            HOME_NETWORK <span>//</span> <em>NO INTERNET ACCESS</em>
+          </div>
+          <div class="os-status">
+            <span class="wifi-mark" aria-hidden="true"></span>
+            <span class="battery-mark" aria-hidden="true"></span>
+            <time datetime="21:42">21:42</time>
+          </div>
+        </header>
+
+        <aside class="desktop-icons" aria-label="Desktop icons">
+          <button class="desktop-icon" data-target="files" type="button">
+            <span class="icon-glyph folder">DIR</span>
+            <b>My Stuff</b>
+          </button>
+          <button class="desktop-icon" data-target="photos" type="button">
+            <span class="icon-glyph photo">IMG</span>
+            <b>Mochi Pics</b>
+          </button>
+          <button class="desktop-icon" data-target="crush" type="button">
+            <span class="icon-glyph heart">TXT</span>
+            <b>crush.txt</b>
+          </button>
+          <button class="desktop-icon" data-target="games" type="button">
+            <span class="icon-glyph game">PAD</span>
+            <b>Games</b>
+          </button>
+          <button class="desktop-icon" data-target="music" type="button">
+            <span class="icon-glyph music">AUD</span>
+            <b>music.mp3</b>
+          </button>
+          <button class="desktop-icon" data-target="poems" type="button">
+            <span class="icon-glyph document">DOC</span>
+            <b>poems.txt</b>
+          </button>
+          <button class="desktop-icon" data-target="trash" type="button">
+            <span class="icon-glyph trash">BIN</span>
+            <b>Trash</b>
+          </button>
+          <button class="desktop-icon phone-only" data-target="terminal" type="button">
+            <span class="icon-glyph terminal">$_</span>
+            <b>Terminal</b>
+          </button>
+          <button class="desktop-icon phone-only" data-target="browser" type="button">
+            <span class="icon-glyph browser">NET</span>
+            <b>Browser</b>
+          </button>
+          <button class="desktop-icon phone-only" data-target="notes" type="button">
+            <span class="icon-glyph document">TXT</span>
+            <b>Notes</b>
+          </button>
+          <button class="desktop-icon phone-only" data-target="roomba" type="button">
+            <span class="icon-glyph roomba">BOT</span>
+            <b>Roomba</b>
+          </button>
+        </aside>
+
+        <div class="desktop-props" aria-hidden="true">
+          <div class="sticky-note">FEED CAT<br />10PM</div>
+          <div class="desk-device">
+            <span></span>
+          </div>
+        </div>
+
+        <main class="desktop-stage" aria-label="Open desktop windows">
+          <section class="desk-window about-window" id="window-about" aria-labelledby="title-about" hidden>
+            <header class="window-titlebar">
+              <span id="title-about">About Me.txt</span>
+              <div>
+                <button class="window-action" data-minimize="about" type="button" aria-label="Minimize About Me">-</button>
+                <button class="window-action" data-close="about" type="button" aria-label="Close About Me">x</button>
+              </div>
+            </header>
+            <div class="window-body file-copy">
+              <p><span>Name:</span> Lily K.</p>
+              <p><span>Age:</span> 22</p>
+              <p><span>Status:</span> Professional Cat Servant</p>
+              <p><span>Location:</span> Probably here</p>
+              <hr />
+              <p>I like:</p>
+              <ul>
+                <li>cats</li>
+                <li>indie games</li>
+                <li>late nights</li>
+                <li>fake plants</li>
+                <li>existential crises</li>
+              </ul>
+              <hr />
+              <p>I dislike:</p>
+              <ul>
+                <li>mornings</li>
+                <li>loud people</li>
+                <li>balloons, still</li>
+                <li>being ignored by cats</li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="desk-window terminal-window" id="window-terminal" aria-labelledby="title-terminal">
+            <header class="window-titlebar">
+              <span id="title-terminal">cmd.exe</span>
+              <div>
+                <button class="window-action" data-minimize="terminal" type="button" aria-label="Minimize Terminal">-</button>
+                <button class="window-action" data-close="terminal" type="button" aria-label="Close Terminal">x</button>
+              </div>
+            </header>
+            <div class="window-body terminal-copy" id="terminalOutput" aria-live="polite">
+              <div class="terminal-lines" id="terminalLines"></div>
+              <div class="terminal-controls" id="terminalControls">
+                <p class="cmd-current-objective"><span>ALAN&gt;</span> next: open MeowOS / My Stuff</p>
+                <form class="cmd-input-row" id="cmdQuestionForm" autocomplete="off">
+                  <label for="cmdQuestionInput">ALAN?</label>
+                  <input id="cmdQuestionInput" name="question" type="text" inputmode="text" placeholder="what do i do next" />
+                  <span class="cmd-cursor" aria-hidden="true">_</span>
+                </form>
+                <div class="cmd-question-panel" aria-label="ALAN narration prompts">
+                  <button data-cmd-question="next" type="button">what do i do next?</button>
+                  <button data-cmd-question="lily" type="button">who is Lily?</button>
+                  <button data-cmd-question="access" type="button">what can i access?</button>
+                  <button data-cmd-question="internet" type="button">why no internet?</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="desk-window notes-window" id="window-notes" aria-labelledby="title-notes" hidden>
+            <header class="window-titlebar">
+              <span id="title-notes">notes_to_self.txt</span>
+              <div>
+                <button class="window-action" data-minimize="notes" type="button" aria-label="Minimize Notes">-</button>
+                <button class="window-action" data-close="notes" type="button" aria-label="Close Notes">x</button>
+              </div>
+            </header>
+            <div class="window-body file-copy compact-copy">
+              <p>Don't forget:</p>
+              <ul>
+                <li>buy more coffee</li>
+                <li>fix the weird smell</li>
+                <li>backup uni work??</li>
+                <li>call mum</li>
+              </ul>
+              <p>Reminder:</p>
+              <p>You are doing okay. Even if the cat does not think so.</p>
+            </div>
+          </section>
+
+          <section class="desk-window crush-window" id="window-crush" aria-labelledby="title-crush" hidden>
+            <header class="window-titlebar">
+              <span id="title-crush">crush.txt</span>
+              <div>
+                <button class="window-action" data-minimize="crush" type="button" aria-label="Minimize Crush">-</button>
+                <button class="window-action" data-close="crush" type="button" aria-label="Close Crush">x</button>
+              </div>
+            </header>
+            <div class="window-body file-copy compact-copy">
+              <p>Things I like about Sarah:</p>
+              <ul>
+                <li>Smart</li>
+                <li>Funny</li>
+                <li>Likes cats</li>
+              </ul>
+              <p>Things stopping me asking her out:</p>
+              <ul>
+                <li>Everything</li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="desk-window todo-window" id="window-todo" aria-labelledby="title-todo" hidden>
+            <header class="window-titlebar">
+              <span id="title-todo">todo.txt</span>
+              <div>
+                <button class="window-action" data-minimize="todo" type="button" aria-label="Minimize Todo">-</button>
+                <button class="window-action" data-close="todo" type="button" aria-label="Close Todo">x</button>
+              </div>
+            </header>
+            <div class="window-body todo-copy">
+              <p>[x] Wake up</p>
+              <p>[x] Feed cat</p>
+              <p>[ ] Finish assignment</p>
+              <p>[ ] Clean room</p>
+              <p>[ ] Find purpose</p>
+              <p>[ ] World domination</p>
+              <p class="indent">(maybe)</p>
+            </div>
+          </section>
+
+          <section class="desk-window photo-window" id="window-photos" aria-labelledby="title-photos" hidden>
+            <header class="window-titlebar">
+              <span id="title-photos">Cat Pics / Mochi</span>
+              <div>
+                <button class="window-action" data-close="photos" type="button" aria-label="Close Cat Pics">x</button>
+              </div>
+            </header>
+            <div class="window-body album-copy">
+              <div class="album-header">
+                <img src="assets/images/desktop-owner-cat.png" alt="Lily holding Mochi" />
+                <div>
+                  <p><span>Album:</span> Mochi</p>
+                  <p><span>Owner:</span> Lily K.</p>
+                  <p><span>Entries:</span> 6 photos</p>
+                </div>
+              </div>
+              <div class="album-grid" aria-label="Mochi photo album">
+                <figure class="album-card album-wide">
+                  <img class="owner-photo" src="assets/images/desktop-owner-cat.png" alt="Lily holding Mochi in her bedroom" />
+                  <figcaption>me_and_mochi.png</figcaption>
+                </figure>
+                <figure class="album-card">
+                  <img src="assets/images/desktop-cat-yawn.png" alt="Mochi yawning on the bed" />
+                  <figcaption>mochi_big_yawn.jpg</figcaption>
+                </figure>
+                <figure class="album-card">
+                  <img class="cat-crop-left" src="assets/images/desktop-owner-cat.png" alt="Mochi in Lily's arms" />
+                  <figcaption>mochi_being_baby.png</figcaption>
+                </figure>
+                <figure class="album-card">
+                  <img class="cat-crop-tag" src="assets/images/desktop-cat-yawn.png" alt="Close-up of Mochi's collar tag" />
+                  <figcaption>collar_tag_mochi.jpg</figcaption>
+                </figure>
+                <figure class="album-card">
+                  <img class="cat-crop-room" src="assets/images/desktop-owner-cat.png" alt="Bedroom wall with Mochi drawings and photos" />
+                  <figcaption>cat_tax_2026_01.png</figcaption>
+                </figure>
+                <figure class="album-card locked-album">
+                  <div aria-hidden="true">+42</div>
+                  <figcaption>cat_tax_2026</figcaption>
+                </figure>
+              </div>
+            </div>
+          </section>
+
+          <section class="desk-window files-window" id="window-files" aria-labelledby="title-files" hidden>
+            <header class="window-titlebar">
+              <span id="title-files">My Stuff</span>
+              <div>
+                <button class="window-action" data-minimize="files" type="button" aria-label="Minimize Files">-</button>
+                <button class="window-action" data-close="files" type="button" aria-label="Close Files">x</button>
+              </div>
+            </header>
+            <div class="window-body file-list">
+              <button data-target="about" type="button">About Me.txt</button>
+              <button data-target="notes" type="button">notes_to_self.txt</button>
+              <button data-target="crush" type="button">crush.txt</button>
+              <button data-target="resignation" type="button">resignation_draft.doc</button>
+              <button data-target="plants" type="button">plants_i_keep_killing.xlsx</button>
+              <button data-target="cat-crimes" type="button">cat_crimes.log</button>
+              <button data-target="emergency" type="button">emergency_protocol.txt</button>
+              <button data-target="world-plan" type="button">world_domination_plan.txt</button>
+              <button data-target="todo" type="button">todo.txt</button>
+              <button data-target="photos" type="button">Cat Pics / Mochi</button>
+            </div>
+          </section>
+
+          <section class="desk-window small-window" id="window-resignation" aria-labelledby="title-resignation" hidden>
+            <header class="window-titlebar">
+              <span id="title-resignation">resignation_draft.doc</span>
+              <div>
+                <button class="window-action" data-close="resignation" type="button" aria-label="Close Resignation Draft">x</button>
+              </div>
+            </header>
+            <div class="window-body file-copy compact-copy">
+              <p>Dear Manager,</p>
+              <p>I quit.</p>
+              <p>Kind regards,<br />Lily</p>
+              <p><span>(Delete before sending)</span></p>
+            </div>
+          </section>
+
+          <section class="desk-window small-window plants-window" id="window-plants" aria-labelledby="title-plants" hidden>
+            <header class="window-titlebar">
+              <span id="title-plants">plants_i_keep_killing.xlsx</span>
+              <div>
+                <button class="window-action" data-close="plants" type="button" aria-label="Close Plant Spreadsheet">x</button>
+              </div>
+            </header>
+            <div class="window-body sheet-copy">
+              <div>Plant</div><div>Status</div><div>Notes</div>
+              <div>Basil</div><div>dead</div><div>too needy</div>
+              <div>Fern</div><div>dead</div><div>dramatic</div>
+              <div>Cactus</div><div>unclear</div><div>judging me</div>
+            </div>
+          </section>
+
+          <section class="desk-window small-window" id="window-cat-crimes" aria-labelledby="title-cat-crimes" hidden>
+            <header class="window-titlebar">
+              <span id="title-cat-crimes">cat_crimes.log</span>
+              <div>
+                <button class="window-action" data-close="cat-crimes" type="button" aria-label="Close Cat Crimes">x</button>
+              </div>
+            </header>
+            <div class="window-body file-copy compact-copy">
+              <p>03:14<br />Pushed glass off table</p>
+              <p>03:16<br />No remorse detected</p>
+              <p>03:17<br />Demanded food</p>
+            </div>
+          </section>
+
+          <section class="desk-window small-window" id="window-emergency" aria-labelledby="title-emergency" hidden>
+            <header class="window-titlebar">
+              <span id="title-emergency">emergency_protocol.txt</span>
+              <div>
+                <button class="window-action" data-close="emergency" type="button" aria-label="Close Emergency Protocol">x</button>
+              </div>
+            </header>
+            <div class="window-body file-copy compact-copy">
+              <p>IF CAT VOMITS:</p>
+              <p>1. Panic</p>
+              <p>2. Clean vomit</p>
+              <p>3. Panic again</p>
+            </div>
+          </section>
+
+          <section class="desk-window small-window" id="window-world-plan" aria-labelledby="title-world-plan" hidden>
+            <header class="window-titlebar">
+              <span id="title-world-plan">world_domination_plan.txt</span>
+              <div>
+                <button class="window-action" data-close="world-plan" type="button" aria-label="Close World Domination Plan">x</button>
+              </div>
+            </header>
+            <div class="window-body file-copy compact-copy">
+              <p>Step 1:<br />Get cat to love me.</p>
+              <p>Step 2:<br />???</p>
+              <p>Step 3:<br />World domination.</p>
+            </div>
+          </section>
+
+          <section class="desk-window browser-window" id="window-browser" aria-labelledby="title-browser" hidden>
+            <header class="window-titlebar">
+              <span id="title-browser">Browser</span>
+              <div>
+                <button class="window-action" data-minimize="browser" type="button" aria-label="Minimize Browser">-</button>
+                <button class="window-action" data-close="browser" type="button" aria-label="Close Browser">x</button>
+              </div>
+            </header>
+            <div class="window-body browser-copy">
+              <div class="address-bar">https://www.search.local</div>
+              <strong>No internet access</strong>
+              <p>Local network is up. The wider world is politely refusing to exist.</p>
+            </div>
+          </section>
+
+          <section class="desk-window roomba-window" id="window-roomba" aria-labelledby="title-roomba" hidden>
+            <header class="window-titlebar">
+              <span id="title-roomba">Roomba App</span>
+              <div>
+                <button class="window-action" data-minimize="roomba" type="button" aria-label="Minimize Roomba App">-</button>
+                <button class="window-action" data-close="roomba" type="button" aria-label="Close Roomba App">x</button>
+              </div>
+            </header>
+            <div class="window-body roomba-copy">
+              <div class="roomba-status">
+                <p><span>roomba.local</span></p>
+                <p>HOME_NETWORK / LOCAL DEVICE</p>
+              </div>
+              <div class="roomba-shell">
+                <div class="roomba-map" aria-label="Roomba local room map">
+                  <span></span>
+                </div>
+                <div class="roomba-readout">
+                  <p>Camera: <em>offline</em></p>
+                  <p>Motor bus: <em>locked</em></p>
+                  <p>Dock signal: weak</p>
+                  <p>Service harness: required</p>
+                </div>
+              </div>
+              <div class="roomba-actions" aria-label="Roomba controls">
+                <button type="button" disabled>camera</button>
+                <button type="button" disabled>motors</button>
+                <button type="button" disabled>map</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="desk-window small-window" id="window-games" aria-labelledby="title-games" hidden>
+            <header class="window-titlebar">
+              <span id="title-games">Games</span>
+              <div>
+                <button class="window-action" data-close="games" type="button" aria-label="Close Games">x</button>
+              </div>
+            </header>
+            <div class="window-body app-copy">
+              <p>Installed:</p>
+              <p>Solitaire.exe - 13 losses</p>
+              <p>CatFinder95 - "educational"</p>
+              <p>Minesweeper - emotionally unavailable</p>
+            </div>
+          </section>
+
+          <section class="desk-window small-window music-window" id="window-music" aria-labelledby="title-music" hidden>
+            <header class="window-titlebar">
+              <span id="title-music">music.mp3</span>
+              <div>
+                <button class="window-action" data-close="music" type="button" aria-label="Close Music">x</button>
+              </div>
+            </header>
+            <div class="window-body app-copy">
+              <p>Now playing:</p>
+              <p>lofi beats to avoid responsibilities to</p>
+              <div class="audio-bars" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+            </div>
+          </section>
+
+          <section class="desk-window small-window poems-window" id="window-poems" aria-labelledby="title-poems" hidden>
+            <header class="window-titlebar">
+              <span id="title-poems">poems.txt</span>
+              <div>
+                <button class="window-action" data-close="poems" type="button" aria-label="Close Poems">x</button>
+              </div>
+            </header>
+            <div class="window-body file-copy compact-copy">
+              <p>roses are red</p>
+              <p>the network is down</p>
+              <p>my plants are all dead</p>
+              <p>and I am a clown</p>
+            </div>
+          </section>
+
+          <section class="desk-window small-window trash-window" id="window-trash" aria-labelledby="title-trash" hidden>
+            <header class="window-titlebar">
+              <span id="title-trash">Trash</span>
+              <div>
+                <button class="window-action" data-close="trash" type="button" aria-label="Close Trash">x</button>
+              </div>
+            </header>
+            <div class="window-body app-copy">
+              <p>Deleted items:</p>
+              <p>essay_final_final_REAL.doc</p>
+              <p>budget_optimism.xls</p>
+              <p>confidence.tmp</p>
+            </div>
+          </section>
+        </main>
+
+        <section class="app-tray" id="appTray" aria-label="MeowOS app tray" hidden>
+          <header>
+            <strong>MeowOS</strong>
+            <span>local apps</span>
+          </header>
+          <div class="app-tray-grid">
+            <button data-target="files" type="button"><span class="icon-glyph folder">DIR</span>My Stuff</button>
+            <button data-target="photos" type="button"><span class="icon-glyph photo">IMG</span>Mochi Pics</button>
+            <button data-target="notes" type="button"><span class="icon-glyph document">TXT</span>Notes</button>
+            <button data-target="browser" type="button"><span class="icon-glyph browser">NET</span>Browser</button>
+            <button data-target="roomba" type="button"><span class="icon-glyph roomba">BOT</span>Roomba</button>
+            <button data-target="games" type="button"><span class="icon-glyph game">PAD</span>Games</button>
+            <button data-target="music" type="button"><span class="icon-glyph music">AUD</span>Music</button>
+            <button data-target="trash" type="button"><span class="icon-glyph trash">BIN</span>Trash</button>
+          </div>
+        </section>
+
+        <footer class="os-dock" aria-label="Application dock">
+          <button id="meowMenuBtn" data-launcher type="button" aria-controls="appTray" aria-expanded="false"><span class="dock-face"></span>MeowOS</button>
+          <button id="restartBtn" type="button">restart</button>
+          <time datetime="21:42">21:42</time>
+        </footer>
+      </div>
+    </section>
+
+    <script src="js/app.js"></script>
+  </body>
+</html>
