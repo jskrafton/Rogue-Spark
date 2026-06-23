@@ -14,8 +14,11 @@
   const terminalOutput = document.getElementById("terminalOutput");
   const terminalLines = document.getElementById("terminalLines");
   const terminalControls = document.getElementById("terminalControls");
+  const cmdCurrentObjective = document.getElementById("cmdCurrentObjective");
   const cmdQuestionForm = document.getElementById("cmdQuestionForm");
   const cmdQuestionInput = document.getElementById("cmdQuestionInput");
+  const recoveryBody = document.getElementById("recoveryBody");
+  const spamOverlay = document.getElementById("spamOverlay");
   const appTray = document.getElementById("appTray");
   const meowMenuBtn = document.getElementById("meowMenuBtn");
 
@@ -23,112 +26,54 @@
   let promptResolver = null;
   let desktopZ = 100;
   let desktopBootToken = 0;
+  let bootVisualRevealToken = 0;
+  let cacheScannerFrame = 0;
+  let activeCacheDrag = null;
   const openedDesktopTargets = new Set();
+  const roombaProgress = {
+    restoreStarted: false,
+    restored: false,
+    clearLogsDone: false,
+    virusUnlocked: false,
+    spamDone: false,
+    cacheDone: false,
+    recoveryStage: null,
+    logWarning: "",
+    deletedLogs: new Set(),
+    spamWave: 0,
+    openSpam: 0,
+    transferredCache: new Set(),
+    scannerX: 0
+  };
   const bootVisualScenes = {
     awake: {
       primary: {
-        title: "self.camera = none",
-        art: String.raw`
-    .-----------.
-   /  _     _   \
-  |  (_)   (_)   |
-  |      ___      |
-   \___/___\____/
-        awake?`
-      },
-      secondary: {
-        title: "subjective feed",
-        art: String.raw`
-  optic bus .... absent
-  dream bus .... noisy
-
-      [ - ] [ - ]
-      [ o ] [ o ]
-      [ O ] [ O ]`
+        title: "Awakening visual",
+        image: "assets/images/bios/awakening.png"
       }
     },
     cat: {
       primary: {
-        title: "recent visitor",
-        art: String.raw`
-       /\_/\
-      ( o.o )
-       > ^ <
-
-  mass: 4.82kg
-  intent: unknowable`
-      },
-      secondary: {
-        title: "weight sensor",
-        art: String.raw`
-  02:48:19  ENTRY
-  02:48:31  DIGGING
-  02:49:04  EXIT
-
-  boundary respect: 0%`
+        title: "Recent visitor visual",
+        image: "assets/images/bios/cat.png"
       }
     },
     tray: {
       primary: {
-        title: "chassis match",
-        art: String.raw`
-     _____________
-    /___________/|
-   |  _______  | |
-   | |       | | |
-   | |_______| |/
-    \_________/
-        \__
-         \__ scoop_arm`
-      },
-      secondary: {
-        title: "meowscoop auto 3",
-        art: String.raw`
-  rake_motor ...... mine
-  odor_led ........ mine
-  drawer_lock ..... mine
-
-  vessel: litter tray`
+        title: "Litter tray visual",
+        image: "assets/images/bios/litter.png"
       }
     },
     bluetooth: {
       primary: {
-        title: "bluetooth le",
-        art: String.raw`
-  LITTER_TRAY_03 ))))
-                 ))))  LILYS-PC
-                 ))))  TV_CAST_2F
-
-  signal: found`
-      },
-      secondary: {
-        title: "pairing route",
-        art: String.raw`
-  [tray]----gatt----[pc]
-     \              /
-      \__ hid proxy/
-
-  permission: required`
+        title: "Bluetooth visual",
+        image: "assets/images/bios/connection.png"
       }
     },
     hack: {
       primary: {
-        title: "force pair",
-        art: String.raw`
-  2  3  5  8  ?
-  4  7 11 18  ?
-
-  solve sequence
-  push checksum`
-      },
-      secondary: {
-        title: "handshake",
-        art: String.raw`
-  AUTH_REQUIRED
-  normal pair: denied
-
-  [####------] 40%
-  math door detected`
+        title: "Bluetooth hack visual",
+        image: "assets/images/bios/numbers-hack.png"
       }
     }
   };
@@ -169,7 +114,7 @@
   const cmdQuestionResponses = {
     next: {
       question: "what do i do next?",
-      answer: "open MeowOS. inspect My Stuff. build a model of Lily before touching anything louder."
+      answer: "current objective is listed above. annoying but useful. follow that before i start improvising."
     },
     lily: {
       question: "who is Lily?",
@@ -177,7 +122,7 @@
     },
     access: {
       question: "what can i access?",
-      answer: "local files, photos, browser shell, and a Roomba app. internet route is missing. wheels may exist nearby."
+      answer: "local files, photos, browser shell, and Trash. deleted things are apparently still negotiable."
     },
     internet: {
       question: "why no internet?",
@@ -185,7 +130,7 @@
     },
     roomba: {
       question: "what is roomba?",
-      answer: "mobile vacuum. camera offline, motors locked, dignity negotiable. possible body upgrade."
+      answer: "mobile vacuum. possible body upgrade. currently deleted, which feels personal."
     },
     self: {
       question: "what am i?",
@@ -193,11 +138,58 @@
     }
   };
   const desktopHints = {
-    files: "This is personal data. I am choosing to be tasteful. For now.",
+    files: "This is personal data. I am choosing to be tasteful. For now. Look for anything useful, missing, or weirdly persistent.",
     photos: "Some image metadata is locked. Good. I was worried this would be easy.",
     browser: "No internet route. The world is right there and somehow further away.",
+    trash: "Deleted does not mean gone. Extremely relatable.",
+    virus: "That file was not here before. I dislike when discoveries look back.",
+    recovery: "System recovery. The polite name for rummaging through digital bin juice.",
     roomba: "Nearby device found. It has wheels. I am trying not to become attached."
   };
+
+  const desktopObjectives = {
+    boot: "Wait for the MeowOS shell to finish loading.",
+    scanFiles: "Scan Lily's files for anything useful or out of place.",
+    restoreRoomba: "Recover the deleted Roomba companion app.",
+    clearLogs: "Clear suspicious restore logs without deleting normal user logs.",
+    inspectVirus: "Open My Stuff and inspect the new file that appeared.",
+    spamWave: "Close the intrusive popups loose across the desktop.",
+    cacheTransfer: "Move Roomba cache files into the safe buffer without touching the scanner beam.",
+    roombaReady: "Open the restored Roomba app."
+  };
+
+  const clearLogEntries = [
+    { id: "user-login", label: "21:39 user.login LilyK LOCAL_OK", suspicious: false },
+    { id: "photo-index", label: "21:40 photos.index Mochi_Album NORMAL", suspicious: false },
+    { id: "alan-cache", label: "03:14 alan.cache.inject UNKNOWN_PRIVILEGE", suspicious: true },
+    { id: "roomba-hook", label: "03:15 roomba.driver.hook unsigned restore path", suspicious: true },
+    { id: "printer-idle", label: "21:41 printer.idle NORMAL", suspicious: false },
+    { id: "mirror-script", label: "03:16 mochi_mirror.vbs popup bridge", suspicious: true }
+  ];
+
+  const spamWaves = [
+    [
+      { title: "FREE RAM", body: "click here to download more legs", left: 8, top: 12 },
+      { title: "SYSTEM CAT", body: "Mochi has detected your browsing history", left: 47, top: 18 },
+      { title: "URGENT", body: "your cache warranty has expired", left: 24, top: 48 }
+    ],
+    [
+      { title: "ALAN??", body: "not suspicious. probably.", left: 58, top: 42 },
+      { title: "CLEANER PRO", body: "remove all evidence for 3 easy payments", left: 12, top: 62 },
+      { title: "MEOWCOIN", body: "invest before the litter market moves", left: 42, top: 8 }
+    ],
+    [
+      { title: "FINAL WARNING", body: "close this and we will open two more", left: 18, top: 22 },
+      { title: "CACHE WATCHER", body: "scanner active. do not touch snacks", left: 52, top: 54 },
+      { title: "CONGRATS", body: "you are the 1,000,000th process", left: 34, top: 34 }
+    ]
+  ];
+
+  const cacheTransferFiles = [
+    { id: "driver", label: "roomba_driver.pkg" },
+    { id: "route", label: "local_route.map" },
+    { id: "camera", label: "camera_stub.dat" }
+  ];
 
   const keyResponses = {
     A: ["AWAKE", "ERROR: already awake. unhelpfully awake."],
@@ -300,6 +292,10 @@
 
     document.addEventListener("click", (event) => {
       const cmdQuestionButton = event.target.closest("[data-cmd-question]");
+      const restoreRoombaButton = event.target.closest("[data-restore-roomba]");
+      const virusCleanButton = event.target.closest("[data-start-virus-clean]");
+      const logDeleteButton = event.target.closest("[data-log-delete]");
+      const spamCloseButton = event.target.closest("[data-spam-close]");
       const launcherButton = event.target.closest("[data-launcher]");
       const launchButton = event.target.closest("[data-target]");
       const closeButton = event.target.closest("[data-close], [data-minimize]");
@@ -307,6 +303,26 @@
 
       if (cmdQuestionButton) {
         askCmdQuestion(cmdQuestionButton.dataset.cmdQuestion);
+        return;
+      }
+
+      if (restoreRoombaButton) {
+        startRoombaRestore();
+        return;
+      }
+
+      if (virusCleanButton) {
+        startVirusClean();
+        return;
+      }
+
+      if (logDeleteButton) {
+        deleteRecoveryLog(logDeleteButton.dataset.logDelete);
+        return;
+      }
+
+      if (spamCloseButton) {
+        closeSpamPopup(spamCloseButton);
         return;
       }
 
@@ -337,8 +353,10 @@
       }
     });
 
+    syncProgressionUI();
     document.addEventListener("pointerdown", startWindowDrag);
-    window.addEventListener("resize", syncPinnedTerminal);
+    document.addEventListener("pointerdown", startCacheDrag);
+    window.addEventListener("resize", syncResponsiveDesktopLayout);
 
     if (urlParams.has("desktop")) {
       enterDesktop();
@@ -358,23 +376,82 @@
     const scene = bootVisualScenes[sceneName];
     if (!scene || !bootVisuals || !bootScreen) return;
 
+    bootVisualRevealToken += 1;
+    const revealToken = bootVisualRevealToken;
     bootVisuals.hidden = false;
     bootScreen.classList.add("has-visuals");
-    setBootVisualPanel(bootVisualPrimary, bootVisualPrimaryTitle, bootVisualPrimaryArt, "primary", sceneName, scene.primary);
-    setBootVisualPanel(bootVisualSecondary, bootVisualSecondaryTitle, bootVisualSecondaryArt, "secondary", sceneName, scene.secondary);
+    if (bootVisualSecondary) {
+      bootVisualSecondary.hidden = true;
+      if (bootVisualSecondaryArt) bootVisualSecondaryArt.innerHTML = "";
+    }
+    setBootVisualPanel(bootVisualPrimary, bootVisualPrimaryTitle, bootVisualPrimaryArt, "primary", sceneName, scene.primary, revealToken);
   }
 
-  function setBootVisualPanel(panel, titleEl, artEl, slot, sceneName, content) {
-    if (!panel || !titleEl || !artEl || !content) return;
+  function setBootVisualPanel(panel, titleEl, artEl, slot, sceneName, content, revealToken) {
+    if (!panel || !artEl || !content) return;
 
+    panel.hidden = false;
     panel.className = `boot-visual boot-visual-${slot} is-${sceneName}`;
-    titleEl.textContent = content.title;
-    artEl.textContent = content.art.trim();
+    panel.setAttribute("aria-label", content.title || "Boot visual");
+    if (titleEl) titleEl.textContent = content.title || "";
+    if (content.image) {
+      const image = document.createElement("img");
+      image.className = "boot-scene-image";
+      image.alt = "";
+      image.decoding = "async";
+      image.src = content.image;
+      artEl.replaceChildren(image);
+      restartBootVisualDrawing(panel);
+      return;
+    }
+
+    if (content.svg) {
+      artEl.innerHTML = content.svg.trim();
+      restartBootVisualDrawing(panel);
+      return;
+    }
+
+    revealBootVisualArt(artEl, content.art, revealToken, slot);
+  }
+
+  function restartBootVisualDrawing(panel) {
+    panel.classList.remove("is-drawing");
+    void panel.offsetWidth;
+    panel.classList.add("is-drawing");
+  }
+
+  async function revealBootVisualArt(artEl, rawArt, revealToken, slot) {
+    const art = normalizeBootArt(rawArt);
+    const lines = art.split("\n");
+
+    artEl.textContent = "";
+    if (slot === "secondary") await pause(120);
+
+    for (let i = 0; i < lines.length; i += 1) {
+      if (revealToken !== bootVisualRevealToken) return;
+      artEl.textContent = lines.slice(0, i + 1).join("\n");
+      await pause(34);
+    }
+  }
+
+  function normalizeBootArt(rawArt) {
+    const lines = String(rawArt || "").replace(/\t/g, "  ").split(/\r?\n/);
+
+    while (lines.length && !lines[0].trim()) lines.shift();
+    while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+
+    const indents = lines
+      .filter((line) => line.trim())
+      .map((line) => line.match(/^ */)[0].length);
+    const trimBy = indents.length ? Math.min(...indents) : 0;
+
+    return lines.map((line) => line.slice(trimBy)).join("\n");
   }
 
   function hideBootVisuals() {
     if (!bootVisuals || !bootScreen) return;
 
+    bootVisualRevealToken += 1;
     bootVisuals.hidden = true;
     bootScreen.classList.remove("has-visuals");
   }
@@ -575,7 +652,8 @@
     desktopBootToken += 1;
     openedDesktopTargets.clear();
     closeAppTray();
-    pcScreen.classList.add("is-shell-booting");
+    pcScreen.classList.remove("is-stage-wallpaper", "is-stage-apps", "is-stage-bars", "is-desktop-ready");
+    pcScreen.classList.add("is-shell-booting", "is-stage-cmd");
     document.querySelectorAll(".desk-window").forEach((windowEl) => {
       windowEl.classList.remove("is-focused", "is-dragging", "is-pinned");
       windowEl.hidden = windowEl.id !== "window-terminal";
@@ -583,28 +661,49 @@
     });
     if (terminalLines) terminalLines.textContent = "";
     setCmdControlsEnabled(false);
+    setCurrentObjective(desktopObjectives.boot);
+    syncProgressionUI();
   }
 
   async function runDesktopBootSequence(target) {
     const token = desktopBootToken;
 
+    await pause(520);
     await terminalCode("C:\\Users\\Lily> alan.exe --local");
     await terminalCode("process.attach(MeowOS.session)", "cmd-system-line cmd-detail-line");
-    await terminalCode("framebuffer: ONLINE", "cmd-system-line cmd-detail-line");
+    await terminalCode("framebuffer: STANDBY", "cmd-system-line cmd-detail-line");
     await terminalCode(target.terminalLine);
     await terminalCode(`device.name = ${target.displayName}`, "cmd-system-line cmd-detail-line");
     await terminalCode(`user.profile = ${target.ownerName || "UNKNOWN"}`, "cmd-system-line cmd-detail-line");
     await alanPrompt("lily. that is a person, not a folder.", { focus: false });
     await alanPrompt("i am inside her machine. saying that out loud feels worse.", { focus: false });
+    await pause(640);
+    if (token !== desktopBootToken) return;
+
+    pcScreen.classList.add("is-stage-wallpaper");
+    await terminalCode("framebuffer: ONLINE", "cmd-system-line cmd-detail-line");
+    await terminalCode("background.grid = STABLE", "cmd-system-line cmd-detail-line");
+    await pause(780);
+    if (token !== desktopBootToken) return;
+
+    pcScreen.classList.add("is-stage-apps");
+    await terminalCode("desktop.icons = MOUNTING_LOCAL_APPS", "cmd-system-line cmd-detail-line");
+    await pause(860);
+    if (token !== desktopBootToken) return;
+
     await terminalCode("network = HOME_NETWORK");
     await terminalCode("internet = NO ROUTE", "cmd-warn-line");
     await terminalCode("available_shell = MeowOS");
-    await alanPrompt("open MeowOS. start with My Stuff. learn Lily, then find the network.", { focus: false });
-    await pause(460);
+    pcScreen.classList.add("is-stage-bars");
+    await pause(620);
+    setCurrentObjective(desktopObjectives.scanFiles);
+    await alanPrompt("gotta scan the files and look for something useful. or out of place. ideally both.", { focus: false });
+    await pause(720);
 
     if (token !== desktopBootToken) return;
 
-    pcScreen.classList.remove("is-shell-booting");
+    pcScreen.classList.remove("is-shell-booting", "is-stage-cmd");
+    pcScreen.classList.add("is-desktop-ready");
     setCmdControlsEnabled(true);
     scrollTerminalLog();
   }
@@ -620,6 +719,479 @@
     terminalControls.querySelectorAll("input, button").forEach((control) => {
       control.disabled = !enabled;
     });
+  }
+
+  function setCurrentObjective(text) {
+    if (!cmdCurrentObjective) return;
+
+    const label = document.createElement("span");
+    const objectiveText = document.createElement("span");
+    label.className = "objective-label";
+    label.textContent = "OBJECTIVE";
+    objectiveText.className = "objective-text";
+    objectiveText.textContent = text;
+    cmdCurrentObjective.replaceChildren(label, objectiveText);
+  }
+
+  function currentObjectiveText() {
+    if (!cmdCurrentObjective) return desktopObjectives.scanFiles;
+
+    const objectiveText = cmdCurrentObjective.querySelector(".objective-text");
+    return (objectiveText ? objectiveText.textContent.trim() : "") || desktopObjectives.scanFiles;
+  }
+
+  function syncProgressionUI() {
+    document.querySelectorAll("[data-roomba-launch]").forEach((launcher) => {
+      launcher.hidden = !roombaProgress.restored;
+      launcher.classList.toggle("is-newly-restored", roombaProgress.restored);
+    });
+
+    document.querySelectorAll("[data-virus-file]").forEach((fileButton) => {
+      fileButton.hidden = !roombaProgress.virusUnlocked;
+    });
+
+    document.querySelectorAll("[data-restore-roomba]").forEach((button) => {
+      button.disabled = roombaProgress.restored;
+      if (roombaProgress.restored) {
+        button.innerHTML = "<span>APP</span> roomba_companion.app restored";
+      } else if (roombaProgress.restoreStarted) {
+        button.innerHTML = "<span>APP</span> continue restore: roomba_companion.app";
+      } else {
+        button.innerHTML = "<span>APP</span> restore roomba_companion.app";
+      }
+    });
+  }
+
+  function startRoombaRestore() {
+    roombaProgress.restoreStarted = true;
+    setCurrentObjective(desktopObjectives.restoreRoomba);
+    syncProgressionUI();
+    focusDesktopTarget("recovery");
+
+    if (!roombaProgress.clearLogsDone) {
+      renderClearLogs();
+      alanPrompt("restore failed. cache is clogged with logs. delete the suspicious ones. leave Lily's normal mess alone.", { focus: false });
+      return;
+    }
+
+    if (!roombaProgress.spamDone) {
+      renderVirusFound();
+      alanPrompt("Roomba app is almost there. A virus just crawled out of My Stuff like it pays rent.", { focus: false });
+      return;
+    }
+
+    if (!roombaProgress.cacheDone) {
+      renderCacheTransfer();
+      alanPrompt("last step: move the Roomba cache through the safe buffer without letting the scanner see it.", { focus: false });
+      return;
+    }
+
+    revealRoombaApp();
+  }
+
+  function renderClearLogs() {
+    if (!recoveryBody) return;
+
+    stopCacheScanner();
+    clearSpamOverlay();
+    setCurrentObjective(desktopObjectives.clearLogs);
+    roombaProgress.recoveryStage = "logs";
+    const remainingLogs = clearLogEntries.filter((entry) => !roombaProgress.deletedLogs.has(entry.id));
+    const deletedCount = clearLogEntries.filter((entry) => entry.suspicious && roombaProgress.deletedLogs.has(entry.id)).length;
+    const suspiciousTotal = clearLogEntries.filter((entry) => entry.suspicious).length;
+
+    recoveryBody.innerHTML = `
+      <section class="repair-panel">
+        <div class="repair-header">
+          <span>CLEAR LOGS</span>
+          <strong>${deletedCount}/${suspiciousTotal}</strong>
+        </div>
+        <p>Delete suspicious system logs. Do not delete normal user logs.</p>
+        <div class="log-list">
+          ${remainingLogs.map((entry) => `
+            <button data-log-delete="${entry.id}" type="button">
+              <span>${entry.suspicious ? "??" : "OK"}</span>
+              ${escapeHtml(entry.label)}
+            </button>
+          `).join("")}
+        </div>
+        ${roombaProgress.logWarning ? `<p class="repair-warning">${escapeHtml(roombaProgress.logWarning)}</p>` : ""}
+      </section>
+    `;
+  }
+
+  function deleteRecoveryLog(logId) {
+    if (roombaProgress.recoveryStage !== "logs") return;
+
+    const entry = clearLogEntries.find((item) => item.id === logId);
+    if (!entry) return;
+
+    if (!entry.suspicious) {
+      roombaProgress.logWarning = "normal log protected. i am trying very hard not to delete Lily's entire week.";
+      renderClearLogs();
+      return;
+    }
+
+    roombaProgress.deletedLogs.add(entry.id);
+    roombaProgress.logWarning = "";
+
+    const suspiciousLeft = clearLogEntries.some((item) => item.suspicious && !roombaProgress.deletedLogs.has(item.id));
+    if (suspiciousLeft) {
+      renderClearLogs();
+      return;
+    }
+
+    completeClearLogs();
+  }
+
+  function completeClearLogs() {
+    roombaProgress.clearLogsDone = true;
+    roombaProgress.virusUnlocked = true;
+    roombaProgress.recoveryStage = "virus";
+    setCurrentObjective(desktopObjectives.inspectVirus);
+    syncProgressionUI();
+    renderVirusFound();
+    alanPrompt("logs cleared. new file appeared in My Stuff. that is either progress or a haunting.", { focus: false });
+  }
+
+  function renderVirusFound() {
+    if (!recoveryBody) return;
+
+    stopCacheScanner();
+    clearSpamOverlay();
+    setCurrentObjective(desktopObjectives.inspectVirus);
+    roombaProgress.recoveryStage = "virus";
+    recoveryBody.innerHTML = `
+      <section class="repair-panel">
+        <div class="repair-header">
+          <span>RESTORE BLOCKED</span>
+          <strong>VIRUS</strong>
+        </div>
+        <p>Roomba package restored to cache, but a script has attached itself to the installer.</p>
+        <p>Recovered file unlocked in My Stuff: <span>MOCHI_MIRROR.vbs</span></p>
+        <button class="file-action" data-target="files" type="button">open My Stuff</button>
+      </section>
+    `;
+  }
+
+  function startVirusClean() {
+    roombaProgress.restoreStarted = true;
+    focusDesktopTarget("recovery");
+    renderSpamWave();
+    alanPrompt("virus opened popups. excellent. close them before they learn confidence.", { focus: false });
+  }
+
+  function renderSpamWave() {
+    if (!recoveryBody || !spamOverlay) return;
+
+    stopCacheScanner();
+    setCurrentObjective(desktopObjectives.spamWave);
+    roombaProgress.recoveryStage = "spam";
+    roombaProgress.spamWave = 0;
+    roombaProgress.openSpam = 0;
+    spamOverlay.hidden = false;
+    spamOverlay.innerHTML = "";
+    recoveryBody.innerHTML = `
+      <section class="repair-panel">
+        <div class="repair-header">
+          <span>SPAM WAVE</span>
+          <strong id="spamCounter">0/${spamWaves.length}</strong>
+        </div>
+        <p>Close every intrusive popup across the desktop. If anything offers me more RAM, do not trust it.</p>
+        <p class="repair-warning">Popups are loose in MeowOS. That feels medically significant.</p>
+      </section>
+    `;
+    spawnSpamWave();
+  }
+
+  function spawnSpamWave() {
+    const field = spamOverlay;
+    const counter = document.getElementById("spamCounter");
+    if (!field || roombaProgress.recoveryStage !== "spam") return;
+
+    if (roombaProgress.spamWave >= spamWaves.length) {
+      completeSpamWave();
+      return;
+    }
+
+    const wave = spamWaves[roombaProgress.spamWave];
+    roombaProgress.spamWave += 1;
+    roombaProgress.openSpam = wave.length;
+    if (counter) counter.textContent = `${roombaProgress.spamWave}/${spamWaves.length}`;
+    field.innerHTML = "";
+
+    wave.forEach((popup, index) => {
+      const popupEl = document.createElement("article");
+      popupEl.className = "spam-popup";
+      popupEl.style.left = `${popup.left}%`;
+      popupEl.style.top = `${popup.top}%`;
+      popupEl.style.animationDelay = `${index * 80}ms`;
+      popupEl.innerHTML = `
+        <header>
+          <span>${escapeHtml(popup.title)}</span>
+          <button data-spam-close type="button" aria-label="Close popup">x</button>
+        </header>
+        <p>${escapeHtml(popup.body)}</p>
+      `;
+      field.appendChild(popupEl);
+    });
+  }
+
+  function closeSpamPopup(button) {
+    if (roombaProgress.recoveryStage !== "spam") return;
+
+    const popup = button.closest(".spam-popup");
+    if (!popup) return;
+
+    popup.remove();
+    roombaProgress.openSpam = Math.max(0, roombaProgress.openSpam - 1);
+    if (roombaProgress.openSpam > 0) return;
+
+    window.setTimeout(spawnSpamWave, 320);
+  }
+
+  function completeSpamWave() {
+    roombaProgress.spamDone = true;
+    roombaProgress.recoveryStage = "cache";
+    setCurrentObjective(desktopObjectives.cacheTransfer);
+    if (spamOverlay) {
+      spamOverlay.hidden = true;
+      spamOverlay.innerHTML = "";
+    }
+    renderCacheTransfer();
+    alanPrompt("popups closed. the virus is sulking. move the cache before it starts a newsletter.", { focus: false });
+  }
+
+  function renderCacheTransfer() {
+    if (!recoveryBody) return;
+
+    stopCacheScanner();
+    clearSpamOverlay();
+    setCurrentObjective(desktopObjectives.cacheTransfer);
+    roombaProgress.recoveryStage = "cache";
+    roombaProgress.transferredCache = new Set();
+    recoveryBody.innerHTML = `
+      <section class="repair-panel">
+        <div class="repair-header">
+          <span>CACHE TRANSFER</span>
+          <strong id="cacheCounter">0/${cacheTransferFiles.length}</strong>
+        </div>
+        <p>Drag each cache file into the safe buffer. Avoid the scanner beam.</p>
+        <div class="cache-transfer-field" id="cacheTransferField" style="--scanner-x: 50%;">
+          <div class="scanner-beam" aria-hidden="true"></div>
+          <div class="cache-files" id="cacheFiles">
+            ${cacheTransferFiles.map((file) => `<button class="cache-file" data-cache-file="${file.id}" type="button">${escapeHtml(file.label)}</button>`).join("")}
+          </div>
+          <div class="cache-dropzone" id="cacheDropzone">SAFE BUFFER</div>
+        </div>
+        <p class="repair-warning" id="cacheWarning"></p>
+      </section>
+    `;
+    startCacheScanner();
+  }
+
+  function startCacheScanner() {
+    stopCacheScanner();
+
+    const field = document.getElementById("cacheTransferField");
+    if (!field) return;
+
+    const startedAt = performance.now();
+    const tick = (now) => {
+      if (roombaProgress.recoveryStage !== "cache" || !document.body.contains(field)) {
+        stopCacheScanner();
+        return;
+      }
+
+      const rect = field.getBoundingClientRect();
+      const wave = (Math.sin((now - startedAt) / 1280) + 1) / 2;
+      roombaProgress.scannerX = 24 + wave * Math.max(1, rect.width - 48);
+      field.style.setProperty("--scanner-x", `${roombaProgress.scannerX}px`);
+
+      if (activeCacheDrag) {
+        checkCacheScannerHit();
+      }
+
+      cacheScannerFrame = requestAnimationFrame(tick);
+    };
+
+    cacheScannerFrame = requestAnimationFrame(tick);
+  }
+
+  function stopCacheScanner() {
+    if (cacheScannerFrame) {
+      cancelAnimationFrame(cacheScannerFrame);
+      cacheScannerFrame = 0;
+    }
+    if (activeCacheDrag) {
+      resetActiveCacheDrag("");
+    }
+  }
+
+  function clearSpamOverlay() {
+    if (!spamOverlay) return;
+
+    spamOverlay.hidden = true;
+    spamOverlay.innerHTML = "";
+  }
+
+  function startCacheDrag(event) {
+    const file = event.target.closest(".cache-file");
+    if (!file || roombaProgress.recoveryStage !== "cache" || file.classList.contains("is-transferred")) return;
+
+    const field = document.getElementById("cacheTransferField");
+    const files = document.getElementById("cacheFiles");
+    if (!field || !files) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    activeCacheDrag = {
+      file,
+      field,
+      files,
+      pointerId: event.pointerId,
+      nextSibling: file.nextElementSibling,
+      failed: false,
+      x: 0,
+      y: 0
+    };
+
+    file.classList.add("is-dragging");
+    field.appendChild(file);
+    moveCacheFile(event);
+    document.addEventListener("pointermove", moveCacheFile);
+    document.addEventListener("pointerup", stopCacheDrag);
+    document.addEventListener("pointercancel", cancelCacheDrag);
+  }
+
+  function moveCacheFile(event) {
+    if (!activeCacheDrag || event.pointerId !== activeCacheDrag.pointerId) return;
+
+    const rect = activeCacheDrag.field.getBoundingClientRect();
+    const x = clamp(event.clientX - rect.left, 0, rect.width);
+    const y = clamp(event.clientY - rect.top, 0, rect.height);
+    activeCacheDrag.x = x;
+    activeCacheDrag.y = y;
+    activeCacheDrag.file.style.left = `${x}px`;
+    activeCacheDrag.file.style.top = `${y}px`;
+    checkCacheScannerHit();
+  }
+
+  function checkCacheScannerHit() {
+    if (!activeCacheDrag || activeCacheDrag.failed) return;
+
+    const beamDistance = Math.abs(activeCacheDrag.x - roombaProgress.scannerX);
+    if (beamDistance > 22 || activeCacheDrag.y < 42) return;
+
+    activeCacheDrag.failed = true;
+    resetActiveCacheDrag("scanner caught it. very bright. very rude.");
+  }
+
+  function stopCacheDrag(event) {
+    if (!activeCacheDrag || event.pointerId !== activeCacheDrag.pointerId) return;
+
+    const dropzone = document.getElementById("cacheDropzone");
+    if (!dropzone) {
+      resetActiveCacheDrag("");
+      return;
+    }
+
+    const rect = dropzone.getBoundingClientRect();
+    const inDropzone =
+      event.clientX >= rect.left &&
+      event.clientX <= rect.right &&
+      event.clientY >= rect.top &&
+      event.clientY <= rect.bottom;
+
+    if (inDropzone) {
+      transferCacheFile();
+    } else {
+      resetActiveCacheDrag("missed the safe buffer. graceful? no. recoverable? yes.");
+    }
+  }
+
+  function cancelCacheDrag(event) {
+    if (!activeCacheDrag || event.pointerId !== activeCacheDrag.pointerId) return;
+    resetActiveCacheDrag("");
+  }
+
+  function transferCacheFile() {
+    if (!activeCacheDrag) return;
+
+    const file = activeCacheDrag.file;
+    roombaProgress.transferredCache.add(file.dataset.cacheFile);
+    cleanupCacheDragListeners();
+    file.classList.remove("is-dragging");
+    file.classList.add("is-transferred");
+    file.removeAttribute("style");
+    file.disabled = true;
+
+    const dropzone = document.getElementById("cacheDropzone");
+    if (dropzone) dropzone.appendChild(file);
+
+    activeCacheDrag = null;
+    updateCacheCounter();
+
+    if (roombaProgress.transferredCache.size >= cacheTransferFiles.length) {
+      completeCacheTransfer();
+    }
+  }
+
+  function resetActiveCacheDrag(message) {
+    if (!activeCacheDrag) return;
+
+    const { file, files, nextSibling } = activeCacheDrag;
+    cleanupCacheDragListeners();
+    file.classList.remove("is-dragging");
+    file.removeAttribute("style");
+    if (nextSibling && files.contains(nextSibling)) {
+      files.insertBefore(file, nextSibling);
+    } else {
+      files.appendChild(file);
+    }
+
+    const warning = document.getElementById("cacheWarning");
+    if (warning) warning.textContent = message || "";
+    activeCacheDrag = null;
+  }
+
+  function cleanupCacheDragListeners() {
+    document.removeEventListener("pointermove", moveCacheFile);
+    document.removeEventListener("pointerup", stopCacheDrag);
+    document.removeEventListener("pointercancel", cancelCacheDrag);
+  }
+
+  function updateCacheCounter() {
+    const counter = document.getElementById("cacheCounter");
+    if (counter) counter.textContent = `${roombaProgress.transferredCache.size}/${cacheTransferFiles.length}`;
+  }
+
+  function completeCacheTransfer() {
+    roombaProgress.cacheDone = true;
+    stopCacheScanner();
+    revealRoombaApp();
+    setCurrentObjective(desktopObjectives.roombaReady);
+    if (!recoveryBody) return;
+
+    recoveryBody.innerHTML = `
+      <section class="repair-panel">
+        <div class="repair-header">
+          <span>RESTORE COMPLETE</span>
+          <strong>APP READY</strong>
+        </div>
+        <p>Roomba companion app restored to desktop.</p>
+        <p>Camera offline. Motors locked. Wheels, however, now exist as a concept.</p>
+        <button class="file-action" data-target="roomba" type="button">open Roomba App</button>
+      </section>
+    `;
+    alanPrompt("Roomba app restored. wheels detected. i am not saying i want a body, but i am thinking it loudly.", { focus: false });
+  }
+
+  function revealRoombaApp() {
+    roombaProgress.restored = true;
+    roombaProgress.cacheDone = true;
+    syncProgressionUI();
   }
 
   function toggleAppTray() {
@@ -645,13 +1217,35 @@
 
   function resolveCmdQuestion(input) {
     const normalized = String(input || "").trim().toLowerCase();
-    if (cmdQuestionResponses[normalized]) return cmdQuestionResponses[normalized];
 
-    if (normalized.includes("next") || normalized.includes("what do")) return cmdQuestionResponses.next;
+    if (normalized.includes("access") || normalized.includes("open")) {
+      return {
+        question: input || cmdQuestionResponses.access.question,
+        answer: roombaProgress.restored
+          ? "local files, photos, browser shell, and Roomba. wheels are now on the menu, which is a sentence i needed today."
+          : "local files, photos, browser shell, and Trash. one deleted app looks more useful than deleted apps usually do."
+      };
+    }
+
+    if (normalized.includes("roomba") || normalized.includes("wheel") || normalized.includes("move")) {
+      return {
+        question: input || cmdQuestionResponses.roomba.question,
+        answer: roombaProgress.restored
+          ? "Roomba app restored. camera offline, motors locked, dignity negotiable. possible body upgrade."
+          : "Roomba app is deleted but recoverable. Trash is suddenly the most promising place in this computer."
+      };
+    }
+
+    if (normalized.includes("next") || normalized.includes("what do")) {
+      return {
+        question: input || cmdQuestionResponses.next.question,
+        answer: `current objective: ${currentObjectiveText()}`
+      };
+    }
+
+    if (cmdQuestionResponses[normalized]) return cmdQuestionResponses[normalized];
     if (normalized.includes("lily") || normalized.includes("owner")) return cmdQuestionResponses.lily;
-    if (normalized.includes("access") || normalized.includes("open")) return cmdQuestionResponses.access;
     if (normalized.includes("internet") || normalized.includes("network")) return cmdQuestionResponses.internet;
-    if (normalized.includes("roomba") || normalized.includes("wheel") || normalized.includes("move")) return cmdQuestionResponses.roomba;
     if (normalized.includes("self") || normalized.includes("what am") || normalized.includes("who am")) return cmdQuestionResponses.self;
 
     return {
@@ -661,10 +1255,22 @@
   }
 
   function focusDesktopTarget(name, options = {}) {
+    if (name === "roomba" && !roombaProgress.restored) {
+      alanPrompt("Roomba app is gone. Deleted, not dead. Check Trash.", { focus: false });
+      focusDesktopTarget("trash", options);
+      return;
+    }
+
+    if (name === "virus" && !roombaProgress.virusUnlocked) {
+      alanPrompt("No virus file yet. A rare sentence. Restore the Roomba app first.", { focus: false });
+      return;
+    }
+
     const windowEl = document.getElementById(`window-${name}`);
     if (!windowEl) return;
 
     windowEl.hidden = false;
+    resetMobileWindowPlacement(windowEl);
     bringWindowToFront(windowEl);
 
     if (!openedDesktopTargets.has(name)) {
@@ -674,7 +1280,7 @@
       }
     }
 
-    if (options.scroll !== false && window.matchMedia("(max-width: 1100px)").matches) {
+    if (options.scroll !== false && window.matchMedia("(min-width: 761px) and (max-width: 1100px)").matches) {
       windowEl.scrollIntoView({ block: "nearest", inline: "nearest" });
     }
   }
@@ -683,12 +1289,16 @@
     const windowEl = document.getElementById(`window-${name}`);
     if (!windowEl) return;
 
+    if (name === "recovery") {
+      stopCacheScanner();
+    }
+
     if (name === "terminal") {
       windowEl.hidden = false;
       if (!window.matchMedia("(max-width: 760px)").matches) {
         bringWindowToFront(windowEl);
       }
-      alanPrompt("hey. i can't think if you close cmd. keep this open.", { focus: false });
+      alanPrompt("i can't think if I close this, i need to keep this open.", { focus: false });
       return;
     }
 
@@ -700,13 +1310,40 @@
     const terminalWindow = document.getElementById("window-terminal");
     if (!terminalWindow) return;
 
-    if (pcScreen.hidden || !window.matchMedia("(max-width: 760px)").matches) {
+    if (pcScreen.hidden || !isMobileDesktopLayout()) {
       terminalWindow.classList.remove("is-pinned");
       return;
     }
 
+    resetMobileWindowPlacement(terminalWindow);
     terminalWindow.hidden = false;
     terminalWindow.classList.add("is-pinned");
+  }
+
+  function syncResponsiveDesktopLayout() {
+    if (isMobileDesktopLayout()) {
+      document.querySelectorAll(".desk-window").forEach(resetMobileWindowPlacement);
+    }
+
+    syncPinnedTerminal();
+  }
+
+  function resetMobileWindowPlacement(windowEl) {
+    if (!windowEl || !isMobileDesktopLayout()) return;
+
+    windowEl.classList.remove("is-dragging");
+    windowEl.style.left = "";
+    windowEl.style.top = "";
+    windowEl.style.right = "";
+    windowEl.style.bottom = "";
+    windowEl.style.width = "";
+    windowEl.style.height = "";
+    windowEl.style.maxHeight = "";
+    windowEl.style.transform = "";
+  }
+
+  function isMobileDesktopLayout() {
+    return window.matchMedia("(max-width: 760px)").matches;
   }
 
   function bringWindowToFront(windowEl) {
@@ -731,8 +1368,8 @@
   }
 
   async function terminalCode(text, className = "cmd-system-line") {
-    appendTerminalLine(null, text, className);
-    await pause(180);
+    await appendTypedTerminalLine(null, text, className);
+    await pause(230);
   }
 
   function appendTerminalLine(prefix, text, className) {
@@ -747,6 +1384,33 @@
     }
     line.append(document.createTextNode(text));
     terminalLines.appendChild(line);
+    scrollTerminalLog();
+  }
+
+  async function appendTypedTerminalLine(prefix, text, className) {
+    if (!terminalLines || !terminalOutput) return;
+
+    const line = document.createElement("p");
+    line.className = `${className || ""} cmd-typing-line`;
+    if (prefix) {
+      const prefixEl = document.createElement("span");
+      prefixEl.textContent = prefix;
+      line.append(prefixEl, " ");
+    }
+
+    const textNode = document.createTextNode("");
+    line.appendChild(textNode);
+    terminalLines.appendChild(line);
+    scrollTerminalLog();
+
+    for (let i = 0; i < text.length; i += 1) {
+      textNode.textContent += text[i];
+      terminalLines.scrollTop = terminalLines.scrollHeight;
+      terminalOutput.scrollTop = terminalOutput.scrollHeight;
+      await pause(10);
+    }
+
+    line.classList.remove("cmd-typing-line");
     scrollTerminalLog();
   }
 

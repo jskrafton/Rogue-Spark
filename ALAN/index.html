@@ -15,11 +15,11 @@
       <div class="boot-visuals" id="bootVisuals" aria-hidden="true" hidden>
         <section class="boot-visual boot-visual-primary" id="bootVisualPrimary">
           <header id="bootVisualPrimaryTitle">VISUAL</header>
-          <pre id="bootVisualPrimaryArt"></pre>
+          <div class="boot-visual-art" id="bootVisualPrimaryArt"></div>
         </section>
         <section class="boot-visual boot-visual-secondary" id="bootVisualSecondary">
           <header id="bootVisualSecondaryTitle">SCAN</header>
-          <pre id="bootVisualSecondaryArt"></pre>
+          <div class="boot-visual-art" id="bootVisualSecondaryArt"></div>
         </section>
       </div>
       <div class="boot-log" id="bootLog" aria-live="polite"></div>
@@ -28,6 +28,7 @@
     <section class="pc-screen" id="pcScreen" aria-label="MeowOS desktop" hidden>
       <div class="pc-wallpaper" aria-hidden="true"></div>
       <div class="desktop-noise" aria-hidden="true"></div>
+      <div class="spam-overlay" id="spamOverlay" aria-label="Spam popup layer" hidden></div>
 
       <div class="pc-desktop">
         <header class="os-topbar" aria-label="MeowOS status bar">
@@ -74,6 +75,10 @@
             <span class="icon-glyph trash">BIN</span>
             <b>Trash</b>
           </button>
+          <button class="desktop-icon desktop-only" data-target="roomba" data-roomba-launch type="button" hidden>
+            <span class="icon-glyph roomba">BOT</span>
+            <b>Roomba</b>
+          </button>
           <button class="desktop-icon phone-only" data-target="terminal" type="button">
             <span class="icon-glyph terminal">$_</span>
             <b>Terminal</b>
@@ -86,18 +91,11 @@
             <span class="icon-glyph document">TXT</span>
             <b>Notes</b>
           </button>
-          <button class="desktop-icon phone-only" data-target="roomba" type="button">
+          <button class="desktop-icon phone-only" data-target="roomba" data-roomba-launch type="button" hidden>
             <span class="icon-glyph roomba">BOT</span>
             <b>Roomba</b>
           </button>
         </aside>
-
-        <div class="desktop-props" aria-hidden="true">
-          <div class="sticky-note">FEED CAT<br />10PM</div>
-          <div class="desk-device">
-            <span></span>
-          </div>
-        </div>
 
         <main class="desktop-stage" aria-label="Open desktop windows">
           <section class="desk-window about-window" id="window-about" aria-labelledby="title-about" hidden>
@@ -142,9 +140,9 @@
               </div>
             </header>
             <div class="window-body terminal-copy" id="terminalOutput" aria-live="polite">
+              <p class="cmd-current-objective" id="cmdCurrentObjective"><span class="objective-label">OBJECTIVE</span><span class="objective-text">waking desktop shell...</span></p>
               <div class="terminal-lines" id="terminalLines"></div>
               <div class="terminal-controls" id="terminalControls">
-                <p class="cmd-current-objective"><span>ALAN&gt;</span> next: open MeowOS / My Stuff</p>
                 <form class="cmd-input-row" id="cmdQuestionForm" autocomplete="off">
                   <label for="cmdQuestionInput">ALAN?</label>
                   <input id="cmdQuestionInput" name="question" type="text" inputmode="text" placeholder="what do i do next" />
@@ -286,6 +284,7 @@
               <button data-target="world-plan" type="button">world_domination_plan.txt</button>
               <button data-target="todo" type="button">todo.txt</button>
               <button data-target="photos" type="button">Cat Pics / Mochi</button>
+              <button data-target="virus" data-virus-file type="button" hidden>MOCHI_MIRROR.vbs</button>
             </div>
           </section>
 
@@ -377,6 +376,21 @@
             </div>
           </section>
 
+          <section class="desk-window small-window virus-window" id="window-virus" aria-labelledby="title-virus" hidden>
+            <header class="window-titlebar">
+              <span id="title-virus">MOCHI_MIRROR.vbs</span>
+              <div>
+                <button class="window-action" data-close="virus" type="button" aria-label="Close Virus File">x</button>
+              </div>
+            </header>
+            <div class="window-body file-copy compact-copy">
+              <p><span>Recovered script:</span> MOCHI_MIRROR.vbs</p>
+              <p>Signature: nuisanceware / popup injector / cache watcher</p>
+              <p>Status: attached to Roomba restore cache</p>
+              <button class="file-action" data-start-virus-clean type="button">run quarantine</button>
+            </div>
+          </section>
+
           <section class="desk-window roomba-window" id="window-roomba" aria-labelledby="title-roomba" hidden>
             <header class="window-titlebar">
               <span id="title-roomba">Roomba App</span>
@@ -460,12 +474,69 @@
                 <button class="window-action" data-close="trash" type="button" aria-label="Close Trash">x</button>
               </div>
             </header>
-            <div class="window-body app-copy">
+            <div class="window-body trash-copy">
               <p>Deleted items:</p>
-              <p>essay_final_final_REAL.doc</p>
-              <p>budget_optimism.xls</p>
-              <p>confidence.tmp</p>
+              <button data-target="essay-final" type="button"><span>DOC</span> essay_final_final_REAL.doc</button>
+              <button data-target="budget-optimism" type="button"><span>XLS</span> budget_optimism.xls</button>
+              <button data-target="confidence-tmp" type="button"><span>TMP</span> confidence.tmp</button>
+              <button data-restore-roomba type="button"><span>APP</span> roomba_companion.app</button>
             </div>
+          </section>
+
+          <section class="desk-window small-window" id="window-essay-final" aria-labelledby="title-essay-final" hidden>
+            <header class="window-titlebar">
+              <span id="title-essay-final">essay_final_final_REAL.doc</span>
+              <div>
+                <button class="window-action" data-close="essay-final" type="button" aria-label="Close Essay">x</button>
+              </div>
+            </header>
+            <div class="window-body file-copy compact-copy">
+              <p>Title: The Ethics of Artificial Companions</p>
+              <p>Word count: 214 / required: 3000</p>
+              <p>Opening line:</p>
+              <p>"Technology is only scary when it starts wanting things."</p>
+              <p><span>Note:</span> this is probably fine.</p>
+            </div>
+          </section>
+
+          <section class="desk-window small-window" id="window-budget-optimism" aria-labelledby="title-budget-optimism" hidden>
+            <header class="window-titlebar">
+              <span id="title-budget-optimism">budget_optimism.xls</span>
+              <div>
+                <button class="window-action" data-close="budget-optimism" type="button" aria-label="Close Budget">x</button>
+              </div>
+            </header>
+            <div class="window-body sheet-copy">
+              <div>Item</div><div>Cost</div><div>Plan</div>
+              <div>Rent</div><div>bad</div><div>ignore briefly</div>
+              <div>Coffee</div><div>high</div><div>necessary</div>
+              <div>Cat toys</div><div>higher</div><div>emotionally necessary</div>
+            </div>
+          </section>
+
+          <section class="desk-window small-window" id="window-confidence-tmp" aria-labelledby="title-confidence-tmp" hidden>
+            <header class="window-titlebar">
+              <span id="title-confidence-tmp">confidence.tmp</span>
+              <div>
+                <button class="window-action" data-close="confidence-tmp" type="button" aria-label="Close Confidence">x</button>
+              </div>
+            </header>
+            <div class="window-body file-copy compact-copy">
+              <p>Cache file recovered.</p>
+              <p>Contents: one encouraging sentence, corrupted by being 22.</p>
+              <p>"You can probably do this."</p>
+              <p><span>Integrity:</span> fragile but valid</p>
+            </div>
+          </section>
+
+          <section class="desk-window recovery-window" id="window-recovery" aria-labelledby="title-recovery" hidden>
+            <header class="window-titlebar">
+              <span id="title-recovery">system_recovery.exe</span>
+              <div>
+                <button class="window-action" data-close="recovery" type="button" aria-label="Close Recovery">x</button>
+              </div>
+            </header>
+            <div class="window-body recovery-copy" id="recoveryBody"></div>
           </section>
         </main>
 
@@ -479,7 +550,7 @@
             <button data-target="photos" type="button"><span class="icon-glyph photo">IMG</span>Mochi Pics</button>
             <button data-target="notes" type="button"><span class="icon-glyph document">TXT</span>Notes</button>
             <button data-target="browser" type="button"><span class="icon-glyph browser">NET</span>Browser</button>
-            <button data-target="roomba" type="button"><span class="icon-glyph roomba">BOT</span>Roomba</button>
+            <button data-target="roomba" data-roomba-launch type="button" hidden><span class="icon-glyph roomba">BOT</span>Roomba</button>
             <button data-target="games" type="button"><span class="icon-glyph game">PAD</span>Games</button>
             <button data-target="music" type="button"><span class="icon-glyph music">AUD</span>Music</button>
             <button data-target="trash" type="button"><span class="icon-glyph trash">BIN</span>Trash</button>
