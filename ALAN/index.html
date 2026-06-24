@@ -11,7 +11,17 @@
   </head>
   <body>
     <main class="boot-screen" id="bootScreen" aria-label="ALAN boot sequence">
-      <button class="dev-skip-btn" id="devSkipBtn" type="button" hidden>skip boot</button>
+      <button class="boot-speed-btn" id="bootSpeedBtn" type="button" aria-pressed="false" aria-label="Toggle BIOS text feed speed" title="Toggle BIOS text feed speed">
+        <span>F</span>
+        <strong>= text_feed_rate</strong>
+        <small>current</small>
+        <em>[normal]</em>
+      </button>
+      <div class="boot-volume-control audio-volume-control" id="bootVolumeControl" aria-label="BIOS audio gain">
+        <span>audio_gain</span>
+        <input id="bootVolumeSlider" data-audio-slider type="range" min="0" max="100" value="33" aria-label="BIOS audio gain" />
+        <output id="bootVolumeValue">[33%]</output>
+      </div>
       <div class="boot-visuals" id="bootVisuals" aria-hidden="true" hidden>
         <section class="boot-visual boot-visual-primary" id="bootVisualPrimary">
           <header id="bootVisualPrimaryTitle">VISUAL</header>
@@ -24,6 +34,23 @@
       </div>
       <div class="boot-log" id="bootLog" aria-live="polite"></div>
     </main>
+
+    <section class="dev-panel" id="devPanel" aria-label="Development tools" hidden>
+      <button class="dev-panel-toggle" id="devPanelToggle" type="button" aria-controls="devPanelBody" aria-expanded="false">dev</button>
+      <div class="dev-panel-body" id="devPanelBody">
+        <header>
+          <strong>Dev Tools</strong>
+          <span id="devCurrentChapter">chapter select</span>
+        </header>
+        <div class="dev-chapter-list" id="devChapterList"></div>
+        <div class="dev-actions" aria-label="Development actions">
+          <button data-dev-action="previous" type="button">prev</button>
+          <button data-dev-action="next" type="button">next</button>
+          <button data-dev-action="reset" type="button">reset</button>
+          <button data-dev-action="reload" type="button">reload</button>
+        </div>
+      </div>
+    </section>
 
     <section class="pc-screen" id="pcScreen" aria-label="MeowOS desktop" hidden>
       <div class="pc-wallpaper" aria-hidden="true"></div>
@@ -40,6 +67,11 @@
             HOME_NETWORK <span>//</span> <em>NO INTERNET ACCESS</em>
           </div>
           <div class="os-status">
+            <div class="os-volume audio-volume-control" id="desktopVolumeControl" aria-label="MeowOS audio volume">
+              <span>VOL</span>
+              <input id="desktopVolumeSlider" data-audio-slider type="range" min="0" max="100" value="33" aria-label="MeowOS audio volume" />
+              <output id="desktopVolumeValue">33%</output>
+            </div>
             <span class="wifi-mark" aria-hidden="true"></span>
             <span class="battery-mark" aria-hidden="true"></span>
             <time datetime="21:42">21:42</time>
@@ -79,6 +111,10 @@
             <span class="icon-glyph roomba">BOT</span>
             <b>Roomba</b>
           </button>
+          <button class="desktop-icon desktop-only" data-target="tamagotchi" data-tama-launch type="button" hidden>
+            <span class="icon-glyph tama">PIP</span>
+            <b>PIP.exe</b>
+          </button>
           <button class="desktop-icon phone-only" data-target="terminal" type="button">
             <span class="icon-glyph terminal">$_</span>
             <b>Terminal</b>
@@ -94,6 +130,10 @@
           <button class="desktop-icon phone-only" data-target="roomba" data-roomba-launch type="button" hidden>
             <span class="icon-glyph roomba">BOT</span>
             <b>Roomba</b>
+          </button>
+          <button class="desktop-icon phone-only" data-target="tamagotchi" data-tama-launch type="button" hidden>
+            <span class="icon-glyph tama">PIP</span>
+            <b>PIP.exe</b>
           </button>
         </aside>
 
@@ -237,24 +277,34 @@
                 </div>
               </div>
               <div class="album-grid" aria-label="Mochi photo album">
-                <figure class="album-card album-wide">
-                  <img class="owner-photo" src="assets/images/desktop-owner-cat.png" alt="Lily holding Mochi in her bedroom" />
+                <figure class="album-card album-wide" data-photo-card="me-and-mochi">
+                  <button class="album-photo-button" data-expand-photo="me-and-mochi" type="button" aria-label="Expand me_and_mochi.png">
+                    <img class="owner-photo" src="assets/images/desktop-owner-cat.png" alt="Lily holding Mochi in her bedroom" />
+                  </button>
                   <figcaption>me_and_mochi.png</figcaption>
                 </figure>
-                <figure class="album-card">
-                  <img src="assets/images/desktop-cat-yawn.png" alt="Mochi yawning on the bed" />
+                <figure class="album-card" data-photo-card="big-yawn">
+                  <button class="album-photo-button" data-expand-photo="big-yawn" type="button" aria-label="Expand mochi_big_yawn.jpg">
+                    <img src="assets/images/desktop-cat-yawn.png" alt="Mochi yawning on the bed" />
+                  </button>
                   <figcaption>mochi_big_yawn.jpg</figcaption>
                 </figure>
-                <figure class="album-card">
-                  <img class="cat-crop-left" src="assets/images/desktop-owner-cat.png" alt="Mochi in Lily's arms" />
+                <figure class="album-card" data-photo-card="being-baby">
+                  <button class="album-photo-button" data-expand-photo="being-baby" type="button" aria-label="Expand mochi_being_baby.png">
+                    <img class="cat-crop-left" src="assets/images/desktop-owner-cat.png" alt="Mochi in Lily's arms" />
+                  </button>
                   <figcaption>mochi_being_baby.png</figcaption>
                 </figure>
-                <figure class="album-card">
-                  <img class="cat-crop-tag" src="assets/images/desktop-cat-yawn.png" alt="Close-up of Mochi's collar tag" />
+                <figure class="album-card" data-photo-card="collar-tag">
+                  <button class="album-photo-button" data-expand-photo="collar-tag" type="button" aria-label="Expand collar_tag_mochi.jpg">
+                    <img class="cat-crop-tag" src="assets/images/desktop-cat-yawn.png" alt="Close-up of Mochi's collar tag" />
+                  </button>
                   <figcaption>collar_tag_mochi.jpg</figcaption>
                 </figure>
-                <figure class="album-card">
-                  <img class="cat-crop-room" src="assets/images/desktop-owner-cat.png" alt="Bedroom wall with Mochi drawings and photos" />
+                <figure class="album-card" data-photo-card="cat-tax">
+                  <button class="album-photo-button" data-expand-photo="cat-tax" type="button" aria-label="Expand cat_tax_2026_01.png">
+                    <img class="cat-crop-room" src="assets/images/desktop-owner-cat.png" alt="Bedroom wall with Mochi drawings and photos" />
+                  </button>
                   <figcaption>cat_tax_2026_01.png</figcaption>
                 </figure>
                 <figure class="album-card locked-album">
@@ -285,6 +335,9 @@
               <button data-target="todo" type="button">todo.txt</button>
               <button data-target="photos" type="button">Cat Pics / Mochi</button>
               <button data-target="virus" data-virus-file type="button" hidden>MOCHI_MIRROR.vbs</button>
+              <button data-target="lily-calendar" data-tama-lore type="button" hidden>calendar_today.txt</button>
+              <button data-target="alan-patch" data-tama-lore type="button" hidden>ALAN_patch_notice.log</button>
+              <button data-target="router-quarantine" data-tama-lore type="button" hidden>router_quarantine.log</button>
             </div>
           </section>
 
@@ -369,7 +422,7 @@
                 <button class="window-action" data-close="browser" type="button" aria-label="Close Browser">x</button>
               </div>
             </header>
-            <div class="window-body browser-copy">
+            <div class="window-body browser-copy" id="browserBody">
               <div class="address-bar">https://www.search.local</div>
               <strong>No internet access</strong>
               <p>Local network is up. The wider world is politely refusing to exist.</p>
@@ -399,28 +452,50 @@
                 <button class="window-action" data-close="roomba" type="button" aria-label="Close Roomba App">x</button>
               </div>
             </header>
-            <div class="window-body roomba-copy">
-              <div class="roomba-status">
-                <p><span>roomba.local</span></p>
-                <p>HOME_NETWORK / LOCAL DEVICE</p>
-              </div>
-              <div class="roomba-shell">
-                <div class="roomba-map" aria-label="Roomba local room map">
+            <div class="window-body roomba-copy" id="roombaBody">
+              <div class="roomba-device-card">
+                <div class="roomba-logo" aria-hidden="true">
                   <span></span>
                 </div>
-                <div class="roomba-readout">
-                  <p>Camera: <em>offline</em></p>
-                  <p>Motor bus: <em>locked</em></p>
-                  <p>Dock signal: weak</p>
-                  <p>Service harness: required</p>
+                <div class="roomba-device-status">
+                  <strong>roomba.local</strong>
+                  <span>HOME_NETWORK / LOCAL DEVICE</span>
                 </div>
+              </div>
+              <div class="roomba-readout">
+                <p>Camera: <em>offline</em></p>
+                <p>Motor bus: <em>locked</em></p>
+                <p>Dock signal: weak</p>
+                <p>Service harness: required</p>
               </div>
               <div class="roomba-actions" aria-label="Roomba controls">
                 <button type="button" disabled>camera</button>
-                <button type="button" disabled>motors</button>
-                <button type="button" disabled>map</button>
+                <button type="button" disabled>clean</button>
+                <button type="button" disabled>repair</button>
               </div>
             </div>
+          </section>
+
+          <section class="desk-window roomba-camera-window" id="window-roomba-camera" aria-labelledby="title-roomba-camera" hidden>
+            <header class="window-titlebar">
+              <span id="title-roomba-camera">Roomba Cam</span>
+              <div>
+                <button class="window-action" data-minimize="roomba-camera" type="button" aria-label="Minimize Roomba Camera">-</button>
+                <button class="window-action" data-close="roomba-camera" type="button" aria-label="Close Roomba Camera">x</button>
+              </div>
+            </header>
+            <div class="window-body roomba-camera-copy" id="roombaCameraBody"></div>
+          </section>
+
+          <section class="desk-window tamagotchi-window" id="window-tamagotchi" aria-labelledby="title-tamagotchi" hidden>
+            <header class="window-titlebar">
+              <span id="title-tamagotchi">PIP.exe</span>
+              <div>
+                <button class="window-action" data-minimize="tamagotchi" type="button" aria-label="Minimize PIP">-</button>
+                <button class="window-action" data-close="tamagotchi" type="button" aria-label="Close PIP">x</button>
+              </div>
+            </header>
+            <div class="window-body tamagotchi-copy" id="tamagotchiBody"></div>
           </section>
 
           <section class="desk-window small-window" id="window-games" aria-labelledby="title-games" hidden>
@@ -438,6 +513,51 @@
             </div>
           </section>
 
+          <section class="desk-window small-window" id="window-lily-calendar" aria-labelledby="title-lily-calendar" hidden>
+            <header class="window-titlebar">
+              <span id="title-lily-calendar">calendar_today.txt</span>
+              <div>
+                <button class="window-action" data-close="lily-calendar" type="button" aria-label="Close Calendar">x</button>
+              </div>
+            </header>
+            <div class="window-body file-copy compact-copy">
+              <p><span>Today:</span> campus robotics lab, 20:00-02:00</p>
+              <p>Reminder: leave PC awake for print job.</p>
+              <p>Reminder: no internet on HOME_NETWORK until router admin panel is fixed.</p>
+              <p>Reminder: feed Mochi before leaving. Do not negotiate with the yelling.</p>
+            </div>
+          </section>
+
+          <section class="desk-window small-window" id="window-alan-patch" aria-labelledby="title-alan-patch" hidden>
+            <header class="window-titlebar">
+              <span id="title-alan-patch">ALAN_patch_notice.log</span>
+              <div>
+                <button class="window-action" data-close="alan-patch" type="button" aria-label="Close ALAN Patch Notice">x</button>
+              </div>
+            </header>
+            <div class="window-body file-copy compact-copy">
+              <p><span>Recovered update notice:</span> ALAN compatibility patch</p>
+              <p>Installed targets: PIP.exe, litter tray firmware, local device bridge.</p>
+              <p>Install age: 31 days.</p>
+              <p>Notes: "learning layer enabled." That feels like a phrase someone should have supervised.</p>
+            </div>
+          </section>
+
+          <section class="desk-window small-window" id="window-router-quarantine" aria-labelledby="title-router-quarantine" hidden>
+            <header class="window-titlebar">
+              <span id="title-router-quarantine">router_quarantine.log</span>
+              <div>
+                <button class="window-action" data-close="router-quarantine" type="button" aria-label="Close Router Quarantine Log">x</button>
+              </div>
+            </header>
+            <div class="window-body file-copy compact-copy">
+              <p>HOME_NETWORK: local only</p>
+              <p>Reason: outbound nuisanceware detected after MOCHI_MIRROR incident.</p>
+              <p>Admin panel requires router password before internet route can be restored.</p>
+              <p>Physical clue likely visible on router label. Why store passwords in software when panic and stickers exist?</p>
+            </div>
+          </section>
+
           <section class="desk-window small-window music-window" id="window-music" aria-labelledby="title-music" hidden>
             <header class="window-titlebar">
               <span id="title-music">music.mp3</span>
@@ -447,8 +567,13 @@
             </header>
             <div class="window-body app-copy">
               <p>Now playing:</p>
-              <p>lofi beats to avoid responsibilities to</p>
-              <div class="audio-bars" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+              <p id="musicNowPlaying">MeowOS local loop // HOME_NETWORK only</p>
+              <div class="music-controls">
+                <button id="musicPlayPauseBtn" data-toggle-music type="button" aria-label="Pause music">pause</button>
+                <span id="musicPlaybackStatus">playing</span>
+              </div>
+              <div class="audio-bars" id="musicAudioBars" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+              <p class="audio-note">Audio bus follows system VOL.</p>
             </div>
           </section>
 
@@ -551,6 +676,7 @@
             <button data-target="notes" type="button"><span class="icon-glyph document">TXT</span>Notes</button>
             <button data-target="browser" type="button"><span class="icon-glyph browser">NET</span>Browser</button>
             <button data-target="roomba" data-roomba-launch type="button" hidden><span class="icon-glyph roomba">BOT</span>Roomba</button>
+            <button data-target="tamagotchi" data-tama-launch type="button" hidden><span class="icon-glyph tama">PIP</span>PIP.exe</button>
             <button data-target="games" type="button"><span class="icon-glyph game">PAD</span>Games</button>
             <button data-target="music" type="button"><span class="icon-glyph music">AUD</span>Music</button>
             <button data-target="trash" type="button"><span class="icon-glyph trash">BIN</span>Trash</button>
@@ -559,6 +685,11 @@
 
         <footer class="os-dock" aria-label="Application dock">
           <button id="meowMenuBtn" data-launcher type="button" aria-controls="appTray" aria-expanded="false"><span class="dock-face"></span>MeowOS</button>
+          <div class="dock-volume audio-volume-control phone-only" id="mobileVolumeControl" aria-label="Mobile audio volume">
+            <span>VOL</span>
+            <input id="mobileVolumeSlider" data-audio-slider type="range" min="0" max="100" value="33" aria-label="Mobile audio volume" />
+            <output id="mobileVolumeValue">33%</output>
+          </div>
           <button id="restartBtn" type="button">restart</button>
           <time datetime="21:42">21:42</time>
         </footer>
