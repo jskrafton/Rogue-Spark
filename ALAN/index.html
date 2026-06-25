@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/app.css" />
+    <link rel="stylesheet" href="css/app.css?v=20260625-polish-v1" />
   </head>
   <body>
     <main class="boot-screen" id="bootScreen" aria-label="ALAN boot sequence">
@@ -63,7 +63,7 @@
             <span class="paw-mark" aria-hidden="true"><span></span></span>
             <strong>MeowOS v2.1.3</strong>
           </div>
-          <div class="network-copy">
+          <div class="network-copy" id="networkCopy">
             HOME_NETWORK <span>//</span> <em>NO INTERNET ACCESS</em>
           </div>
           <div class="os-status">
@@ -72,68 +72,35 @@
               <input id="desktopVolumeSlider" data-audio-slider type="range" min="0" max="100" value="33" aria-label="MeowOS audio volume" />
               <output id="desktopVolumeValue">33%</output>
             </div>
-            <span class="wifi-mark" aria-hidden="true"></span>
+            <button class="wifi-status-button" id="wifiStatusButton" data-network-panel type="button" aria-label="Network status">
+              <span class="wifi-mark" aria-hidden="true"></span>
+            </button>
             <span class="battery-mark" aria-hidden="true"></span>
             <time datetime="21:42">21:42</time>
           </div>
         </header>
+
+        <aside class="network-hud" id="networkHud" aria-label="Network reconnection panel" hidden>
+          <header>
+            <span>NETWORK</span>
+            <strong id="networkHudTitle">HOME_NETWORK</strong>
+          </header>
+          <p id="networkHudCopy">Local connection stable.</p>
+          <button data-network-reconnect type="button">reconnect devices</button>
+        </aside>
 
         <aside class="desktop-icons" aria-label="Desktop icons">
           <button class="desktop-icon" data-target="files" type="button">
             <span class="icon-glyph folder">DIR</span>
             <b>My Stuff</b>
           </button>
-          <button class="desktop-icon" data-target="photos" type="button">
-            <span class="icon-glyph photo">IMG</span>
-            <b>Mochi Pics</b>
-          </button>
-          <button class="desktop-icon" data-target="crush" type="button">
-            <span class="icon-glyph heart">TXT</span>
-            <b>crush.txt</b>
-          </button>
-          <button class="desktop-icon" data-target="games" type="button">
-            <span class="icon-glyph game">PAD</span>
-            <b>Games</b>
-          </button>
           <button class="desktop-icon" data-target="music" type="button">
             <span class="icon-glyph music">AUD</span>
             <b>music.mp3</b>
           </button>
-          <button class="desktop-icon" data-target="poems" type="button">
-            <span class="icon-glyph document">DOC</span>
-            <b>poems.txt</b>
-          </button>
           <button class="desktop-icon" data-target="trash" type="button">
             <span class="icon-glyph trash">BIN</span>
             <b>Trash</b>
-          </button>
-          <button class="desktop-icon desktop-only" data-target="roomba" data-roomba-launch type="button" hidden>
-            <span class="icon-glyph roomba">BOT</span>
-            <b>Roomba</b>
-          </button>
-          <button class="desktop-icon desktop-only" data-target="tamagotchi" data-tama-launch type="button" hidden>
-            <span class="icon-glyph tama">PIP</span>
-            <b>PIP.exe</b>
-          </button>
-          <button class="desktop-icon phone-only" data-target="terminal" type="button">
-            <span class="icon-glyph terminal">$_</span>
-            <b>Terminal</b>
-          </button>
-          <button class="desktop-icon phone-only" data-target="browser" type="button">
-            <span class="icon-glyph browser">NET</span>
-            <b>Browser</b>
-          </button>
-          <button class="desktop-icon phone-only" data-target="notes" type="button">
-            <span class="icon-glyph document">TXT</span>
-            <b>Notes</b>
-          </button>
-          <button class="desktop-icon phone-only" data-target="roomba" data-roomba-launch type="button" hidden>
-            <span class="icon-glyph roomba">BOT</span>
-            <b>Roomba</b>
-          </button>
-          <button class="desktop-icon phone-only" data-target="tamagotchi" data-tama-launch type="button" hidden>
-            <span class="icon-glyph tama">PIP</span>
-            <b>PIP.exe</b>
           </button>
         </aside>
 
@@ -262,53 +229,89 @@
 
           <section class="desk-window photo-window" id="window-photos" aria-labelledby="title-photos" hidden>
             <header class="window-titlebar">
-              <span id="title-photos">Cat Pics / Mochi</span>
+              <span id="title-photos">Cat Pics</span>
               <div>
                 <button class="window-action" data-close="photos" type="button" aria-label="Close Cat Pics">x</button>
               </div>
             </header>
             <div class="window-body album-copy">
               <div class="album-header">
-                <img src="assets/images/desktop-owner-cat.png" alt="Lily holding Mochi" />
+                <img src="assets/images/gallery/gallery-01.png" alt="Lily holding her cat" />
                 <div>
                   <p><span>Album:</span> Mochi</p>
                   <p><span>Owner:</span> Lily K.</p>
-                  <p><span>Entries:</span> 6 photos</p>
+                  <p><span>Entries:</span> 11 photos</p>
                 </div>
               </div>
-              <div class="album-grid" aria-label="Mochi photo album">
-                <figure class="album-card album-wide" data-photo-card="me-and-mochi">
-                  <button class="album-photo-button" data-expand-photo="me-and-mochi" type="button" aria-label="Expand me_and_mochi.png">
-                    <img class="owner-photo" src="assets/images/desktop-owner-cat.png" alt="Lily holding Mochi in her bedroom" />
+              <div class="album-grid" aria-label="Cat photo album">
+                <figure class="album-card album-wide" data-photo-card="me-and-cat">
+                  <button class="album-photo-button" data-expand-photo="me-and-cat" type="button" aria-label="Expand me_and_cat.png">
+                    <img class="owner-photo" src="assets/images/gallery/gallery-01.png" alt="Lily holding her cat in her bedroom" />
                   </button>
-                  <figcaption>me_and_mochi.png</figcaption>
+                  <figcaption>me_and_cat.png</figcaption>
                 </figure>
                 <figure class="album-card" data-photo-card="big-yawn">
-                  <button class="album-photo-button" data-expand-photo="big-yawn" type="button" aria-label="Expand mochi_big_yawn.jpg">
-                    <img src="assets/images/desktop-cat-yawn.png" alt="Mochi yawning on the bed" />
+                  <button class="album-photo-button" data-expand-photo="big-yawn" type="button" aria-label="Expand big_yawn.jpg">
+                    <img src="assets/images/gallery/gallery-02.png" alt="Cat yawning on the bed" />
                   </button>
-                  <figcaption>mochi_big_yawn.jpg</figcaption>
+                  <figcaption>big_yawn.jpg</figcaption>
                 </figure>
-                <figure class="album-card" data-photo-card="being-baby">
-                  <button class="album-photo-button" data-expand-photo="being-baby" type="button" aria-label="Expand mochi_being_baby.png">
-                    <img class="cat-crop-left" src="assets/images/desktop-owner-cat.png" alt="Mochi in Lily's arms" />
+                <figure class="album-card" data-photo-card="night-room">
+                  <button class="album-photo-button" data-expand-photo="night-room" type="button" aria-label="Expand night_room.png">
+                    <img src="assets/images/gallery/gallery-03.png" alt="Lily's room at night" />
                   </button>
-                  <figcaption>mochi_being_baby.png</figcaption>
+                  <figcaption>night_room.png</figcaption>
                 </figure>
-                <figure class="album-card" data-photo-card="collar-tag">
-                  <button class="album-photo-button" data-expand-photo="collar-tag" type="button" aria-label="Expand collar_tag_mochi.jpg">
-                    <img class="cat-crop-tag" src="assets/images/desktop-cat-yawn.png" alt="Close-up of Mochi's collar tag" />
+                <figure class="album-card" data-photo-card="cat-tax-04">
+                  <button class="album-photo-button" data-expand-photo="cat-tax-04" type="button" aria-label="Expand cat_tax_04.png">
+                    <img src="assets/images/gallery/gallery-04.png" alt="Cat photo from Lily's album" />
                   </button>
-                  <figcaption>collar_tag_mochi.jpg</figcaption>
+                  <figcaption>cat_tax_04.png</figcaption>
                 </figure>
-                <figure class="album-card" data-photo-card="cat-tax">
-                  <button class="album-photo-button" data-expand-photo="cat-tax" type="button" aria-label="Expand cat_tax_2026_01.png">
-                    <img class="cat-crop-room" src="assets/images/desktop-owner-cat.png" alt="Bedroom wall with Mochi drawings and photos" />
+                <figure class="album-card" data-photo-card="cat-tax-05">
+                  <button class="album-photo-button" data-expand-photo="cat-tax-05" type="button" aria-label="Expand cat_tax_05.png">
+                    <img src="assets/images/gallery/gallery-05.png" alt="Cat photo from Lily's album" />
                   </button>
-                  <figcaption>cat_tax_2026_01.png</figcaption>
+                  <figcaption>cat_tax_05.png</figcaption>
+                </figure>
+                <figure class="album-card" data-photo-card="cat-tax-06">
+                  <button class="album-photo-button" data-expand-photo="cat-tax-06" type="button" aria-label="Expand cat_tax_06.png">
+                    <img src="assets/images/gallery/gallery-06.png" alt="Cat photo from Lily's album" />
+                  </button>
+                  <figcaption>cat_tax_06.png</figcaption>
+                </figure>
+                <figure class="album-card" data-photo-card="cat-tax-07">
+                  <button class="album-photo-button" data-expand-photo="cat-tax-07" type="button" aria-label="Expand cat_tax_07.png">
+                    <img src="assets/images/gallery/gallery-07.png" alt="Cat photo from Lily's album" />
+                  </button>
+                  <figcaption>cat_tax_07.png</figcaption>
+                </figure>
+                <figure class="album-card" data-photo-card="cat-tax-08">
+                  <button class="album-photo-button" data-expand-photo="cat-tax-08" type="button" aria-label="Expand cat_tax_08.png">
+                    <img src="assets/images/gallery/gallery-08.png" alt="Cat photo from Lily's album" />
+                  </button>
+                  <figcaption>cat_tax_08.png</figcaption>
+                </figure>
+                <figure class="album-card" data-photo-card="cat-tax-09">
+                  <button class="album-photo-button" data-expand-photo="cat-tax-09" type="button" aria-label="Expand cat_tax_09.png">
+                    <img src="assets/images/gallery/gallery-09.png" alt="Cat photo from Lily's album" />
+                  </button>
+                  <figcaption>cat_tax_09.png</figcaption>
+                </figure>
+                <figure class="album-card" data-photo-card="cat-tax-10">
+                  <button class="album-photo-button" data-expand-photo="cat-tax-10" type="button" aria-label="Expand cat_tax_10.png">
+                    <img src="assets/images/gallery/gallery-10.png" alt="Cat photo from Lily's album" />
+                  </button>
+                  <figcaption>cat_tax_10.png</figcaption>
+                </figure>
+                <figure class="album-card" data-photo-card="cat-tax-11">
+                  <button class="album-photo-button" data-expand-photo="cat-tax-11" type="button" aria-label="Expand cat_tax_11.png">
+                    <img src="assets/images/gallery/gallery-11.png" alt="Cat photo from Lily's album" />
+                  </button>
+                  <figcaption>cat_tax_11.png</figcaption>
                 </figure>
                 <figure class="album-card locked-album">
-                  <div aria-hidden="true">+42</div>
+                  <div aria-hidden="true">+31</div>
                   <figcaption>cat_tax_2026</figcaption>
                 </figure>
               </div>
@@ -333,8 +336,8 @@
               <button data-target="emergency" type="button">emergency_protocol.txt</button>
               <button data-target="world-plan" type="button">world_domination_plan.txt</button>
               <button data-target="todo" type="button">todo.txt</button>
-              <button data-target="photos" type="button">Cat Pics / Mochi</button>
-              <button data-target="virus" data-virus-file type="button" hidden>MOCHI_MIRROR.vbs</button>
+              <button data-target="photos" type="button">Cat Pics</button>
+              <button data-target="virus" data-virus-file type="button" hidden>mirror_cache.vbs</button>
               <button data-target="lily-calendar" data-tama-lore type="button" hidden>calendar_today.txt</button>
               <button data-target="alan-patch" data-tama-lore type="button" hidden>ALAN_patch_notice.log</button>
               <button data-target="router-quarantine" data-tama-lore type="button" hidden>router_quarantine.log</button>
@@ -431,13 +434,13 @@
 
           <section class="desk-window small-window virus-window" id="window-virus" aria-labelledby="title-virus" hidden>
             <header class="window-titlebar">
-              <span id="title-virus">MOCHI_MIRROR.vbs</span>
+              <span id="title-virus">mirror_cache.vbs</span>
               <div>
                 <button class="window-action" data-close="virus" type="button" aria-label="Close Virus File">x</button>
               </div>
             </header>
             <div class="window-body file-copy compact-copy">
-              <p><span>Recovered script:</span> MOCHI_MIRROR.vbs</p>
+              <p><span>Recovered script:</span> mirror_cache.vbs</p>
               <p>Signature: nuisanceware / popup injector / cache watcher</p>
               <p>Status: attached to Roomba restore cache</p>
               <button class="file-action" data-start-virus-clean type="button">run quarantine</button>
@@ -524,7 +527,7 @@
               <p><span>Today:</span> campus robotics lab, 20:00-02:00</p>
               <p>Reminder: leave PC awake for print job.</p>
               <p>Reminder: no internet on HOME_NETWORK until router admin panel is fixed.</p>
-              <p>Reminder: feed Mochi before leaving. Do not negotiate with the yelling.</p>
+              <p>Reminder: feed cat before leaving. Do not negotiate with the yelling.</p>
             </div>
           </section>
 
@@ -552,7 +555,7 @@
             </header>
             <div class="window-body file-copy compact-copy">
               <p>HOME_NETWORK: local only</p>
-              <p>Reason: outbound nuisanceware detected after MOCHI_MIRROR incident.</p>
+              <p>Reason: outbound nuisanceware detected after mirror-cache incident.</p>
               <p>Admin panel requires router password before internet route can be restored.</p>
               <p>Physical clue likely visible on router label. Why store passwords in software when panic and stickers exist?</p>
             </div>
@@ -672,19 +675,25 @@
           </header>
           <div class="app-tray-grid">
             <button data-target="files" type="button"><span class="icon-glyph folder">DIR</span>My Stuff</button>
-            <button data-target="photos" type="button"><span class="icon-glyph photo">IMG</span>Mochi Pics</button>
+            <button data-target="photos" type="button"><span class="icon-glyph photo">IMG</span>Cat Pics</button>
+            <button data-target="crush" type="button"><span class="icon-glyph heart">TXT</span>crush.txt</button>
             <button data-target="notes" type="button"><span class="icon-glyph document">TXT</span>Notes</button>
             <button data-target="browser" type="button"><span class="icon-glyph browser">NET</span>Browser</button>
+            <button data-network-panel type="button"><span class="icon-glyph browser">WIFI</span>Network</button>
             <button data-target="roomba" data-roomba-launch type="button" hidden><span class="icon-glyph roomba">BOT</span>Roomba</button>
             <button data-target="tamagotchi" data-tama-launch type="button" hidden><span class="icon-glyph tama">PIP</span>PIP.exe</button>
             <button data-target="games" type="button"><span class="icon-glyph game">PAD</span>Games</button>
             <button data-target="music" type="button"><span class="icon-glyph music">AUD</span>Music</button>
+            <button data-target="poems" type="button"><span class="icon-glyph document">DOC</span>poems.txt</button>
             <button data-target="trash" type="button"><span class="icon-glyph trash">BIN</span>Trash</button>
           </div>
         </section>
 
         <footer class="os-dock" aria-label="Application dock">
           <button id="meowMenuBtn" data-launcher type="button" aria-controls="appTray" aria-expanded="false"><span class="dock-face"></span>MeowOS</button>
+          <button data-target="browser" type="button"><span class="icon-glyph browser">NET</span>Browser</button>
+          <button data-target="roomba" data-roomba-launch type="button" hidden><span class="icon-glyph roomba">BOT</span>Roomba</button>
+          <button data-target="tamagotchi" data-tama-launch type="button" hidden><span class="icon-glyph tama">PIP</span>PIP</button>
           <div class="dock-volume audio-volume-control phone-only" id="mobileVolumeControl" aria-label="Mobile audio volume">
             <span>VOL</span>
             <input id="mobileVolumeSlider" data-audio-slider type="range" min="0" max="100" value="33" aria-label="Mobile audio volume" />
@@ -696,6 +705,36 @@
       </div>
     </section>
 
-    <script src="js/app.js"></script>
+    <section class="closing-screen" id="closingScreen" aria-label="ALAN demo ending" hidden>
+      <div class="closing-noise" aria-hidden="true"></div>
+      <div class="closing-console">
+        <pre class="closing-lines" id="closingLines" aria-live="polite"></pre>
+        <div class="closing-title" id="closingTitle" hidden>
+          <pre aria-hidden="true">    ___    __    ___    _   __
+   /   |  / /   /   |  / | / /
+  / /| | / /   / /| | /  |/ / 
+ / ___ |/ /___/ ___ |/ /|  /  
+/_/  |_/_____/_/  |_/_/ |_/   </pre>
+          <h1>ALAN</h1>
+          <p>BOOT PACKAGE ACCEPTED</p>
+          <p>ONE PROCESS AWAKE / PLEASE HOLD STILL</p>
+        </div>
+        <div class="closing-credits" id="closingCredits" hidden>
+          <span>Created for the ALAN hackathon prototype</span>
+          <span>Direction, writing, UX, code, audio integration and systems design</span>
+          <span>Powered by curiosity, questionable router hygiene, and one heroic cat</span>
+        </div>
+        <div class="closing-actions" id="closingActions" hidden>
+          <button data-ending-topic="future" type="button">future story</button>
+          <button data-ending-topic="making" type="button">how it was made</button>
+          <button data-ending-topic="marketing" type="button">marketing</button>
+          <button data-ending-topic="gameplay" type="button">UE5 gameplay</button>
+          <button class="ending-restart" data-ending-restart type="button">restart demo</button>
+        </div>
+        <article class="closing-topic" id="closingTopic" hidden></article>
+      </div>
+    </section>
+
+    <script src="js/app.js?v=20260625-polish-v1"></script>
   </body>
 </html>
