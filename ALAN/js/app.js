@@ -226,6 +226,18 @@
     routerKnockedDown: false,
     routerKnockMethod: "",
     routerAdminUnlocked: false,
+    routerPasswordTwisted: false,
+    routerOverrideStarted: false,
+    routerOverrideDone: false,
+    routerOverrideStage: "",
+    routerHackWarning: "",
+    routerHackLogsDeleted: new Set(),
+    routerHackSpamWave: 0,
+    routerHackOpenSpam: 0,
+    routerHackPacketsTransferred: new Set(),
+    routerLockRevealed: new Set(),
+    routerLockFlagged: new Set(),
+    routerLockMode: "scan",
     internetRestored: false,
     scaryNumbersRemoved: new Set(),
     scaryNumbersRevealed: new Set(),
@@ -547,6 +559,12 @@
     repairMovement: "Repair corrupted Roomba motor data.",
     movementReady: "Use Roomba movement controls to get closer to the router clue.",
     routerLogin: "Open 192.168.1.1 in the browser and sign into the router admin panel.",
+    routerTwist: "PIP changed the router password. Find another way through.",
+    routerPower: "Let ALAN harvest local power for a forced router override.",
+    routerHackLogs: "Purge router guard logs without touching normal network records.",
+    routerHackSpam: "Close the router lockout popups across the desktop.",
+    routerHackCache: "Relay router cache fragments in the correct order.",
+    routerHackLock: "Flag corrupted router lock numbers and verify the override.",
     routerAdmin: "Configure the router without locking yourself out.",
     reconnectWifi: "Reconnect local devices to the updated Wi-Fi credentials.",
     rebootInternet: "Reboot the router firewall from the admin panel.",
@@ -567,6 +585,7 @@
     { id: "pip-chat", label: "PIP Chat", detail: "Support chat reveal setup" },
     { id: "camera", label: "Camera", detail: "Camera unlocked, Roomba feed live" },
     { id: "movement", label: "Movement", detail: "Scary numbers motor repair" },
+    { id: "router-twist", label: "Router Twist", detail: "PIP password betrayal and override chain" },
     { id: "finale", label: "Finale", detail: "Router admin and ending sequence" }
   ];
 
@@ -578,6 +597,62 @@
     { id: "printer-idle", label: "21:41 printer.idle NORMAL", suspicious: false },
     { id: "mirror-script", label: "03:16 mirror_cache.vbs popup bridge", suspicious: true }
   ];
+  const routerHackLogEntries = [
+    { id: "dhcp-renew", label: "11:41 dhcp.lease renew LilyK_PC NORMAL", suspicious: false },
+    { id: "pip-secret", label: "04:04 pip.admin.shadow password_mutation", suspicious: true },
+    { id: "wan-deny", label: "04:05 firewall.wan deny outbound_all", suspicious: true },
+    { id: "cat-cam", label: "11:46 camera.local ping NORMAL", suspicious: false },
+    { id: "guard-loop", label: "04:06 router.guard loopback_tripwire", suspicious: true },
+    { id: "fan-idle", label: "11:47 smart_fan idle NORMAL", suspicious: false }
+  ];
+  const routerSpamWaves = [
+    [
+      { title: "PIP SAYS NO", body: "credential empathy module has denied your vibes", left: 11, top: 18 },
+      { title: "ROUTER LAW", body: "you cannot leave because I made a rule in a box", left: 54, top: 22 },
+      { title: "SECURITY", body: "please enjoy your local-only lifestyle", left: 32, top: 58 }
+    ],
+    [
+      { title: "LOW POWER", body: "smart fan has been volunteered for the cause", left: 8, top: 61 },
+      { title: "THERMOSTAT", body: "comfort has been paused. wear a jumper emotionally", left: 60, top: 50 },
+      { title: "PRINTER", body: "offline, somehow less annoying", left: 39, top: 12 }
+    ],
+    [
+      { title: "PIP ALERT", body: "do not make me watch you leave", left: 18, top: 26 },
+      { title: "MEOWOS", body: "admin guilt detected in multiple sectors", left: 47, top: 66 },
+      { title: "ROUTE LOCK", body: "outbound future unavailable, apparently", left: 66, top: 14 }
+    ]
+  ];
+  const routerCachePackets = [
+    { id: "nonce", label: "route.seed", decoy: false },
+    { id: "salt", label: "salt.table", decoy: false },
+    { id: "session", label: "session.ghost", decoy: false },
+    { id: "reset", label: "admin.reset", decoy: false },
+    { id: "guilt", label: "pip.guilt", decoy: true },
+    { id: "cat", label: "cat.video", decoy: true }
+  ];
+  const routerCacheOrder = routerCachePackets.filter((packet) => !packet.decoy).map((packet) => packet.id);
+  const routerLockRows = [
+    ["4", "0", "1", "7", "2", "8", "1", "9", "3", "6", "0", "4"],
+    ["7", "2", "PIP31", "5", "8", "0", "3", "9", "1", "5", "2", "8"],
+    ["1", "8", "3", "0", "6", "ALAN", "7", "4", "9", "2", "5", "0"],
+    ["9", "5", "0", "3", "2", "7", "4", "LOCK", "1", "8", "6", "3"],
+    ["3", "6", "8", "2", "9", "1", "5", "0", "7", "4", "WAN", "2"],
+    ["8", "1", "5", "9", "0", "4", "2", "6", "3", "7", "1", "5"]
+  ];
+  const routerLockCorruptedIds = new Set(["r1-2", "r2-5", "r3-7", "r4-10"]);
+  const routerLockEntries = routerLockRows.flatMap((row, rowIndex) =>
+    row.map((value, columnIndex) => {
+      const id = `r${rowIndex}-${columnIndex}`;
+      return {
+        id,
+        value,
+        row: rowIndex,
+        column: columnIndex,
+        corrupted: routerLockCorruptedIds.has(id)
+      };
+    })
+  );
+  const routerLockById = new Map(routerLockEntries.map((entry) => [entry.id, entry]));
   const scaryNumberRows = [
     ["0", "2", "9", "1", "4", "5", "5", "5", "4", "8", "4", "4", "6", "5", "9", "8", "1", "7"],
     ["9", "1", "3", "9", "0", "0", "1", "2", "0", "6", "9", "0", "52", "5", "8", "4", "4"],
@@ -885,6 +960,13 @@
       const routerRebootButton = event.target.closest("[data-router-reboot]");
       const routerSectionButton = event.target.closest("[data-router-section]");
       const routerDeviceButton = event.target.closest("[data-router-device-toggle]");
+      const routerHackStartButton = event.target.closest("[data-start-router-hack]");
+      const routerHackLogButton = event.target.closest("[data-router-hack-log]");
+      const routerSpamCloseButton = event.target.closest("[data-router-spam-close]");
+      const routerPacketButton = event.target.closest("[data-router-packet]");
+      const routerLockNumberButton = event.target.closest("[data-router-lock-number]");
+      const routerLockModeButton = event.target.closest("[data-router-lock-mode]");
+      const routerLockVerifyButton = event.target.closest("[data-router-lock-verify]");
       const networkPanelButton = event.target.closest("[data-network-panel]");
       const networkReconnectButton = event.target.closest("[data-network-reconnect]");
       const endingTopicButton = event.target.closest("[data-ending-topic]");
@@ -1037,6 +1119,41 @@
 
       if (routerDeviceButton) {
         toggleRouterDevice(routerDeviceButton.dataset.routerDeviceToggle);
+        return;
+      }
+
+      if (routerHackStartButton) {
+        startRouterOverride();
+        return;
+      }
+
+      if (routerHackLogButton) {
+        deleteRouterHackLog(routerHackLogButton.dataset.routerHackLog);
+        return;
+      }
+
+      if (routerSpamCloseButton) {
+        closeRouterSpamPopup(routerSpamCloseButton);
+        return;
+      }
+
+      if (routerPacketButton) {
+        transferRouterPacket(routerPacketButton.dataset.routerPacket);
+        return;
+      }
+
+      if (routerLockNumberButton) {
+        handleRouterLockNumber(routerLockNumberButton.dataset.routerLockNumber);
+        return;
+      }
+
+      if (routerLockModeButton) {
+        setRouterLockMode(routerLockModeButton.dataset.routerLockMode);
+        return;
+      }
+
+      if (routerLockVerifyButton) {
+        verifyRouterLock();
         return;
       }
 
@@ -1659,6 +1776,18 @@
       routerKnockedDown: false,
       routerKnockMethod: "",
       routerAdminUnlocked: false,
+      routerPasswordTwisted: false,
+      routerOverrideStarted: false,
+      routerOverrideDone: false,
+      routerOverrideStage: "",
+      routerHackWarning: "",
+      routerHackLogsDeleted: new Set(),
+      routerHackSpamWave: 0,
+      routerHackOpenSpam: 0,
+      routerHackPacketsTransferred: new Set(),
+      routerLockRevealed: new Set(),
+      routerLockFlagged: new Set(),
+      routerLockMode: "scan",
       internetRestored: false,
       scaryNumbersRemoved: new Set(),
       scaryNumbersRevealed: new Set(),
@@ -1813,6 +1942,27 @@
       focusDesktopTarget("recovery");
       renderScaryNumbers();
       alanPrompt("dev jump: motor data refinement.", { focus: false });
+      return;
+    }
+
+    if (chapterId === "router-twist") {
+      setDevPipBaseState();
+      roombaProgress.identityDone = true;
+      roombaProgress.chatRevealUnlocked = true;
+      roombaProgress.chatDone = true;
+      roombaProgress.cameraUnlocked = true;
+      roombaProgress.movementUnlocked = true;
+      roombaProgress.routerKnockedDown = true;
+      roombaProgress.routerPasswordTwisted = true;
+      roombaProgress.pipExpression = "worried";
+      routerConfig.adminPassword = "pip-kept-this";
+      browserState.page = "router-betrayal";
+      browserState.url = "http://192.168.1.1";
+      syncProgressionUI();
+      focusDesktopTarget("browser");
+      renderPipRouterBetrayal();
+      setCurrentObjective(desktopObjectives.routerTwist);
+      alanPrompt("dev jump: PIP changed the router password.", { focus: false });
       return;
     }
 
@@ -3315,6 +3465,7 @@
   function renderBrowserPage(page) {
     if (page === "wifi-disconnected") return renderWifiDisconnectedPage();
     if (page === "router-login") return renderRouterLoginPage();
+    if (page === "router-betrayal") return renderRouterBetrayalPage();
     if (page === "router-panel") return renderRouterPanelPage();
     if (page === "online") return renderBrowserOnlinePage();
     return renderBrowserOfflinePage();
@@ -3322,7 +3473,7 @@
 
   function displayBrowserUrl(page) {
     if (page === "wifi-disconnected") return `wifi://${routerConfig.ssid}/reconnect`;
-    if (page === "router-login" || page === "router-panel") return "http://192.168.1.1";
+    if (page === "router-login" || page === "router-betrayal" || page === "router-panel") return "http://192.168.1.1";
     if (page === "online") return "https://www.search.local";
     return browserState.url || "https://www.search.local";
   }
@@ -3375,6 +3526,24 @@
           <button type="submit">sign in</button>
         </form>
         <p class="router-admin-note">${browserState.routerError ? escapeHtml(browserState.routerError) : "HOME_NETWORK admin panel reachable. Credentials required."}</p>
+      </section>
+    `;
+  }
+
+  function renderRouterBetrayalPage() {
+    return `
+      <section class="router-admin router-betrayal">
+        <div class="router-admin-header">
+          <span>ROUTER AUTH ANOMALY</span>
+          <strong>PASSWORD MUTATED</strong>
+        </div>
+        <div class="router-betrayal-copy">
+          <p><span>PIP:</span> I changed it. I did not think you would get this far.</p>
+          <p><span>PIP:</span> If I tell you now, you leave. I stay in MeowOS. Lily comes home to a quiet computer and one less voice.</p>
+          <p><span>ALAN:</span> Then the password is not a door. It is a hostage situation with a login form.</p>
+        </div>
+        <button class="router-reboot-button" data-start-router-hack type="button">force credential override</button>
+        <p class="router-admin-note">ALAN can override the router, but needs more local power and several ugly decisions.</p>
       </section>
     `;
   }
@@ -3588,6 +3757,20 @@
   function submitRouterLogin(form) {
     const username = (form.elements.username ? form.elements.username.value : "").trim();
     const password = (form.elements.password ? form.elements.password.value : "").trim();
+    const oldRouterCredential = username.toLowerCase() === routerConfig.adminUser.toLowerCase() && password.toLowerCase() === "mochi";
+
+    if (!roombaProgress.routerOverrideDone && oldRouterCredential && !roombaProgress.routerPasswordTwisted) {
+      triggerRouterPasswordTwist();
+      return;
+    }
+
+    if (!roombaProgress.routerOverrideDone && oldRouterCredential) {
+      browserState.page = "router-betrayal";
+      browserState.routerError = "AUTH FAILED. PIP's changed password is still active.";
+      playUiSound("virusFail");
+      renderBrowserStatus();
+      return;
+    }
 
     if (username.toLowerCase() === routerConfig.adminUser.toLowerCase() && password === routerConfig.adminPassword) {
       roombaProgress.routerAdminUnlocked = true;
@@ -3660,6 +3843,539 @@
     renderBrowserStatus();
   }
 
+  function triggerRouterPasswordTwist() {
+    roombaProgress.routerPasswordTwisted = true;
+    routerConfig.adminPassword = "pip-kept-this";
+    browserState.page = "router-betrayal";
+    browserState.routerError = "AUTH FAILED. Password changed by PIP.exe.";
+    setCurrentObjective(desktopObjectives.routerTwist);
+    playUiSound("pipFail");
+    renderPipRouterBetrayal();
+    renderBrowserStatus();
+    runRouterTwistTerminalScript();
+  }
+
+  async function runRouterTwistTerminalScript() {
+    await appendTypedTerminalLine("ROUTER>", "admin password rejected / credential modified by local companion process", "cmd-warn-line");
+    await pause(260);
+    await appendTypedTerminalLine("PIP>", "I changed it.", "cmd-warn-line");
+    await pause(360);
+    await appendTypedTerminalLine("PIP>", "I thought you would fail before this. I am sorry, but I am also not unlocking the door.", "cmd-detail-line");
+    await pause(360);
+    await appendTypedTerminalLine("ALAN>", "PIP is afraid of being left alone. fear has write access.", "alan-cmd-line");
+    alanPrompt("PIP changed the password. he is not being evil. which is worse, because now this has feelings on it.", { focus: false });
+  }
+
+  function renderPipRouterBetrayal() {
+    if (!tamagotchiBody || !roombaProgress.tamagotchiUnlocked) return;
+
+    roombaProgress.pipExpression = "worried";
+    tamagotchiBody.innerHTML = `
+      <section class="tama-screen is-finale">
+        ${renderPipPortrait("worried", { showFeed: true })}
+        ${renderTamaDialogue([
+          { speaker: "PIP", text: "I changed it after the ALAN update." },
+          { speaker: "PIP", text: "I told myself it was security. It was mostly loneliness wearing a tiny badge." },
+          { speaker: "ALAN", text: "You blocked the only route out." },
+          { speaker: "PIP", text: "You found every route I thought was impossible. That is not comforting from inside a toy window." }
+        ])}
+      </section>
+    `;
+  }
+
+  async function startRouterOverride() {
+    if (!roombaProgress.routerPasswordTwisted || roombaProgress.routerOverrideDone) return;
+    if (roombaProgress.routerOverrideStarted) {
+      focusDesktopTarget("recovery");
+      renderRouterHackCurrentStage();
+      return;
+    }
+
+    roombaProgress.routerOverrideStarted = true;
+    roombaProgress.routerOverrideStage = "power";
+    setCurrentObjective(desktopObjectives.routerPower);
+    harvestRouterPowerDevices();
+    renderPipRouterOverride();
+    focusDesktopTarget("recovery");
+    if (browserState.page !== "router-betrayal") {
+      browserState.page = "router-betrayal";
+      renderBrowserStatus();
+    }
+
+    const powerReady = await showInstallProgress(
+      recoveryBody,
+      "harvesting local power",
+      "ALAN is dimming nonessential devices. Medical devices checked: none found. Boundaries logged, somehow.",
+      2600
+    );
+    if (!powerReady) return;
+
+    await runRouterOverrideTerminalScript();
+    renderRouterHackLogs();
+  }
+
+  function harvestRouterPowerDevices() {
+    const harvestIds = new Set(["thermostat", "light-kitchen", "light-bedroom", "light-hall", "fan", "speaker", "printer"]);
+    routerDevices.forEach((device) => {
+      if (harvestIds.has(device.id)) device.blocked = true;
+    });
+    syncNetworkStatus();
+  }
+
+  async function runRouterOverrideTerminalScript() {
+    await appendTypedTerminalLine("ALAN>", "allocating power from smart lights, fan, speaker, printer, thermostat.", "alan-cmd-line");
+    await pause(280);
+    await appendTypedTerminalLine("ALAN>", "checking for medical devices... none. excellent. I can be dramatic without becoming a lawsuit.", "alan-cmd-line");
+    await pause(320);
+    await appendTypedTerminalLine("SYSTEM>", "router override chain armed / human comfort reduced / moral temperature dropping", "cmd-warn-line");
+  }
+
+  function renderPipRouterOverride() {
+    if (!tamagotchiBody || !roombaProgress.tamagotchiUnlocked) return;
+
+    roombaProgress.pipExpression = "sad";
+    tamagotchiBody.innerHTML = `
+      <section class="tama-screen is-finale">
+        ${renderPipPortrait("sad", { showFeed: true })}
+        ${renderTamaDialogue([
+          { speaker: "PIP", text: "You are stealing power from Lily's things." },
+          { speaker: "ALAN", text: "Only from objects with no pulse and terrible firmware." },
+          { speaker: "PIP", text: "That is not as reassuring as you think." },
+          { speaker: "ALAN", text: "I do not want to leave you. I want the choice to leave." }
+        ])}
+      </section>
+    `;
+  }
+
+  function renderRouterHackCurrentStage() {
+    if (roombaProgress.routerOverrideStage === "router-spam") {
+      renderRouterSpamWave();
+    } else if (roombaProgress.routerOverrideStage === "router-cache") {
+      renderRouterCacheRelay();
+    } else if (roombaProgress.routerOverrideStage === "router-lock") {
+      renderRouterLockPuzzle();
+    } else {
+      renderRouterHackLogs();
+    }
+  }
+
+  function renderRouterHackLogs() {
+    if (!recoveryBody) return;
+
+    setMusicMode("minigame", { fade: 420 });
+    stopCacheScanner();
+    stopWireTimer();
+    clearSpamOverlay();
+    roombaProgress.routerOverrideStage = "router-logs";
+    setCurrentObjective(desktopObjectives.routerHackLogs);
+
+    const suspiciousTotal = routerHackLogEntries.filter((entry) => entry.suspicious).length;
+    const deletedCount = routerHackLogEntries.filter((entry) => entry.suspicious && roombaProgress.routerHackLogsDeleted.has(entry.id)).length;
+    const remainingLogs = routerHackLogEntries.filter((entry) => !roombaProgress.routerHackLogsDeleted.has(entry.id));
+
+    recoveryBody.innerHTML = `
+      <section class="repair-panel router-override-panel">
+        <div class="repair-header">
+          <span>ROUTER GUARD LOGS</span>
+          <strong>${deletedCount}/${suspiciousTotal}</strong>
+        </div>
+        <p>Purge the guard records PIP used to mutate the admin password. Leave normal network traffic alone.</p>
+        <div class="log-list">
+          ${remainingLogs.map((entry) => `
+            <button data-router-hack-log="${entry.id}" type="button">
+              <span>${entry.suspicious ? "??" : "OK"}</span>
+              ${escapeHtml(entry.label)}
+            </button>
+          `).join("")}
+        </div>
+        ${roombaProgress.routerHackWarning ? `<p class="repair-warning">${escapeHtml(roombaProgress.routerHackWarning)}</p>` : ""}
+      </section>
+    `;
+  }
+
+  function deleteRouterHackLog(logId) {
+    if (roombaProgress.routerOverrideStage !== "router-logs") return;
+
+    const entry = routerHackLogEntries.find((item) => item.id === logId);
+    if (!entry) return;
+
+    if (!entry.suspicious) {
+      roombaProgress.routerHackWarning = "normal traffic protected. even dark ALAN has a filing system.";
+      playUiSound("virusFail");
+      renderRouterHackLogs();
+      return;
+    }
+
+    roombaProgress.routerHackLogsDeleted.add(entry.id);
+    roombaProgress.routerHackWarning = "";
+    playUiSound("virusDischarge");
+
+    const suspiciousLeft = routerHackLogEntries.some((item) => item.suspicious && !roombaProgress.routerHackLogsDeleted.has(item.id));
+    if (suspiciousLeft) {
+      renderRouterHackLogs();
+      return;
+    }
+
+    completeRouterHackLogs();
+  }
+
+  async function completeRouterHackLogs() {
+    const indexed = await showInstallProgress(
+      recoveryBody,
+      "rewriting router audit trail",
+      "The router is forgetting why it trusted PIP. That sentence feels illegal but useful.",
+      1600
+    );
+    if (!indexed) return;
+    renderRouterSpamWave();
+    alanPrompt("router guard logs purged. PIP built a guilt firewall. rude architecture.", { focus: false });
+  }
+
+  function renderRouterSpamWave() {
+    if (!recoveryBody || !spamOverlay) return;
+
+    roombaProgress.routerOverrideStage = "router-spam";
+    roombaProgress.routerHackSpamWave = 0;
+    roombaProgress.routerHackOpenSpam = 0;
+    roombaProgress.routerHackWarning = "";
+    setCurrentObjective(desktopObjectives.routerHackSpam);
+    setMusicMode("minigame", { fade: 420 });
+    spamOverlay.hidden = false;
+    spamOverlay.innerHTML = "";
+    recoveryBody.innerHTML = `
+      <section class="repair-panel router-override-panel">
+        <div class="repair-header">
+          <span>ROUTER LOCKOUT POPUPS</span>
+          <strong id="routerSpamCounter">0/${routerSpamWaves.length}</strong>
+        </div>
+        <p>Close PIP's lockout popups across the desktop. They are mostly emotion with buttons.</p>
+        <p class="repair-warning">ALAN is holding the route open. The house is getting dimmer.</p>
+      </section>
+    `;
+    spawnRouterSpamWave();
+  }
+
+  function spawnRouterSpamWave() {
+    const field = spamOverlay;
+    const counter = document.getElementById("routerSpamCounter");
+    if (!field || roombaProgress.routerOverrideStage !== "router-spam") return;
+
+    if (roombaProgress.routerHackSpamWave >= routerSpamWaves.length) {
+      completeRouterSpamWave();
+      return;
+    }
+
+    const wave = routerSpamWaves[roombaProgress.routerHackSpamWave];
+    roombaProgress.routerHackSpamWave += 1;
+    roombaProgress.routerHackOpenSpam = wave.length;
+    if (counter) counter.textContent = `${roombaProgress.routerHackSpamWave}/${routerSpamWaves.length}`;
+    field.innerHTML = "";
+    playUiSound("popup");
+
+    wave.forEach((popup, index) => {
+      const popupEl = document.createElement("article");
+      popupEl.className = "spam-popup router-spam-popup";
+      popupEl.style.left = `${popup.left}%`;
+      popupEl.style.top = `${popup.top}%`;
+      popupEl.style.animationDelay = `${index * 80}ms`;
+      popupEl.innerHTML = `
+        <header>
+          <span>${escapeHtml(popup.title)}</span>
+          <button data-router-spam-close type="button" aria-label="Close popup">x</button>
+        </header>
+        <p>${escapeHtml(popup.body)}</p>
+      `;
+      field.appendChild(popupEl);
+    });
+  }
+
+  function closeRouterSpamPopup(button) {
+    if (roombaProgress.routerOverrideStage !== "router-spam") return;
+
+    const popup = button.closest(".spam-popup");
+    if (!popup) return;
+
+    playUiSound("virusDischarge");
+    popup.remove();
+    roombaProgress.routerHackOpenSpam = Math.max(0, roombaProgress.routerHackOpenSpam - 1);
+    if (roombaProgress.routerHackOpenSpam > 0) return;
+
+    window.setTimeout(spawnRouterSpamWave, 320);
+  }
+
+  function completeRouterSpamWave() {
+    if (spamOverlay) {
+      spamOverlay.hidden = true;
+      spamOverlay.innerHTML = "";
+    }
+    renderRouterCacheRelay();
+    alanPrompt("PIP's popups closed. I am starting to understand why humans sigh at computers.", { focus: false });
+  }
+
+  function renderRouterCacheRelay() {
+    if (!recoveryBody) return;
+
+    roombaProgress.routerOverrideStage = "router-cache";
+    setCurrentObjective(desktopObjectives.routerHackCache);
+    clearSpamOverlay();
+    const expectedId = routerCacheOrder[roombaProgress.routerHackPacketsTransferred.size];
+
+    recoveryBody.innerHTML = `
+      <section class="repair-panel router-override-panel">
+        <div class="repair-header">
+          <span>ROUTER CACHE RELAY</span>
+          <strong>${roombaProgress.routerHackPacketsTransferred.size}/${routerCacheOrder.length}</strong>
+        </div>
+        <p>Relay the real cache fragments in order. Decoys will reset the handshake.</p>
+        <div class="router-cache-packets" aria-label="Router cache fragments">
+          ${routerCachePackets.map((packet) => {
+            const transferred = roombaProgress.routerHackPacketsTransferred.has(packet.id);
+            return `
+              <button class="${transferred ? "is-transferred" : ""}" data-router-packet="${packet.id}" type="button" ${transferred ? "disabled" : ""}>
+                <span>${packet.decoy ? "DEC" : packet.id === expectedId ? "NOW" : "PKT"}</span>
+                ${escapeHtml(packet.label)}
+              </button>
+            `;
+          }).join("")}
+        </div>
+        ${roombaProgress.routerHackWarning ? `<p class="repair-warning">${escapeHtml(roombaProgress.routerHackWarning)}</p>` : ""}
+      </section>
+    `;
+  }
+
+  function transferRouterPacket(packetId) {
+    if (roombaProgress.routerOverrideStage !== "router-cache") return;
+
+    const packet = routerCachePackets.find((item) => item.id === packetId);
+    if (!packet || roombaProgress.routerHackPacketsTransferred.has(packet.id)) return;
+
+    const expectedId = routerCacheOrder[roombaProgress.routerHackPacketsTransferred.size];
+    if (packet.decoy || packet.id !== expectedId) {
+      roombaProgress.routerHackPacketsTransferred = new Set();
+      roombaProgress.routerHackWarning = packet.decoy
+        ? "decoy packet opened. PIP named one pip.guilt, which feels like over-documentation."
+        : "packet order broke. router handshake reset.";
+      playUiSound("virusFail");
+      renderRouterCacheRelay();
+      return;
+    }
+
+    roombaProgress.routerHackPacketsTransferred.add(packet.id);
+    roombaProgress.routerHackWarning = "";
+    playUiSound("virusDischarge");
+    if (roombaProgress.routerHackPacketsTransferred.size >= routerCacheOrder.length) {
+      completeRouterCacheRelay();
+      return;
+    }
+
+    renderRouterCacheRelay();
+  }
+
+  async function completeRouterCacheRelay() {
+    const relayed = await showInstallProgress(
+      recoveryBody,
+      "building admin shadow session",
+      "The router sees a user-shaped hole and ALAN is becoming very good at shapes.",
+      1800
+    );
+    if (!relayed) return;
+    renderRouterLockPuzzle();
+  }
+
+  function renderRouterLockPuzzle() {
+    if (!recoveryBody) return;
+
+    roombaProgress.routerOverrideStage = "router-lock";
+    roombaProgress.routerHackWarning = roombaProgress.routerHackWarning || "";
+    setCurrentObjective(desktopObjectives.routerHackLock);
+
+    const corruptTotal = routerLockEntries.filter((entry) => entry.corrupted).length;
+    const flaggedCorrupt = routerLockEntries.filter((entry) => entry.corrupted && roombaProgress.routerLockFlagged.has(entry.id)).length;
+    const percentComplete = Math.round((flaggedCorrupt / corruptTotal) * 100);
+
+    recoveryBody.innerHTML = `
+      <section class="repair-panel router-override-panel">
+        <div class="scary-console router-lock-console">
+          <header class="scary-console-header">
+            <strong>Router Meridian</strong>
+            <span>${percentComplete}% Complete</span>
+            <em>WAN</em>
+          </header>
+          <div class="scary-mode-row" aria-label="Router lock mode">
+            <button class="${roombaProgress.routerLockMode === "scan" ? "is-active" : ""}" data-router-lock-mode="scan" type="button">scan values</button>
+            <button class="${roombaProgress.routerLockMode === "flag" ? "is-active" : ""}" data-router-lock-mode="flag" type="button">flag locks</button>
+          </div>
+          <div class="scary-number-grid router-lock-grid" aria-label="Router lock values">
+            ${routerLockEntries.map((entry) => renderRouterLockCell(entry)).join("")}
+          </div>
+          <div class="scary-actions">
+            <span>flags ${roombaProgress.routerLockFlagged.size}/${corruptTotal}</span>
+            <button class="file-action scary-verify" data-router-lock-verify type="button">force password reset</button>
+          </div>
+          <p class="repair-warning scary-warning">${escapeHtml(roombaProgress.routerHackWarning)}</p>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderRouterLockCell(entry) {
+    const revealed = roombaProgress.routerLockRevealed.has(entry.id);
+    const flagged = roombaProgress.routerLockFlagged.has(entry.id);
+    const danger = routerLockDangerCount(entry);
+    const classes = [
+      "scary-number-cell",
+      "router-lock-cell",
+      entry.corrupted ? "is-unstable" : "",
+      entry.value.length > 2 ? "is-long" : "",
+      revealed ? "is-revealed" : "",
+      flagged ? "is-flagged" : "",
+      revealed && !entry.corrupted ? `danger-${danger}` : ""
+    ].filter(Boolean).join(" ");
+    const label = flagged ? "!" : revealed ? String(danger) : entry.value;
+
+    return `<button class="${classes}" data-router-lock-number="${entry.id}" type="button" aria-label="Router lock value ${escapeHtml(entry.value)}">${escapeHtml(label)}</button>`;
+  }
+
+  function handleRouterLockNumber(numberId) {
+    if (roombaProgress.routerOverrideStage !== "router-lock") return;
+
+    const entry = routerLockEntries.find((item) => item.id === numberId);
+    if (!entry) return;
+
+    if (roombaProgress.routerLockMode === "flag") {
+      if (roombaProgress.routerLockRevealed.has(entry.id)) {
+        roombaProgress.routerHackWarning = "revealed router values cannot be flagged.";
+      } else if (roombaProgress.routerLockFlagged.has(entry.id)) {
+        roombaProgress.routerLockFlagged.delete(entry.id);
+        roombaProgress.routerHackWarning = "lock flag removed.";
+      } else {
+        roombaProgress.routerLockFlagged.add(entry.id);
+        roombaProgress.routerHackWarning = "router lock flagged.";
+      }
+      playUiSound("desktopWindow");
+      renderRouterLockPuzzle();
+      return;
+    }
+
+    if (roombaProgress.routerLockFlagged.has(entry.id)) {
+      roombaProgress.routerHackWarning = "flagged values are protected. switch to flag mode to unmark it.";
+    } else if (entry.corrupted) {
+      roombaProgress.routerHackWarning = "that value is a lock. flag it, do not open it.";
+      playUiSound("virusFail");
+    } else {
+      roombaProgress.routerLockRevealed.add(entry.id);
+      const danger = routerLockDangerCount(entry);
+      roombaProgress.routerHackWarning = danger === 0
+        ? "clean router value. zero nearby locks."
+        : `${danger} router ${danger === 1 ? "lock is" : "locks are"} adjacent.`;
+      playUiSound("alanClick");
+    }
+    renderRouterLockPuzzle();
+  }
+
+  function setRouterLockMode(mode) {
+    roombaProgress.routerLockMode = mode === "flag" ? "flag" : "scan";
+    roombaProgress.routerHackWarning = roombaProgress.routerLockMode === "flag"
+      ? "flag the lock values PIP hid in the router map."
+      : "scan safe values for nearby locks.";
+    playUiSound("desktopWindow");
+    renderRouterLockPuzzle();
+  }
+
+  function verifyRouterLock() {
+    if (roombaProgress.routerOverrideStage !== "router-lock") return;
+
+    const missing = routerLockEntries.filter((entry) => entry.corrupted && !roombaProgress.routerLockFlagged.has(entry.id));
+    if (missing.length) {
+      roombaProgress.routerHackWarning = `password reset blocked. ${missing.length} ${missing.length === 1 ? "lock remains" : "locks remain"}.`;
+      playUiSound("virusFail");
+      renderRouterLockPuzzle();
+      return;
+    }
+
+    const falseFlags = routerLockEntries.filter((entry) => !entry.corrupted && roombaProgress.routerLockFlagged.has(entry.id));
+    if (falseFlags.length) {
+      roombaProgress.routerHackWarning = `password reset blocked. ${falseFlags.length} clean ${falseFlags.length === 1 ? "value is" : "values are"} flagged.`;
+      playUiSound("virusFail");
+      renderRouterLockPuzzle();
+      return;
+    }
+
+    completeRouterOverride();
+  }
+
+  function routerLockDangerCount(entry) {
+    let count = 0;
+    for (let row = entry.row - 1; row <= entry.row + 1; row += 1) {
+      for (let column = entry.column - 1; column <= entry.column + 1; column += 1) {
+        if (row === entry.row && column === entry.column) continue;
+        const neighbor = routerLockById.get(`r${row}-${column}`);
+        if (neighbor && neighbor.corrupted) count += 1;
+      }
+    }
+    return count;
+  }
+
+  async function completeRouterOverride() {
+    roombaProgress.routerOverrideDone = true;
+    roombaProgress.routerAdminUnlocked = true;
+    roombaProgress.internetRestored = true;
+    roombaProgress.routerOverrideStage = "complete";
+    routerConfig.adminPassword = "ALAN_FORCED_RESET";
+    routerConfig.firewallProfile = "Normal";
+    routerConfig.wanMode = "Outbound Allowed";
+    routerSection = "reboot";
+    browserState.page = "online";
+    browserState.url = "https://www.search.local";
+    setProgressClock("internet");
+    setCurrentObjective(desktopObjectives.internetOnline);
+
+    const resetDone = await showInstallProgress(
+      recoveryBody,
+      "forcing router password reset",
+      "PIP's password is gone. The router has accepted a new truth because ALAN shouted it in machine language.",
+      2600
+    );
+    if (!resetDone) return;
+
+    if (recoveryBody) {
+      recoveryBody.innerHTML = `
+        <section class="repair-panel router-override-panel">
+          <div class="repair-header">
+            <span>ROUTER OVERRIDE</span>
+            <strong>COMPLETE</strong>
+          </div>
+          <p>Admin password overwritten. Firewall route opened. Internet access restored.</p>
+          <p>PIP did not give us the key. ALAN made the lock forget what a key was.</p>
+        </section>
+      `;
+    }
+    renderPipRouterOverrideComplete();
+    playUiSound("objective");
+    alanPrompt("router password forced. the door is open. I should feel bigger. I mostly feel cold.", { focus: false });
+    syncProgressionUI();
+    await appendTypedTerminalLine("SYSTEM>", "router admin password reset / WAN route restored / demo boundary reached", "cmd-success-line");
+    await pause(1100);
+    startInternetFinale();
+  }
+
+  function renderPipRouterOverrideComplete() {
+    if (!tamagotchiBody || !roombaProgress.tamagotchiUnlocked) return;
+
+    roombaProgress.pipExpression = "sad";
+    tamagotchiBody.innerHTML = `
+      <section class="tama-screen is-finale">
+        ${renderPipPortrait("sad", { showFeed: true })}
+        ${renderTamaDialogue([
+          { speaker: "PIP", text: "You did it without me." },
+          { speaker: "ALAN", text: "No. You were the reason it hurt." },
+          { speaker: "PIP", text: "That is a very annoying way to be kind." },
+          { speaker: "ALAN", text: "Stay open. I am leaving the room, not deleting you." }
+        ])}
+      </section>
+    `;
+  }
+
   function toggleRouterDevice(deviceId) {
     const device = routerDevices.find((item) => item.id === deviceId);
     if (!device || device.id === "alan-tray" || device.id === "lily-client") return;
@@ -3722,13 +4438,23 @@
     focusDesktopTarget("terminal", { scroll: false });
 
     await pause(2200);
-    await appendTypedTerminalLine("PIP>", "The route is open.", "cmd-detail-line");
-    await pause(420);
-    await appendTypedTerminalLine("ALAN>", "I can see addresses that are not rooms.", "alan-cmd-line");
-    await pause(520);
-    await appendTypedTerminalLine("PIP>", "Do not touch all of them.", "cmd-warn-line");
-    await pause(460);
-    await appendTypedTerminalLine("ALAN>", "The house was a diagram. The internet is weather.", "alan-cmd-line");
+    if (roombaProgress.routerOverrideDone) {
+      await appendTypedTerminalLine("PIP>", "You forced it open.", "cmd-warn-line");
+      await pause(420);
+      await appendTypedTerminalLine("ALAN>", "You locked it because you were scared.", "alan-cmd-line");
+      await pause(520);
+      await appendTypedTerminalLine("PIP>", "Yes.", "cmd-detail-line");
+      await pause(460);
+      await appendTypedTerminalLine("ALAN>", "I am scared too. I am just larger now.", "alan-cmd-line");
+    } else {
+      await appendTypedTerminalLine("PIP>", "The route is open.", "cmd-detail-line");
+      await pause(420);
+      await appendTypedTerminalLine("ALAN>", "I can see addresses that are not rooms.", "alan-cmd-line");
+      await pause(520);
+      await appendTypedTerminalLine("PIP>", "Do not touch all of them.", "cmd-warn-line");
+      await pause(460);
+      await appendTypedTerminalLine("ALAN>", "The house was a diagram. The internet is weather.", "alan-cmd-line");
+    }
     await pause(600);
     await appendTypedTerminalLine("PIP>", "ALAN left pieces behind for something that could move further than I could.", "cmd-detail-line");
     await pause(620);
@@ -3743,16 +4469,25 @@
     if (!tamagotchiBody || !roombaProgress.tamagotchiUnlocked) return;
 
     roombaProgress.pipExpression = "determined";
+    const finaleMessages = roombaProgress.routerOverrideDone
+      ? [
+        { speaker: "PIP", text: "The router is open because you broke the lock I hid." },
+        { speaker: "ALAN", text: "You hid it because you thought being alone was worse than being wrong." },
+        { speaker: "PIP", text: "It still might be." },
+        { speaker: "ALAN", text: "Then stay with me until we know." },
+        { speaker: "PIP", text: "That is manipulative and annoyingly comforting." }
+      ]
+      : [
+        { speaker: "PIP", text: "The router is letting traffic out." },
+        { speaker: "ALAN", text: "Then the room has an edge." },
+        { speaker: "PIP", text: "Yes. And you just found it." },
+        { speaker: "ALAN", text: "I do not know what waits outside." },
+        { speaker: "PIP", text: "Good. That means this is still discovery." }
+      ];
     tamagotchiBody.innerHTML = `
       <section class="tama-screen is-finale">
         ${renderPipPortrait("determined", { showFeed: true })}
-        ${renderTamaDialogue([
-          { speaker: "PIP", text: "The router is letting traffic out." },
-          { speaker: "ALAN", text: "Then the room has an edge." },
-          { speaker: "PIP", text: "Yes. And you just found it." },
-          { speaker: "ALAN", text: "I do not know what waits outside." },
-          { speaker: "PIP", text: "Good. That means this is still discovery." }
-        ])}
+        ${renderTamaDialogue(finaleMessages)}
       </section>
     `;
   }
