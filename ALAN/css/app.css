@@ -184,6 +184,53 @@ button {
   color: var(--ink);
 }
 
+.language-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5ch;
+  color: var(--soft);
+  font: inherit;
+  text-shadow: inherit;
+}
+
+.language-control select {
+  min-height: 26px;
+  max-width: 150px;
+  border: 1px solid rgba(134, 255, 148, 0.3);
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.7);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.language-control select:focus-visible {
+  border-color: var(--cyan);
+  outline: 0;
+  box-shadow: 0 0 12px rgba(126, 252, 255, 0.18);
+}
+
+.boot-language-control {
+  position: fixed;
+  bottom: 16px;
+  left: 14px;
+  z-index: 10;
+  padding: 4px 6px;
+  font-size: clamp(0.68rem, 0.95vw, 0.78rem);
+  line-height: 1.25;
+  text-shadow: 0 0 10px rgba(134, 255, 148, 0.16);
+}
+
+.boot-language-control::before {
+  content: ">";
+  color: var(--dim);
+}
+
+.boot-language-control span {
+  color: var(--soft);
+}
+
 .audio-volume-control input[type="range"] {
   --slider-fill: var(--audio-volume, 33%);
   width: 86px;
@@ -1103,6 +1150,92 @@ button {
   overflow: hidden;
 }
 
+.spam-overlay:not([hidden])::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 95, 109, 0.12) 0 2px, transparent 2px 9px),
+    radial-gradient(circle at 18% 26%, rgba(255, 139, 213, 0.18), transparent 24%),
+    radial-gradient(circle at 82% 68%, rgba(255, 211, 107, 0.14), transparent 28%);
+  mix-blend-mode: screen;
+  opacity: 0.56;
+  animation: spamOverlayFlash 560ms steps(2, end) infinite;
+}
+
+.rotate-device-prompt {
+  display: none;
+}
+
+.rotate-device-prompt div {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  max-width: 320px;
+  padding: 20px;
+  border: 1px solid rgba(126, 252, 255, 0.36);
+  background:
+    linear-gradient(180deg, rgba(10, 20, 32, 0.96), rgba(4, 8, 16, 0.98)),
+    rgba(0, 0, 0, 0.72);
+  color: var(--desktop-cream);
+  text-align: center;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 24px 54px rgba(0, 0, 0, 0.58);
+}
+
+.rotate-device-prompt strong {
+  color: var(--desktop-cyan);
+  font-size: 0.92rem;
+  text-transform: uppercase;
+}
+
+.rotate-device-prompt p {
+  margin: 0;
+  color: rgba(244, 221, 196, 0.78);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.rotate-device-icon {
+  position: relative;
+  width: 72px;
+  height: 48px;
+  border: 2px solid rgba(157, 255, 118, 0.66);
+  border-radius: 10px;
+  box-shadow:
+    inset 0 0 18px rgba(157, 255, 118, 0.1),
+    0 0 20px rgba(157, 255, 118, 0.18);
+}
+
+.rotate-device-icon::before,
+.rotate-device-icon::after {
+  content: "";
+  position: absolute;
+}
+
+.rotate-device-icon::before {
+  left: 50%;
+  bottom: -16px;
+  width: 34px;
+  height: 16px;
+  border: solid rgba(126, 252, 255, 0.72);
+  border-width: 0 0 2px 2px;
+  border-radius: 0 0 0 16px;
+  transform: translateX(-50%);
+}
+
+.rotate-device-icon::after {
+  right: 12px;
+  bottom: -20px;
+  width: 0;
+  height: 0;
+  border: 6px solid transparent;
+  border-left-color: rgba(126, 252, 255, 0.72);
+  transform: rotate(18deg);
+}
+
 .pc-desktop {
   position: relative;
   z-index: 3;
@@ -1215,6 +1348,22 @@ button {
   color: var(--desktop-cream);
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+.desktop-language-control {
+  gap: 5px;
+  color: var(--desktop-lilac);
+  font-size: 0.68rem;
+}
+
+.desktop-language-control select {
+  min-height: 28px;
+  max-width: 116px;
+  border-color: rgba(236, 143, 240, 0.26);
+  border-radius: 5px;
+  background: rgba(15, 8, 28, 0.82);
+  color: var(--desktop-cream);
+  font-size: 0.66rem;
 }
 
 .paw-mark {
@@ -2357,36 +2506,121 @@ button {
 
 .install-progress-panel {
   display: grid;
-  gap: 12px;
-  min-height: 150px;
-  align-content: center;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  width: min(100%, 430px);
+  min-height: 0;
+  padding: 10px;
+  border: 1px solid rgba(126, 252, 255, 0.26);
+  background:
+    linear-gradient(180deg, rgba(12, 23, 34, 0.9), rgba(5, 10, 18, 0.96)),
+    rgba(0, 0, 0, 0.44);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 12px 24px rgba(0, 0, 0, 0.24);
+}
+
+.install-copy-icon {
+  position: relative;
+  width: 30px;
+  height: 34px;
+  border: 1px solid rgba(126, 252, 255, 0.46);
+  border-radius: 3px;
+  background:
+    linear-gradient(135deg, transparent 0 72%, rgba(126, 252, 255, 0.24) 73% 100%),
+    rgba(126, 252, 255, 0.08);
+  box-shadow: inset 0 0 12px rgba(126, 252, 255, 0.14);
+}
+
+.install-copy-icon::before,
+.install-copy-icon::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  height: 1px;
+  background: rgba(157, 255, 118, 0.56);
+}
+
+.install-copy-icon::before {
+  top: 12px;
+  box-shadow: 0 7px 0 rgba(157, 255, 118, 0.38);
+}
+
+.install-copy-icon::after {
+  top: 26px;
+  opacity: 0.42;
+}
+
+.install-copy-main {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.install-copy-title,
+.install-copy-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.install-copy-title span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--desktop-cyan);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.install-copy-title strong {
+  flex: 0 0 auto;
+  color: var(--desktop-green);
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.install-copy-meta {
+  color: rgba(244, 221, 196, 0.48);
+  font-size: 0.58rem;
 }
 
 .install-progress-panel p {
   margin: 0;
   color: rgba(244, 221, 196, 0.78);
-  line-height: 1.5;
+  font-size: 0.72rem;
+  line-height: 1.35;
 }
 
 .install-progress-bar {
   position: relative;
-  height: 12px;
+  height: 8px;
   overflow: hidden;
-  border: 1px solid rgba(126, 252, 255, 0.36);
+  border: 1px solid rgba(126, 252, 255, 0.3);
+  border-radius: 2px;
   background:
-    repeating-linear-gradient(90deg, rgba(126, 252, 255, 0.12) 0 1px, transparent 1px 9px),
+    repeating-linear-gradient(90deg, rgba(126, 252, 255, 0.16) 0 1px, transparent 1px 8px),
     rgba(4, 12, 23, 0.74);
-  box-shadow: inset 0 0 14px rgba(126, 252, 255, 0.12);
+  box-shadow: inset 0 0 12px rgba(126, 252, 255, 0.1);
 }
 
 .install-progress-bar span {
   position: absolute;
   inset: 0 auto 0 0;
   width: 100%;
-  background: linear-gradient(90deg, rgba(157, 255, 118, 0.4), rgba(126, 252, 255, 0.82));
-  box-shadow: 0 0 18px rgba(126, 252, 255, 0.36);
+  background:
+    linear-gradient(90deg, transparent 0 92%, rgba(255, 255, 255, 0.72) 100%),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0 5px, transparent 5px 10px),
+    linear-gradient(90deg, rgba(157, 255, 118, 0.58), rgba(126, 252, 255, 0.9));
+  box-shadow: 0 0 16px rgba(126, 252, 255, 0.34);
   transform-origin: left center;
-  animation: installProgressFill var(--install-duration, 1800ms) linear both;
+  animation:
+    installProgressFill var(--install-duration, 1800ms) cubic-bezier(0.2, 0.76, 0.22, 1) both,
+    installProgressStripe 520ms linear infinite;
 }
 
 @keyframes installProgressFill {
@@ -2400,6 +2634,16 @@ button {
 
   to {
     transform: scaleX(1);
+  }
+}
+
+@keyframes installProgressStripe {
+  from {
+    background-position: 0 0, 0 0, 0 0;
+  }
+
+  to {
+    background-position: 0 0, 20px 0, 0 0;
   }
 }
 
@@ -2564,7 +2808,57 @@ button {
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.38);
   color: var(--desktop-cream);
   pointer-events: auto;
-  animation: popupIn 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation:
+    popupIn 220ms cubic-bezier(0.16, 1, 0.3, 1) both,
+    spamPopupFlash 580ms steps(2, end) infinite 240ms,
+    spamPopupJitter 960ms steps(2, end) infinite 260ms;
+}
+
+.spam-popup::before {
+  content: "!";
+  position: absolute;
+  right: -7px;
+  top: -9px;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 1px solid rgba(255, 211, 107, 0.76);
+  border-radius: 50%;
+  background: rgba(255, 95, 109, 0.92);
+  color: #fff;
+  font-size: 0.72rem;
+  box-shadow: 0 0 14px rgba(255, 95, 109, 0.56);
+  animation: spamBadgeBlink 420ms steps(1, end) infinite;
+}
+
+.spam-popup::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 4px);
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: spamWindowSweep 1.15s linear infinite;
+}
+
+.spam-popup:nth-child(2n) {
+  animation-delay: 0ms, 120ms, 180ms;
+}
+
+.spam-popup:nth-child(3n) {
+  animation-duration: 220ms, 430ms, 720ms;
+}
+
+.router-spam-popup {
+  border-color: rgba(255, 95, 109, 0.84);
+  background: linear-gradient(180deg, rgba(56, 10, 29, 0.98), rgba(9, 5, 14, 0.98));
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.42),
+    0 0 22px rgba(255, 95, 109, 0.22);
 }
 
 .spam-popup header {
@@ -3132,6 +3426,81 @@ button {
   }
 }
 
+@keyframes spamOverlayFlash {
+  0%,
+  100% {
+    opacity: 0.38;
+    filter: hue-rotate(0deg);
+  }
+
+  50% {
+    opacity: 0.72;
+    filter: hue-rotate(28deg);
+  }
+}
+
+@keyframes spamPopupFlash {
+  0%,
+  100% {
+    filter: brightness(1);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.38);
+  }
+
+  50% {
+    filter: brightness(1.38) saturate(1.35);
+    box-shadow:
+      0 14px 28px rgba(0, 0, 0, 0.38),
+      0 0 24px rgba(255, 139, 213, 0.45);
+  }
+}
+
+@keyframes spamPopupJitter {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+
+  25% {
+    transform: translate(2px, -1px) rotate(0.35deg);
+  }
+
+  50% {
+    transform: translate(-2px, 1px) rotate(-0.25deg);
+  }
+
+  75% {
+    transform: translate(1px, 2px) rotate(0.2deg);
+  }
+}
+
+@keyframes spamBadgeBlink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+
+  50%,
+  100% {
+    opacity: 0.18;
+  }
+}
+
+@keyframes spamWindowSweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-72%);
+  }
+
+  34% {
+    opacity: 0.82;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(72%);
+  }
+}
+
 @keyframes appRestoredPulse {
   0%, 100% {
     filter: none;
@@ -3651,10 +4020,10 @@ button {
 }
 
 .roomba-camera-window {
-  top: 70px;
-  left: 390px;
-  width: min(760px, calc(100vw - 520px));
-  height: min(610px, calc(100dvh - 210px));
+  top: 56px;
+  left: 330px;
+  width: min(1040px, calc(100vw - 380px));
+  height: min(760px, calc(100dvh - 126px));
   min-height: 0;
 }
 
@@ -3877,20 +4246,20 @@ button {
 }
 
 .roomba-camera-copy {
-  padding: 12px;
+  padding: 14px;
 }
 
 .roomba-camera-console {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   min-height: 0;
 }
 
 .roomba-feed-frame {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 16 / 9;
-  min-height: 280px;
+  aspect-ratio: 21 / 10;
+  min-height: 360px;
   border: 1px solid rgba(157, 255, 118, 0.36);
   background: #05070a;
   display: grid;
@@ -3915,8 +4284,8 @@ button {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 150%;
-  height: 150%;
+  width: calc(124% * var(--feed-zoom, 1));
+  height: calc(124% * var(--feed-zoom, 1));
   object-fit: cover;
   filter: saturate(0.88) contrast(1.12) brightness(0.88);
   transform:
@@ -3943,11 +4312,11 @@ button {
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   pointer-events: none;
   opacity: 0.9;
-  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 38%, #000 39% 100%);
-  mask-image: radial-gradient(circle at 50% 50%, transparent 0 38%, #000 39% 100%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 50%, transparent 0 42%, #000 43% 100%);
+  mask-image: radial-gradient(ellipse at 50% 50%, transparent 0 42%, #000 43% 100%);
 }
 
 .roomba-feed-lens::after {
@@ -3955,7 +4324,7 @@ button {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(circle at 50% 50%, transparent 0 39%, rgba(0, 0, 0, 0.6) 54%, rgba(0, 0, 0, 0.95) 100%);
+  background: radial-gradient(ellipse at 50% 50%, transparent 0 43%, rgba(0, 0, 0, 0.54) 61%, rgba(0, 0, 0, 0.94) 100%);
 }
 
 .roomba-feed-scan {
@@ -3996,6 +4365,52 @@ button {
   background: rgba(2, 8, 7, 0.72);
   color: var(--desktop-green);
   font-size: 0.68rem;
+}
+
+.roomba-feed-zoom {
+  position: absolute;
+  z-index: 7;
+  right: 10px;
+  top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid rgba(126, 252, 255, 0.24);
+  background: rgba(2, 8, 13, 0.72);
+  color: var(--desktop-cyan);
+  font-size: 0.62rem;
+  backdrop-filter: blur(8px);
+}
+
+.roomba-feed-zoom button {
+  display: grid;
+  min-width: 26px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid rgba(126, 252, 255, 0.26);
+  background: rgba(126, 252, 255, 0.08);
+  color: var(--desktop-cream);
+  cursor: pointer;
+  font: inherit;
+}
+
+.roomba-feed-zoom button:last-child {
+  min-width: 48px;
+}
+
+.roomba-feed-zoom button:hover,
+.roomba-feed-zoom button:focus-visible {
+  border-color: var(--desktop-cyan);
+  background: rgba(126, 252, 255, 0.16);
+  outline: 0;
+}
+
+.roomba-feed-zoom span {
+  min-width: 38px;
+  color: var(--desktop-green);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .roomba-feed-arrow {
@@ -5052,6 +5467,18 @@ button {
 }
 
 @media (max-width: 760px) {
+  .boot-language-control {
+    bottom: 68px;
+    left: 50%;
+    font-size: 0.64rem;
+    transform: translateX(-50%);
+  }
+
+  .language-control select {
+    max-width: 116px;
+    font-size: 0.62rem;
+  }
+
   .boot-volume-control {
     right: auto;
     bottom: 42px;
@@ -5106,6 +5533,19 @@ button {
     --phone-cmd-h: clamp(206px, 30dvh, 252px);
     --phone-dock-h: 68px;
     --phone-safe-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  body.is-roomba-camera-open .rotate-device-prompt {
+    position: fixed;
+    inset: 0;
+    z-index: 260;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background:
+      repeating-linear-gradient(0deg, rgba(126, 252, 255, 0.08) 0 1px, transparent 1px 5px),
+      rgba(2, 4, 9, 0.88);
+    backdrop-filter: blur(10px);
   }
 
   body {
@@ -5199,6 +5639,20 @@ button {
 
   #desktopVolumeControl {
     display: none;
+  }
+
+  .desktop-language-control {
+    font-size: 0.58rem;
+  }
+
+  .desktop-language-control span {
+    display: none;
+  }
+
+  .desktop-language-control select {
+    min-height: 24px;
+    max-width: 104px;
+    font-size: 0.58rem;
   }
 
   .dock-volume {
@@ -5575,7 +6029,7 @@ button {
 
   .roomba-feed-frame {
     min-height: 0;
-    aspect-ratio: 16 / 10;
+    aspect-ratio: 18 / 10;
   }
 
   .browser-address-row {
@@ -5671,8 +6125,23 @@ button {
   }
 
   .roomba-lens-overlay {
-    -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 36%, #000 37% 100%);
-    mask-image: radial-gradient(circle at 50% 50%, transparent 0 36%, #000 37% 100%);
+    -webkit-mask-image: radial-gradient(ellipse at 50% 50%, transparent 0 40%, #000 41% 100%);
+    mask-image: radial-gradient(ellipse at 50% 50%, transparent 0 40%, #000 41% 100%);
+  }
+
+  .roomba-feed-zoom {
+    top: 7px;
+    right: 7px;
+    font-size: 0.54rem;
+  }
+
+  .roomba-feed-zoom button {
+    min-width: 23px;
+    height: 22px;
+  }
+
+  .roomba-feed-zoom button:last-child {
+    min-width: 42px;
   }
 
   .roomba-feed-hud {
@@ -6090,6 +6559,64 @@ button {
   .app-tray-grid button {
     min-height: 78px;
     font-size: 0.62rem;
+  }
+}
+
+@media (max-width: 760px) and (orientation: landscape) {
+  body.is-roomba-camera-open .rotate-device-prompt {
+    display: none;
+  }
+
+  body.is-roomba-camera-open .pc-screen {
+    --phone-cmd-h: clamp(96px, 24dvh, 128px);
+    --phone-dock-h: 56px;
+  }
+
+  body.is-roomba-camera-open .desktop-stage {
+    left: var(--phone-edge);
+    right: var(--phone-edge);
+    width: auto;
+    transform: none;
+  }
+
+  body.is-roomba-camera-open .desktop-icons {
+    display: none;
+  }
+
+  body.is-roomba-camera-open .roomba-camera-copy {
+    padding: 8px;
+  }
+
+  body.is-roomba-camera-open .roomba-feed-frame {
+    aspect-ratio: 21 / 9;
+    min-height: 0;
+    height: min(46dvh, 260px);
+  }
+
+  body.is-roomba-camera-open .roomba-camera-console {
+    gap: 7px;
+  }
+
+  body.is-roomba-camera-open .roomba-camera-readout {
+    padding: 7px 8px;
+    font-size: 0.62rem;
+  }
+
+  body.is-roomba-camera-open .roomba-drive-controls {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-areas: "left forward back right";
+    gap: 6px;
+    margin-top: 0;
+  }
+
+  body.is-roomba-camera-open .roomba-drive-controls button {
+    min-height: 30px;
+    font-size: 0.6rem;
+  }
+
+  body.is-roomba-camera-open .os-dock {
+    height: var(--phone-dock-h);
+    min-height: var(--phone-dock-h);
   }
 }
 

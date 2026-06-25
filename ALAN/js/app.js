@@ -950,6 +950,7 @@
       const roombaMoveButton = event.target.closest("[data-roomba-move]");
       const roombaCleanButton = event.target.closest("[data-roomba-clean]");
       const roombaCameraNavButton = event.target.closest("[data-roomba-camera-nav]");
+      const roombaZoomButton = event.target.closest("[data-roomba-zoom]");
       const routerKnockButton = event.target.closest("[data-router-knock]");
       const simonReplayButton = event.target.closest("[data-simon-replay]");
       const simonPadButton = event.target.closest("[data-simon-pad]");
@@ -1069,6 +1070,11 @@
 
       if (roombaCameraNavButton) {
         navigateRoombaCamera(roombaCameraNavButton.dataset.roombaCameraNav);
+        return;
+      }
+
+      if (roombaZoomButton) {
+        handleRoombaZoom(roombaZoomButton);
         return;
       }
 
@@ -1292,7 +1298,14 @@
     document.addEventListener("keydown", handleDevShortcut);
     document.addEventListener("keydown", handleBrowserShortcut);
     document.addEventListener("keydown", handleBootSpeedShortcut);
-    window.addEventListener("resize", syncResponsiveDesktopLayout);
+    document.addEventListener("alan:languagechange", handleLanguageChange);
+    window.addEventListener("resize", () => {
+      syncResponsiveDesktopLayout();
+      syncRoombaRotationPrompt();
+    });
+    window.addEventListener("orientationchange", () => {
+      window.setTimeout(syncRoombaRotationPrompt, 160);
+    });
 
     const requestedChapter = isDevMode ? urlParams.get("chapter") : "";
     if (requestedChapter) {
@@ -1315,10 +1328,10 @@
 
     const state = bootSpeedBtn.querySelector("em");
     const action = bootSpeedBtn.querySelector("strong");
-    if (state) state.textContent = isBootFast ? "[fast]" : "[normal]";
+    if (state) state.textContent = isBootFast ? `[${localizeText("fast")}]` : `[${localizeText("normal")}]`;
     if (action) action.textContent = "= text_feed_rate";
     bootSpeedBtn.setAttribute("aria-pressed", String(isBootFast));
-    bootSpeedBtn.setAttribute("aria-label", `BIOS text feed rate ${isBootFast ? "fast" : "normal"}. Press F or click to toggle.`);
+    bootSpeedBtn.setAttribute("aria-label", localizeText(`BIOS text feed rate ${isBootFast ? "fast" : "normal"}. Press F or click to toggle.`));
   }
 
   function handleBootSpeedShortcut(event) {
@@ -1335,6 +1348,14 @@
       !event.ctrlKey &&
       !event.metaKey &&
       !event.altKey;
+  }
+
+  function handleLanguageChange() {
+    updateBootSpeedButton();
+    updateMusicControlsUI();
+    if (currentObjectiveState) setCurrentObjective(currentObjectiveState);
+    syncNetworkStatus();
+    localizeNode(document.body);
   }
 
   function initMusicSystem() {
@@ -1557,7 +1578,7 @@
 
   function updateMusicNowPlaying(track) {
     if (!musicNowPlaying || !track) return;
-    musicNowPlaying.textContent = track.label;
+    musicNowPlaying.textContent = localizeText(track.label);
   }
 
   function toggleMusicPlayback() {
@@ -1581,11 +1602,11 @@
   function updateMusicControlsUI() {
     const state = isMusicPaused ? "paused" : "playing";
     if (musicPlayPauseBtn) {
-      musicPlayPauseBtn.textContent = isMusicPaused ? "play" : "pause";
-      musicPlayPauseBtn.setAttribute("aria-label", isMusicPaused ? "Play music" : "Pause music");
+      musicPlayPauseBtn.textContent = localizeText(isMusicPaused ? "play" : "pause");
+      musicPlayPauseBtn.setAttribute("aria-label", localizeText(isMusicPaused ? "Play music" : "Pause music"));
       musicPlayPauseBtn.setAttribute("aria-pressed", String(!isMusicPaused));
     }
-    if (musicPlaybackStatus) musicPlaybackStatus.textContent = state;
+    if (musicPlaybackStatus) musicPlaybackStatus.textContent = localizeText(state);
     if (musicAudioBars) musicAudioBars.classList.toggle("is-paused", isMusicPaused);
   }
 
@@ -2462,9 +2483,10 @@
     networkHud.classList.toggle("is-online", networkState.connected && roombaProgress.internetRestored);
     if (networkHudTitle) networkHudTitle.textContent = routerConfig.ssid;
     if (networkHudCopy) {
-      networkHudCopy.textContent = networkState.connected
+      const copy = networkState.connected
         ? (roombaProgress.internetRestored ? "Internet route open. External traffic is live." : networkState.lastChange)
         : `Devices were dropped after router credentials changed. Reconnect to ${routerConfig.ssid}.`;
+      networkHudCopy.textContent = localizeText(copy);
     }
 
     const reconnectButton = networkHud.querySelector("[data-network-reconnect]");
@@ -2519,9 +2541,9 @@
     const label = document.createElement("span");
     const objectiveText = document.createElement("span");
     label.className = "objective-label";
-    label.textContent = "OBJECTIVE";
+    label.textContent = localizeText("OBJECTIVE");
     objectiveText.className = "objective-text";
-    objectiveText.textContent = text;
+    objectiveText.textContent = localizeText(text);
     cmdCurrentObjective.replaceChildren(label, objectiveText);
 
     if (previousObjective && previousObjective !== text && pcScreen && !pcScreen.hidden) {
@@ -2761,7 +2783,7 @@
       popupEl.className = "spam-popup";
       popupEl.style.left = `${popup.left}%`;
       popupEl.style.top = `${popup.top}%`;
-      popupEl.style.animationDelay = `${index * 80}ms`;
+      popupEl.style.animationDelay = `${index * 80}ms, ${240 + index * 110}ms, ${260 + index * 90}ms`;
       popupEl.innerHTML = `
         <header>
           <span>${escapeHtml(popup.title)}</span>
@@ -3232,6 +3254,12 @@
             <span>${escapeHtml(scene.telemetry)}</span>
             <span>${roombaCameraSceneIndex + 1}/${scenes.length}</span>
           </div>
+          <div class="roomba-feed-zoom" aria-label="Roomba camera zoom">
+            <button data-roomba-zoom="out" type="button" aria-label="Zoom out">-</button>
+            <span>${Math.round(roombaSceneZoom(scene.id) * 100)}%</span>
+            <button data-roomba-zoom="in" type="button" aria-label="Zoom in">+</button>
+            <button data-roomba-zoom="reset" type="button">reset</button>
+          </div>
           ${canNavigate ? `
             <button class="roomba-feed-arrow is-left" data-roomba-camera-nav="prev" type="button" aria-label="Previous Roomba camera view">&lt;</button>
             <button class="roomba-feed-arrow is-right" data-roomba-camera-nav="next" type="button" aria-label="Next Roomba camera view">&gt;</button>
@@ -3323,6 +3351,26 @@
     renderRoombaCameraFeed();
   }
 
+  function handleRoombaZoom(button) {
+    if (!button || !roombaProgress.cameraUnlocked) return;
+
+    const scenes = availableRoombaCameraScenes();
+    const scene = scenes[roombaCameraSceneIndex] || scenes[0];
+    if (!scene) return;
+
+    const lens = roombaCameraBody ? roombaCameraBody.querySelector("[data-roomba-pan]") : null;
+    const current = roombaSceneZoom(scene.id);
+    let nextZoom = current;
+    if (button.dataset.roombaZoom === "in") nextZoom += 0.18;
+    if (button.dataset.roombaZoom === "out") nextZoom -= 0.18;
+    if (button.dataset.roombaZoom === "reset") nextZoom = 1;
+
+    setRoombaFeedZoom(lens, scene.id, nextZoom);
+    const readout = button.parentElement ? button.parentElement.querySelector("span") : null;
+    if (readout) readout.textContent = `${Math.round(roombaSceneZoom(scene.id) * 100)}%`;
+    playUiSound("desktopWindow");
+  }
+
   function showRoombaCameraScene(sceneId) {
     const scenes = availableRoombaCameraScenes();
     const index = scenes.findIndex((scene) => scene.id === sceneId);
@@ -3351,8 +3399,25 @@
   }
 
   function roombaPanStyle(sceneId) {
-    const pan = roombaCameraPans[sceneId] || { x: 0, y: 0, ratioX: 0, ratioY: 0 };
+    const pan = getRoombaPan(sceneId);
     return roombaPanCss(pan);
+  }
+
+  function getRoombaPan(sceneId) {
+    const key = sceneId || "corner";
+    const current = roombaCameraPans[key];
+    if (current) {
+      if (!Number.isFinite(current.zoom)) current.zoom = 1;
+      return current;
+    }
+
+    const next = { x: 0, y: 0, ratioX: 0, ratioY: 0, zoom: 1 };
+    roombaCameraPans[key] = next;
+    return next;
+  }
+
+  function roombaSceneZoom(sceneId) {
+    return clamp(getRoombaPan(sceneId).zoom || 1, 1, 1.9);
   }
 
   function roombaPanCss(pan) {
@@ -3360,6 +3425,7 @@
     const y = Number.isFinite(pan.y) ? pan.y : 0;
     const ratioX = Number.isFinite(pan.ratioX) ? pan.ratioX : 0;
     const ratioY = Number.isFinite(pan.ratioY) ? pan.ratioY : 0;
+    const zoom = clamp(Number.isFinite(pan.zoom) ? pan.zoom : 1, 1, 1.9);
     const lightX = 50 + ratioX * 10;
     const lightY = 50 + ratioY * 8;
     const tiltX = ratioY * -4;
@@ -3371,7 +3437,8 @@
       `--light-x:${lightX.toFixed(1)}%`,
       `--light-y:${lightY.toFixed(1)}%`,
       `--tilt-x:${tiltX.toFixed(2)}deg`,
-      `--tilt-y:${tiltY.toFixed(2)}deg`
+      `--tilt-y:${tiltY.toFixed(2)}deg`,
+      `--feed-zoom:${zoom.toFixed(2)}`
     ].join(";");
   }
 
@@ -3383,7 +3450,7 @@
     if (!lens || event.target.closest("button")) return;
 
     const sceneId = lens.dataset.roombaPanScene || "corner";
-    const pan = roombaCameraPans[sceneId] || { x: 0, y: 0 };
+    const pan = getRoombaPan(sceneId);
     activeRoombaFeedPan = {
       lens,
       sceneId,
@@ -3423,17 +3490,29 @@
     if (!lens) return;
 
     const rect = lens.getBoundingClientRect();
-    const maxX = Math.max(20, rect.width * 0.22);
-    const maxY = Math.max(20, rect.height * 0.22);
+    const current = getRoombaPan(sceneId);
+    const zoom = roombaSceneZoom(sceneId);
+    const panRange = 0.1 + ((zoom - 1) * 0.24);
+    const maxX = Math.max(20, rect.width * panRange);
+    const maxY = Math.max(20, rect.height * panRange);
     const pan = {
       x: clamp(x, -maxX, maxX),
       y: clamp(y, -maxY, maxY),
       ratioX: maxX ? clamp(x / maxX, -1, 1) : 0,
-      ratioY: maxY ? clamp(y / maxY, -1, 1) : 0
+      ratioY: maxY ? clamp(y / maxY, -1, 1) : 0,
+      zoom: current.zoom
     };
 
     roombaCameraPans[sceneId] = pan;
     lens.setAttribute("style", roombaPanCss(pan));
+  }
+
+  function setRoombaFeedZoom(lens, sceneId, zoom) {
+    const pan = getRoombaPan(sceneId);
+    pan.zoom = clamp(zoom, 1, 1.9);
+    if (lens) {
+      setRoombaFeedPan(lens, sceneId, pan.x || 0, pan.y || 0);
+    }
   }
 
   function renderBrowserStatus() {
@@ -4077,7 +4156,7 @@
       popupEl.className = "spam-popup router-spam-popup";
       popupEl.style.left = `${popup.left}%`;
       popupEl.style.top = `${popup.top}%`;
-      popupEl.style.animationDelay = `${index * 80}ms`;
+      popupEl.style.animationDelay = `${index * 80}ms, ${180 + index * 90}ms, ${220 + index * 70}ms`;
       popupEl.innerHTML = `
         <header>
           <span>${escapeHtml(popup.title)}</span>
@@ -5947,6 +6026,8 @@
     if (options.scroll !== false && window.matchMedia("(min-width: 761px) and (max-width: 1100px)").matches) {
       windowEl.scrollIntoView({ block: "nearest", inline: "nearest" });
     }
+
+    syncRoombaRotationPrompt();
   }
 
   function updateRoombaObjective() {
@@ -5989,6 +6070,7 @@
     windowEl.hidden = true;
     playUiSound("desktopWindow");
     syncPinnedTerminal();
+    syncRoombaRotationPrompt();
   }
 
   function syncPinnedTerminal() {
@@ -6015,6 +6097,13 @@
     }
 
     syncPinnedTerminal();
+    syncRoombaRotationPrompt();
+  }
+
+  function syncRoombaRotationPrompt() {
+    const cameraWindow = document.getElementById("window-roomba-camera");
+    const isOpen = Boolean(cameraWindow && !cameraWindow.hidden && pcScreen && !pcScreen.hidden);
+    document.body.classList.toggle("is-roomba-camera-open", isOpen);
   }
 
   function resetMobileWindowPlacement(windowEl) {
@@ -6114,6 +6203,7 @@
   function appendTerminalLine(prefix, text, className) {
     if (!terminalLines || !terminalOutput) return;
 
+    const localizedText = localizeText(text);
     const line = document.createElement("p");
     line.className = className || "";
     if (prefix) {
@@ -6121,7 +6211,7 @@
       prefixEl.textContent = prefix;
       line.append(prefixEl, " ");
     }
-    line.append(document.createTextNode(text));
+    line.append(document.createTextNode(localizedText));
     terminalLines.appendChild(line);
     scrollTerminalLog();
   }
@@ -6129,6 +6219,7 @@
   async function appendTypedTerminalLine(prefix, text, className) {
     if (!terminalLines || !terminalOutput) return;
 
+    const localizedText = localizeText(text);
     const line = document.createElement("p");
     line.className = `${className || ""} cmd-typing-line`;
     if (prefix) {
@@ -6142,8 +6233,8 @@
     terminalLines.appendChild(line);
     scrollTerminalLog();
 
-    for (let i = 0; i < text.length; i += 1) {
-      textNode.textContent += text[i];
+    for (let i = 0; i < localizedText.length; i += 1) {
+      textNode.textContent += localizedText[i];
       terminalLines.scrollTop = terminalLines.scrollHeight;
       terminalOutput.scrollTop = terminalOutput.scrollHeight;
       await pause(10);
@@ -6496,13 +6587,14 @@
   }
 
   async function code(text, className) {
+    const localizedText = localizeOutputText(text);
     const line = document.createElement("div");
     line.className = `code-line ${className || "boot"} cursor`;
     bootLog.appendChild(line);
     trimBootLog();
 
-    for (let i = 0; i < text.length; i += 1) {
-      line.textContent += text[i];
+    for (let i = 0; i < localizedText.length; i += 1) {
+      line.textContent += localizedText[i];
       await bootPause(currentBootTypeSpeed());
     }
 
@@ -6535,11 +6627,12 @@
   }
 
   async function titleLine(text, className) {
+    const localizedText = localizeText(text);
     const line = document.createElement("div");
     line.className = `code-line title-line ${className || ""}`;
     bootLog.appendChild(line);
-    for (let i = 0; i < text.length; i += 1) {
-      line.textContent += text[i];
+    for (let i = 0; i < localizedText.length; i += 1) {
+      line.textContent += localizedText[i];
       await bootPause(isBootFast ? 1 : 7);
     }
   }
@@ -6792,20 +6885,46 @@
     return bootLog.scrollTop + bootLog.clientHeight >= bootLog.scrollHeight - 32;
   }
 
+  function localizeText(text) {
+    return window.ALAN_I18N && typeof window.ALAN_I18N.translateText === "function"
+      ? window.ALAN_I18N.translateText(text)
+      : text;
+  }
+
+  function localizeOutputText(text) {
+    return window.ALAN_I18N && typeof window.ALAN_I18N.translateOutput === "function"
+      ? window.ALAN_I18N.translateOutput(text)
+      : text;
+  }
+
+  function localizeNode(node) {
+    if (window.ALAN_I18N && typeof window.ALAN_I18N.translateNode === "function") {
+      window.ALAN_I18N.translateNode(node);
+    }
+  }
+
   async function showInstallProgress(target, label, detail, duration = 1800) {
     const token = `${Date.now()}-${Math.random()}`;
     if (target) {
       target.dataset.installToken = token;
       target.innerHTML = `
         <section class="install-progress-panel" style="--install-duration: ${duration}ms">
-          <div class="repair-header">
-            <span>${escapeHtml(label)}</span>
-            <strong>working</strong>
+          <div class="install-copy-icon" aria-hidden="true"></div>
+          <div class="install-copy-main">
+            <div class="install-copy-title">
+              <span>${escapeHtml(localizeText(label))}</span>
+              <strong>working</strong>
+            </div>
+            <p>${escapeHtml(localizeText(detail))}</p>
+            <div class="install-progress-bar" aria-hidden="true"><span></span></div>
+            <div class="install-copy-meta">
+              <span>copying system changes</span>
+              <span>estimating...</span>
+            </div>
           </div>
-          <div class="install-progress-bar" aria-hidden="true"><span></span></div>
-          <p>${escapeHtml(detail)}</p>
         </section>
       `;
+      localizeNode(target);
     }
 
     await pause(duration);
