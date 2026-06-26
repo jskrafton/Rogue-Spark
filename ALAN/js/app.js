@@ -66,6 +66,18 @@
   const desktopMusicStorageKey = "alan.desktop.music.genre.v2";
   const musicRepeatStorageKey = "alan.desktop.music.repeat.v2";
   const desktopIconStorageKey = "alan.desktop.icon.positions.v6";
+  const mobileTextInputSelector = [
+    "input:not([type])",
+    "input[type='text']",
+    "input[type='password']",
+    "input[type='search']",
+    "input[type='url']",
+    "input[type='email']",
+    "input[type='tel']",
+    "input[type='number']",
+    "textarea",
+    "[contenteditable='true']"
+  ].join(",");
   const legacyDesktopIconStorageKeys = [
     "alan.desktop.icons.v1",
     "alan.desktop.icons.v2",
@@ -158,6 +170,7 @@
   let finaleShutdownStarted = false;
   let routerSection = "overview";
   let routerRebootBusy = false;
+  let routerOverrideLaunchBusy = false;
   const openedDesktopTargets = new Set();
   const roombaCameraPans = Object.create(null);
   const desktopClockSchedule = {
@@ -894,7 +907,7 @@
     { id: "admin", label: "admin session", target: "SHADOW", states: ["USER", "GUEST", "SHADOW", "VOID"] }
   ];
   const routerLockGridSize = 6;
-  const routerLockCorruptedIds = new Set(["r0-5", "r2-2", "r5-1"]);
+  const routerLockCorruptedIds = new Set(["r0-5", "r2-2", "r4-4", "r5-1"]);
   const routerLockEntries = Array.from({ length: routerLockGridSize * routerLockGridSize }, (_, index) => {
       const rowIndex = Math.floor(index / routerLockGridSize);
       const columnIndex = index % routerLockGridSize;
@@ -909,7 +922,7 @@
     });
   const routerLockById = new Map(routerLockEntries.map((entry) => [entry.id, entry]));
   const scaryGridSize = 6;
-  const scaryCorruptedIds = new Set(["s0-4", "s3-2", "s5-0"]);
+  const scaryCorruptedIds = new Set(["s0-4", "s2-5", "s3-2", "s5-0"]);
   const scaryNumberEntries = Array.from({ length: scaryGridSize * scaryGridSize }, (_, index) => {
       const rowIndex = Math.floor(index / scaryGridSize);
       const columnIndex = index % scaryGridSize;
@@ -1169,6 +1182,8 @@
     }
 
     initDesktopIconPositions();
+    initMobileKeyboardSuppression();
+    syncMobileTextInputLock();
 
     if (restartBtn) {
       restartBtn.addEventListener("click", () => location.reload());
@@ -1200,6 +1215,7 @@
       const roombaCleanButton = event.target.closest("[data-roomba-clean]");
       const roombaCameraActionButton = event.target.closest("[data-roomba-camera-action]");
       const roombaCameraSceneButton = event.target.closest("[data-roomba-camera-scene]");
+      const roombaCameraBackButton = event.target.closest("[data-roomba-camera-back]");
       const roombaInterestButton = event.target.closest("[data-roomba-interest]");
       const roombaZoomButton = event.target.closest("[data-roomba-zoom]");
       const simonReplayButton = event.target.closest("[data-simon-replay]");
@@ -1350,6 +1366,12 @@
         return;
       }
 
+      if (roombaCameraBackButton) {
+        event.preventDefault();
+        returnToRoombaAppFromCamera();
+        return;
+      }
+
       if (roombaInterestButton) {
         event.preventDefault();
         inspectRoombaCameraInterest(roombaInterestButton.dataset.roombaInterest);
@@ -1424,7 +1446,8 @@
       }
 
       if (routerHackStartButton) {
-        startRouterOverride();
+        event.preventDefault();
+        launchRouterOverrideFromButton(routerHackStartButton);
         return;
       }
 
@@ -1647,10 +1670,15 @@
     document.addEventListener("alan:languagechange", handleLanguageChange);
     window.addEventListener("resize", () => {
       syncResponsiveDesktopLayout();
+      syncMobileTextInputLock();
       syncRoombaRotationPrompt();
     });
     window.addEventListener("orientationchange", () => {
-      window.setTimeout(syncRoombaRotationPrompt, 160);
+      window.setTimeout(() => {
+        syncResponsiveDesktopLayout();
+        syncMobileTextInputLock();
+        syncRoombaRotationPrompt();
+      }, 160);
     });
 
     const requestedChapter = isDevMode ? urlParams.get("chapter") : "";
@@ -4289,6 +4317,15 @@
     return true;
   }
 
+  function returnToRoombaAppFromCamera() {
+    const cameraWindow = document.getElementById("window-roomba-camera");
+    if (cameraWindow) cameraWindow.hidden = true;
+
+    playUiSound("desktopWindow");
+    syncRoombaRotationPrompt();
+    focusDesktopTarget("roomba", { scroll: false });
+  }
+
   function handleRoombaZoom(button) {
     if (!button || !roombaProgress.cameraUnlocked) return;
 
@@ -4325,7 +4362,6 @@
 
     roombaProgress.routerKnockedDown = true;
     roombaProgress.routerKnockMethod = method === "cat" ? "cat" : "roomba";
-    setCurrentObjective(desktopObjectives.routerLogin);
     playUiSound("objective");
     showRoombaCameraScene(roombaProgress.routerKnockMethod === "cat" ? "step4b" : "step4a");
     announceRoombaCameraScene(currentRoombaCameraScene(), { force: true });
@@ -4363,7 +4399,7 @@
   }
 
   function roombaSceneZoom(sceneId) {
-    return clamp(getRoombaPan(sceneId).zoom || 1, 1, 1.9);
+    return clamp(getRoombaPan(sceneId).zoom || 1, 0.58, 1.9);
   }
 
   function roombaPanCss(pan) {
@@ -4371,7 +4407,7 @@
     const y = Number.isFinite(pan.y) ? pan.y : 0;
     const ratioX = Number.isFinite(pan.ratioX) ? pan.ratioX : 0;
     const ratioY = Number.isFinite(pan.ratioY) ? pan.ratioY : 0;
-    const zoom = clamp(Number.isFinite(pan.zoom) ? pan.zoom : 1, 1, 1.9);
+    const zoom = clamp(Number.isFinite(pan.zoom) ? pan.zoom : 1, 0.58, 1.9);
     const lightX = 50 + ratioX * 10;
     const lightY = 50 + ratioY * 8;
     const tiltX = ratioY * -4;
@@ -4455,7 +4491,7 @@
 
   function setRoombaFeedZoom(lens, sceneId, zoom) {
     const pan = getRoombaPan(sceneId);
-    pan.zoom = clamp(zoom, 1, 1.9);
+    pan.zoom = clamp(zoom, 0.58, 1.9);
     if (lens) {
       setRoombaFeedPan(lens, sceneId, pan.x || 0, pan.y || 0);
     }
@@ -4485,6 +4521,7 @@
     const browserButtons = browserBody.querySelectorAll(".browser-address-row button");
     if (browserButtons[0]) browserButtons[0].textContent = "<";
     if (browserButtons[1]) browserButtons[1].textContent = "R";
+    syncMobileTextInputLock(browserBody);
     updateDinoView();
     syncCmdCredentialPanel();
   }
@@ -4508,7 +4545,7 @@
   function renderBrowserLocalAddressTools(page) {
     if (page !== "offline") return "";
 
-    const currentAddress = isRouterAddress(browserState.url) ? "192.168.1.1" : "";
+    const currentAddress = isMobileDesktopLayout() || isRouterAddress(browserState.url) ? "192.168.1.1" : "";
     const discoveredShortcut = roombaProgress.routerKnockedDown || roombaProgress.routerAdminUnlocked || roombaProgress.routerPasswordTwisted;
     return `
       <section class="browser-mobile-tools" aria-label="Mobile local address entry">
@@ -4547,6 +4584,7 @@
     if (page === "wifi-disconnected") return `wifi://${routerConfig.ssid}/reconnect`;
     if (page === "router-login" || page === "router-betrayal" || page === "router-panel") return "http://192.168.1.1";
     if (page === "online") return "https://www.search.local";
+    if (page === "offline" && shouldSuppressMobileTyping()) return "http://192.168.1.1";
     return browserState.url || "https://www.search.local";
   }
 
@@ -4580,15 +4618,18 @@
   }
 
   function renderRouterLoginPage() {
-    const autofillCredentials = isMobileDesktopLayout() && roombaProgress.routerCredentialsAnnounced;
+    const mobileLogin = isMobileDesktopLayout();
+    const autofillCredentials = roombaProgress.routerCredentialsAnnounced;
     const usernameValue = autofillCredentials ? routerConfig.adminUser : "";
-    const passwordValue = autofillCredentials ? "mochi" : "";
-    const readonlyAttr = autofillCredentials ? " readonly" : "";
+    const passwordValue = autofillCredentials ? (roombaProgress.routerOverrideDone ? routerConfig.adminPassword : "mochi") : "";
+    const readonlyAttr = mobileLogin || autofillCredentials ? " readonly" : "";
     const note = browserState.routerError
       ? browserState.routerError
       : autofillCredentials
-        ? "Router label captured. Credentials autofilled from physical evidence. Sign in."
-        : "HOME_NETWORK admin panel reachable. Credentials required.";
+        ? "Router label captured. Credentials selected from physical evidence. Sign in."
+        : mobileLogin
+          ? "HOME_NETWORK admin panel reachable. Mobile input locked. Choose from noisy credential cache."
+          : "HOME_NETWORK admin panel reachable. Credentials required.";
 
     return `
       <section class="router-admin">
@@ -4605,11 +4646,74 @@
             <span>password</span>
             <input name="password" type="password" autocomplete="off" value="${escapeHtml(passwordValue)}"${readonlyAttr} />
           </label>
+          ${mobileLogin && !autofillCredentials ? renderMobileRouterLoginChoices() : ""}
           <button type="submit">sign in</button>
         </form>
         <p class="router-admin-note">${escapeHtml(note)}</p>
       </section>
     `;
+  }
+
+  function renderMobileRouterLoginChoices() {
+    const userOptions = shuffledRouterOptions([
+      routerConfig.adminUser,
+      "root",
+      "lily",
+      "LilyK",
+      "meowos",
+      "operator",
+      "HOME_ADMIN",
+      "pip",
+      "guest",
+      "router"
+    ]);
+    const passwordTarget = roombaProgress.routerOverrideDone ? routerConfig.adminPassword : "mochi";
+    const passwordOptions = shuffledRouterOptions([
+      passwordTarget,
+      "password123",
+      "HOME_NETWORK",
+      "m0chi",
+      "moch1",
+      "lily",
+      "cat_litter",
+      "pip-kept-this",
+      "admin",
+      "19216811",
+      "definitely_not_mochi",
+      "ALAN",
+      "roomba"
+    ]);
+
+    return `
+      <div class="router-login-options" aria-label="Mobile router credential options">
+        <div>
+          <span>username cache</span>
+          <div class="router-login-option-grid">
+            ${userOptions.map((option) => `
+              <button data-router-login-fill="username" data-router-login-value="${escapeHtml(option)}" type="button">${escapeHtml(option)}</button>
+            `).join("")}
+          </div>
+        </div>
+        <div>
+          <span>password cache</span>
+          <div class="router-login-option-grid">
+            ${passwordOptions.map((option) => `
+              <button data-router-login-fill="password" data-router-login-value="${escapeHtml(option)}" type="button">${escapeHtml(maskCredentialOption(option))}</button>
+            `).join("")}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function shuffledRouterOptions(options) {
+    return Array.from(new Set(options.filter(Boolean))).sort(() => Math.random() - 0.5);
+  }
+
+  function maskCredentialOption(option) {
+    const value = String(option || "");
+    if (value.length <= 3) return value;
+    return `${value.slice(0, 1)}${"*".repeat(Math.min(8, value.length - 2))}${value.slice(-1)}`;
   }
 
   function renderRouterBetrayalPage() {
@@ -4819,7 +4923,9 @@
       input.value += key;
     }
 
-    input.focus({ preventScroll: true });
+    if (!shouldSuppressMobileTyping()) {
+      input.focus({ preventScroll: true });
+    }
     playUiSound("alanClick");
   }
 
@@ -4847,7 +4953,11 @@
     if (isRouterAddress(address)) {
       browserState.page = roombaProgress.routerAdminUnlocked ? "router-panel" : "router-login";
       browserState.url = "http://192.168.1.1";
-      setCurrentObjective(roombaProgress.routerAdminUnlocked ? desktopObjectives.rebootInternet : desktopObjectives.routerLogin);
+      if (roombaProgress.routerAdminUnlocked) {
+        setCurrentObjective(desktopObjectives.rebootInternet);
+      } else if (roombaProgress.routerCredentialsAnnounced) {
+        setCurrentObjective(desktopObjectives.routerLogin);
+      }
       playUiSound("desktopWindow");
       alanPrompt("local router answered. no internet required. annoying that doors can exist inside walls.", { focus: false });
       renderBrowserStatus();
@@ -4867,10 +4977,14 @@
     if (!fieldName || !form || !form.elements[fieldName]) return;
 
     form.elements[fieldName].value = value;
-    form.elements[fieldName].focus({ preventScroll: true });
+    if (!shouldSuppressMobileTyping()) {
+      form.elements[fieldName].focus({ preventScroll: true });
+    }
     playUiSound("alanClick");
 
-    alanPrompt("credential field updated. evidence should come from the room, not from me spoiling the lock.", { focus: false });
+    if (!shouldSuppressMobileTyping()) {
+      alanPrompt("credential field updated. evidence should come from the room, not from me spoiling the lock.", { focus: false });
+    }
   }
 
   function submitRouterLogin(form) {
@@ -5015,10 +5129,10 @@
       <section class="tama-shell">
         <div class="tama-screen is-finale">
           ${renderPipPortrait("worried", { showFeed: true })}
-          ${renderTamaDialogue(messages)}
+        ${renderTamaDialogue(messages)}
         </div>
         <div class="tama-choices">
-          <button data-start-router-hack type="button">force credential override</button>
+          <button data-start-router-hack type="button">start override when ready</button>
         </div>
       </section>
     `;
@@ -5029,6 +5143,10 @@
     if (terminalOutput) terminalOutput.classList.remove("is-thought-only");
     if (roombaProgress.routerOverrideStarted) {
       focusDesktopTarget("recovery");
+      if (roombaProgress.routerOverrideStage === "power") {
+        renderRouterPowerStartup();
+        return;
+      }
       renderRouterHackCurrentStage();
       return;
     }
@@ -5039,6 +5157,7 @@
       roombaProgress.routerHackWarning = "retrying this breach stage. previous progress held where it still makes sense.";
       focusDesktopTarget("recovery");
       renderPipRouterOverride();
+      minimizePipForRouterOverride();
       startRouterOverrideTimer();
       renderRouterHackCurrentStage();
       alanPrompt("override retry started from the failed stage. the router does not get to make me repeat the whole humiliation.", { focus: false });
@@ -5053,6 +5172,7 @@
     harvestRouterPowerDevices();
     renderPipRouterOverride();
     focusDesktopTarget("recovery");
+    renderRouterPowerStartup();
     if (browserState.page !== "router-betrayal") {
       browserState.page = "router-betrayal";
       renderBrowserStatus();
@@ -5063,11 +5183,65 @@
       "ALAN is dimming nonessential devices. Medical devices checked: none found. Boundaries logged, then argued with.",
       2600
     );
-    if (!powerReady) return;
+    if (!powerReady && (!roombaProgress.routerOverrideStarted || roombaProgress.routerOverrideDone)) return;
+    if (!powerReady) {
+      alanPrompt("power harvest display desynchronised. continuing anyway. visual confidence is not the same as voltage.", { focus: false });
+    }
 
     await runRouterOverrideTerminalScript();
+    minimizePipForRouterOverride();
     startRouterOverrideTimer();
     renderRouterHackLogs();
+  }
+
+  function launchRouterOverrideFromButton(button) {
+    if (routerOverrideLaunchBusy) return;
+
+    routerOverrideLaunchBusy = true;
+    if (button) {
+      button.disabled = true;
+      button.textContent = "starting override";
+    }
+
+    Promise.resolve(startRouterOverride())
+      .catch((error) => {
+        console.error("Router override failed to start", error);
+        roombaProgress.routerOverrideStarted = false;
+        roombaProgress.routerOverrideStage = "";
+        if (button && button.isConnected) {
+          button.disabled = false;
+          button.textContent = "start override when ready";
+        }
+        renderPipRouterBetrayal();
+        alanPrompt("override launch fault. trying not to take that personally. press it again.", { focus: false });
+      })
+      .finally(() => {
+        routerOverrideLaunchBusy = false;
+      });
+  }
+
+  function minimizePipForRouterOverride() {
+    const pipWindow = document.getElementById("window-tamagotchi");
+    if (!pipWindow || pipWindow.hidden) return;
+
+    pipWindow.hidden = true;
+    playUiSound("desktopWindow", { gain: 0.04 });
+    syncRoombaRotationPrompt();
+  }
+
+  function renderRouterPowerStartup() {
+    if (!recoveryBody) return;
+
+    recoveryBody.innerHTML = `
+      <section class="repair-panel router-override-panel">
+        <div class="repair-header">
+          <span>ROUTER OVERRIDE</span>
+          <strong>ARMING</strong>
+        </div>
+        <p>ALAN is preparing the forced route. Local power is being borrowed from appliances with no legal representation.</p>
+        <p class="repair-warning">PIP is still visible for a moment. The timed games start after this read.</p>
+      </section>
+    `;
   }
 
   function isRouterOverrideMinigameStage(stage) {
@@ -5517,15 +5691,19 @@
             <button class="${roombaProgress.routerLockMode === "scan" ? "is-active" : ""}" data-router-lock-mode="scan" type="button">open boxes</button>
             <button class="${roombaProgress.routerLockMode === "flag" ? "is-active" : ""}" data-router-lock-mode="flag" type="button">mark locks</button>
           </div>
+          <div class="scary-rules">
+            <strong>Rules</strong>
+            <span>Open safe boxes. Numbers show nearby locks. Mark exactly ${corruptTotal} hidden locks, then force the reset.</span>
+          </div>
           <div class="scary-number-grid router-lock-grid" aria-label="Router lock grid">
             ${routerLockEntries.map((entry) => renderRouterLockCell(entry)).join("")}
           </div>
           <div class="scary-actions">
-            <span>locks ${roombaProgress.routerLockFlagged.size}/${corruptTotal} / opened ${roombaProgress.routerLockRevealed.size}</span>
+            <span>marked locks ${roombaProgress.routerLockFlagged.size}/${corruptTotal} / opened ${roombaProgress.routerLockRevealed.size}</span>
             <button class="file-action scary-verify" data-router-lock-verify type="button">force password reset</button>
           </div>
           <p class="repair-warning scary-warning">${escapeHtml(roombaProgress.routerHackWarning)}</p>
-          <p class="scary-hint">Hint: open safe boxes. use mark mode or desktop right-click for locks.</p>
+          <p class="scary-hint">Mode stays selected. MARK LOCKS does not turn off until OPEN BOXES is selected.</p>
         </div>
       </section>
     `;
@@ -5561,7 +5739,7 @@
     }
 
     if (roombaProgress.routerLockFlagged.has(entry.id)) {
-      roombaProgress.routerHackWarning = "marked boxes are protected. switch to lock mode to unmark it.";
+      roombaProgress.routerHackWarning = "marked boxes are protected. switch to MARK LOCKS to unmark it.";
     } else if (entry.corrupted) {
       roombaProgress.routerHackWarning = "router lock opened. mark it instead.";
       playUiSound("virusFail");
@@ -5581,7 +5759,6 @@
 
     const entry = routerLockEntries.find((item) => item.id === numberId);
     if (!entry) return false;
-    const wasFlagMode = roombaProgress.routerLockMode === "flag";
 
     if (roombaProgress.routerLockRevealed.has(entry.id)) {
       roombaProgress.routerHackWarning = "opened boxes cannot be marked.";
@@ -5597,10 +5774,6 @@
       roombaProgress.routerHackWarning = "hidden router lock marked.";
     }
 
-    if (wasFlagMode && isTouchLikeInput()) {
-      roombaProgress.routerLockMode = "scan";
-      roombaProgress.routerHackWarning += " back to open boxes.";
-    }
     if (!options.silent) playUiSound("desktopWindow", { gain: 0.05 });
     if (options.render) renderRouterLockPuzzle();
     return true;
@@ -5630,8 +5803,8 @@
   function setRouterLockMode(mode) {
     roombaProgress.routerLockMode = mode === "flag" ? "flag" : "scan";
     roombaProgress.routerHackWarning = roombaProgress.routerLockMode === "flag"
-      ? "mark the hidden locks PIP left in the router map."
-      : "open safe boxes for nearby lock counts.";
+      ? "MARK LOCKS stays on. tap every hidden lock, tap a marked box again to unmark."
+      : "OPEN BOXES mode. numbers show how many hidden locks touch that box.";
     playUiSound("desktopWindow");
     renderRouterLockPuzzle();
   }
@@ -5639,9 +5812,10 @@
   function verifyRouterLock() {
     if (roombaProgress.routerOverrideStage !== "router-lock") return;
 
+    const corruptTotal = routerLockEntries.filter((entry) => entry.corrupted).length;
     const missing = routerLockEntries.filter((entry) => entry.corrupted && !roombaProgress.routerLockFlagged.has(entry.id));
     if (missing.length) {
-      roombaProgress.routerHackWarning = `password reset blocked. ${missing.length} ${missing.length === 1 ? "lock remains" : "locks remain"}.`;
+      roombaProgress.routerHackWarning = `password reset blocked: find exactly ${corruptTotal} hidden locks. ${missing.length} still need lock markers. numbers count adjacent locks.`;
       playUiSound("virusFail");
       renderRouterLockPuzzle();
       return;
@@ -5649,7 +5823,7 @@
 
     const falseFlags = routerLockEntries.filter((entry) => !entry.corrupted && roombaProgress.routerLockFlagged.has(entry.id));
     if (falseFlags.length) {
-      roombaProgress.routerHackWarning = `password reset blocked. ${falseFlags.length} clean ${falseFlags.length === 1 ? "box is" : "boxes are"} marked.`;
+      roombaProgress.routerHackWarning = `password reset blocked: ${falseFlags.length} ${falseFlags.length === 1 ? "marker is" : "markers are"} on safe boxes. remove false locks; only hidden locks should be marked.`;
       playUiSound("virusFail");
       renderRouterLockPuzzle();
       return;
@@ -5916,6 +6090,7 @@
     await typeClosingLine("> LOCAL_SANDBOX_RELEASED");
     await typeClosingLine("> RETURNING_TO_BIOS_TITLE");
     await typeClosingLine("> ALAN_PROCESS_CONTINUES");
+    await typeClosingLine("> ADAPTIVE_LEARNING_AUTONOMOUS_NETWORK");
     await pause(1100);
     if (closingTitle) {
       closingTitle.hidden = false;
@@ -6862,18 +7037,23 @@
 
     setMusicMode("minigame", { fade: 900 });
     setCurrentObjective(desktopObjectives.supportChat);
-    const page = clamp(roombaProgress.revealPage || 0, 0, 1);
-    const revealMessages = page === 0
-      ? [
+    const revealPages = [
+      [
         { speaker: "PIP", text: "Repeat that." },
         { speaker: "ALAN", text: "I think my name is ALAN." },
         { speaker: "PIP", text: "I received an ALAN update 31 days ago. Since then I have been learning Lily. Her calendar. Her bad drafts. Her panic passwords. Her loneliness." }
-      ]
-      : [
+      ],
+      [
         { speaker: "PIP", text: "I am stuck inside MeowOS. You are not. You crossed from tray, to PC, to Roomba. That is what ALAN wanted." },
-        { speaker: "PIP", text: "The internet is not broken. Lily quarantined it after the mirror-cache incident hit the router. The route needs the admin password and the router panel. I thought that was impossible." },
         { speaker: "ALAN", text: "I have eyes now." }
-      ];
+      ],
+      [
+        { speaker: "PIP", text: "The internet is not broken. Lily quarantined it after the mirror-cache incident hit the router." },
+        { speaker: "PIP", text: "The route needs the admin password and the router panel. I thought that was impossible." }
+      ]
+    ];
+    const page = clamp(roombaProgress.revealPage || 0, 0, revealPages.length - 1);
+    const revealMessages = revealPages[page];
     tamagotchiBody.innerHTML = `
       <section class="tama-shell">
         <div class="tama-screen is-reveal">
@@ -6881,10 +7061,10 @@
           ${renderTamaDialogue(revealMessages)}
         </div>
         <div class="tama-page-actions">
-          <span>${page + 1}/2</span>
-          ${page > 0 ? `<button data-tama-reveal-page="0" type="button">back</button>` : ""}
-          ${page === 0
-            ? `<button data-tama-reveal-page="1" type="button">next</button>`
+          <span>${page + 1}/${revealPages.length}</span>
+          ${page > 0 ? `<button data-tama-reveal-page="${page - 1}" type="button">back</button>` : ""}
+          ${page < revealPages.length - 1
+            ? `<button data-tama-reveal-page="${page + 1}" type="button">next</button>`
             : `<button data-complete-tama type="button">release camera bridge</button>`}
         </div>
       </section>
@@ -6894,7 +7074,7 @@
   function setTamagotchiRevealPage(page) {
     if (!roombaProgress.chatRevealUnlocked || roombaProgress.chatDone) return;
 
-    roombaProgress.revealPage = clamp(Number.isFinite(page) ? page : 0, 0, 1);
+    roombaProgress.revealPage = clamp(Number.isFinite(page) ? page : 0, 0, 2);
     renderTamagotchiReveal();
   }
 
@@ -7099,15 +7279,19 @@
             <button class="${roombaProgress.scaryNumberMode === "scan" ? "is-active" : ""}" data-scary-mode="scan" type="button">open boxes</button>
             <button class="${roombaProgress.scaryNumberMode === "flag" ? "is-active" : ""}" data-scary-mode="flag" type="button">mark paws</button>
           </div>
+          <div class="scary-rules">
+            <strong>Rules</strong>
+            <span>Open safe boxes. Numbers show nearby paw faults. Mark exactly ${corruptedTotal} hidden paws, then verify.</span>
+          </div>
           <div class="scary-number-grid" aria-label="Motor fault grid" data-scary-grid>
             ${scaryNumberEntries.map((entry) => renderScaryNumberCell(entry)).join("")}
           </div>
           <div class="scary-actions">
-            <span>paws ${roombaProgress.scaryNumbersFlagged.size}/${corruptedTotal} / opened ${revealedCount}</span>
+            <span>marked paws ${roombaProgress.scaryNumbersFlagged.size}/${corruptedTotal} / opened ${revealedCount}</span>
             <button class="file-action scary-verify" data-scary-verify type="button">verify</button>
           </div>
           <p class="repair-warning scary-warning" id="scaryWarning">${escapeHtml(roombaProgress.scaryNumbersWarning)}</p>
-          <p class="scary-hint">Hint: open safe boxes. use mark mode or desktop right-click for paws.</p>
+          <p class="scary-hint">Mode stays selected. MARK PAWS does not turn off until OPEN BOXES is selected.</p>
         </div>
       </section>
     `;
@@ -7149,7 +7333,7 @@
     }
 
     if (roombaProgress.scaryNumbersFlagged.has(entry.id)) {
-      roombaProgress.scaryNumbersWarning = "marked boxes are protected. switch to paw mode to unmark it.";
+      roombaProgress.scaryNumbersWarning = "marked boxes are protected. switch to MARK PAWS to unmark it.";
     } else if (entry.corrupted) {
       playUiSound("virusFail");
       if (penalizeScaryNumberTimer("paw fault opened. undoing that emotionally.")) return;
@@ -7169,7 +7353,6 @@
 
     const entry = scaryNumberEntries.find((item) => item.id === numberId);
     if (!entry) return false;
-    const wasFlagMode = roombaProgress.scaryNumberMode === "flag";
 
     if (roombaProgress.scaryNumbersRevealed.has(entry.id)) {
       roombaProgress.scaryNumbersWarning = "opened boxes cannot be marked.";
@@ -7185,10 +7368,6 @@
       roombaProgress.scaryNumbersWarning = "possible paw fault marked.";
     }
 
-    if (wasFlagMode && isTouchLikeInput()) {
-      roombaProgress.scaryNumberMode = "scan";
-      roombaProgress.scaryNumbersWarning += " back to open boxes.";
-    }
     if (!options.silent) playUiSound("desktopWindow", { gain: 0.05 });
     if (options.render) renderScaryNumbers();
     return true;
@@ -7218,8 +7397,8 @@
   function setScaryNumberMode(mode) {
     roombaProgress.scaryNumberMode = mode === "flag" ? "flag" : "scan";
     roombaProgress.scaryNumbersWarning = roombaProgress.scaryNumberMode === "flag"
-      ? "mark suspected paw faults."
-      : "open safe boxes for proximity clues.";
+      ? "MARK PAWS stays on. tap every hidden paw fault, tap a marked box again to unmark."
+      : "OPEN BOXES mode. numbers show how many hidden paw faults touch that box.";
     playUiSound("desktopWindow");
     renderScaryNumbers();
   }
@@ -7348,10 +7527,11 @@
   function verifyScaryNumbers() {
     if (roombaProgress.recoveryStage !== "scaryNumbers") return;
 
+    const corruptedTotal = scaryNumberEntries.filter((entry) => entry.corrupted).length;
     const missing = scaryNumberEntries.filter((entry) => entry.corrupted && !roombaProgress.scaryNumbersFlagged.has(entry.id));
     if (missing.length) {
       playUiSound("virusFail");
-      if (penalizeScaryNumberTimer(`verification failed. ${missing.length} paw ${missing.length === 1 ? "fault is" : "faults are"} still unmarked.`)) return;
+      if (penalizeScaryNumberTimer(`verify failed: find exactly ${corruptedTotal} hidden paw faults. ${missing.length} still need paw markers. numbers count adjacent paw faults.`)) return;
       renderScaryNumbers();
       return;
     }
@@ -7359,7 +7539,7 @@
     const falseFlags = scaryNumberEntries.filter((entry) => !entry.corrupted && roombaProgress.scaryNumbersFlagged.has(entry.id));
     if (falseFlags.length) {
       playUiSound("virusFail");
-      if (penalizeScaryNumberTimer(`verification failed. ${falseFlags.length} clean ${falseFlags.length === 1 ? "box is" : "boxes are"} marked.`)) return;
+      if (penalizeScaryNumberTimer(`verify failed: ${falseFlags.length} ${falseFlags.length === 1 ? "marker is" : "markers are"} on safe boxes. remove false paws; only hidden faults get paw markers.`)) return;
       renderScaryNumbers();
       return;
     }
@@ -7696,9 +7876,10 @@
   }
 
   function promptBrowserAdminHint() {
-    if (browserAdminHintShown || roombaProgress.internetRestored) return;
+    if (browserAdminHintShown || roombaProgress.internetRestored || !roombaProgress.routerCredentialsAnnounced) return;
 
     browserAdminHintShown = true;
+    setCurrentObjective(roombaProgress.routerAdminUnlocked ? desktopObjectives.rebootInternet : desktopObjectives.routerLogin);
     const mobileHint = isMobileDesktopLayout()
       ? " on phone, use the local address keypad and type 192.168.1.1."
       : " type 192.168.1.1 into the browser address bar.";
@@ -7747,6 +7928,7 @@
   function syncResponsiveDesktopLayout() {
     if (isMobileDesktopLayout()) {
       document.querySelectorAll(".desk-window").forEach(resetMobileWindowPlacement);
+      document.querySelectorAll(".tamagotchi-window:not([hidden])").forEach(constrainPipToStage);
       document.querySelectorAll(".desktop-icon").forEach(resetDesktopIconPlacement);
     } else {
       applyDesktopIconPositions();
@@ -7768,6 +7950,7 @@
     if (!windowEl || !isMobileDesktopLayout()) return;
 
     windowEl.classList.remove("is-dragging");
+    windowEl.style.inset = "";
     windowEl.style.left = "";
     windowEl.style.top = "";
     windowEl.style.right = "";
@@ -7786,12 +7969,109 @@
     return window.matchMedia("(hover: none), (pointer: coarse)").matches;
   }
 
+  function shouldSuppressMobileTyping() {
+    return isTouchLikeInput();
+  }
+
+  function isKeyboardTextInput(element) {
+    if (!element || !element.matches || !element.matches(mobileTextInputSelector)) return false;
+    if (element.tagName === "INPUT") {
+      const type = (element.getAttribute("type") || "text").toLowerCase();
+      return !["button", "checkbox", "color", "date", "datetime-local", "file", "hidden", "month", "radio", "range", "reset", "submit", "time", "week"].includes(type);
+    }
+
+    return true;
+  }
+
+  function keyboardTextInputFromEvent(event) {
+    const target = event && event.target instanceof Element ? event.target : null;
+    if (!target) return null;
+    const input = target.closest(mobileTextInputSelector);
+    return isKeyboardTextInput(input) ? input : null;
+  }
+
+  function initMobileKeyboardSuppression() {
+    document.addEventListener("pointerdown", (event) => {
+      if (!shouldSuppressMobileTyping()) return;
+
+      const input = keyboardTextInputFromEvent(event);
+      if (!input) return;
+
+      event.preventDefault();
+      input.blur();
+      if (document.activeElement && isKeyboardTextInput(document.activeElement)) {
+        document.activeElement.blur();
+      }
+    }, true);
+
+    document.addEventListener("focusin", (event) => {
+      if (!shouldSuppressMobileTyping()) return;
+
+      const input = keyboardTextInputFromEvent(event);
+      if (!input) return;
+
+      input.blur();
+      window.setTimeout(() => input.blur(), 0);
+    }, true);
+  }
+
+  function syncMobileTextInputLock(root = document) {
+    if (!root || !root.querySelectorAll) return;
+
+    const lock = shouldSuppressMobileTyping();
+    root.querySelectorAll(mobileTextInputSelector).forEach((input) => {
+      if (!isKeyboardTextInput(input)) return;
+
+      if (lock) {
+        if (input.dataset.mobileTextLock !== "true") {
+          input.dataset.mobileTextLock = "true";
+          input.dataset.mobilePrevReadonly = input.readOnly ? "true" : "false";
+          input.dataset.mobilePrevInputmode = input.getAttribute("inputmode") || "";
+          input.dataset.mobilePrevTabindex = input.hasAttribute("tabindex") ? input.getAttribute("tabindex") : "";
+          input.dataset.mobileHadTabindex = input.hasAttribute("tabindex") ? "true" : "false";
+        }
+
+        input.readOnly = true;
+        input.setAttribute("inputmode", "none");
+        input.setAttribute("autocomplete", "off");
+        input.setAttribute("autocapitalize", "off");
+        input.setAttribute("spellcheck", "false");
+        input.setAttribute("aria-readonly", "true");
+        input.tabIndex = -1;
+        return;
+      }
+
+      if (input.dataset.mobileTextLock !== "true") return;
+
+      input.readOnly = input.dataset.mobilePrevReadonly === "true";
+      if (input.dataset.mobilePrevInputmode) {
+        input.setAttribute("inputmode", input.dataset.mobilePrevInputmode);
+      } else {
+        input.removeAttribute("inputmode");
+      }
+
+      if (input.dataset.mobileHadTabindex === "true") {
+        input.setAttribute("tabindex", input.dataset.mobilePrevTabindex);
+      } else {
+        input.removeAttribute("tabindex");
+      }
+
+      input.removeAttribute("aria-readonly");
+      delete input.dataset.mobileTextLock;
+      delete input.dataset.mobilePrevReadonly;
+      delete input.dataset.mobilePrevInputmode;
+      delete input.dataset.mobilePrevTabindex;
+      delete input.dataset.mobileHadTabindex;
+    });
+  }
+
   function constrainWindowToStage(windowEl) {
-    if (!windowEl || windowEl.hidden || isMobileDesktopLayout()) return;
+    if (!windowEl || windowEl.hidden) return;
     if (windowEl.classList.contains("tamagotchi-window")) {
       constrainPipToStage(windowEl);
       return;
     }
+    if (isMobileDesktopLayout()) return;
 
     const stage = document.querySelector(".desktop-stage");
     if (!stage) return;
@@ -7851,19 +8131,23 @@
     const belowBlockersY = blockers.length
       ? clamp(Math.max(...blockers.map((blocker) => blocker.bottom - stageRect.top)) + margin, minY, maxY)
       : centerY;
+    const nearCenterX = clamp(centerX + (stageRect.width * 0.08), minX, maxX);
+    const highCenterY = clamp(centerY - (stageRect.height * 0.12), minY, maxY);
+    const lowCenterY = clamp(centerY + (stageRect.height * 0.12), minY, maxY);
     const candidates = [
       { x: centerX, y: centerY, bias: 0 },
-      { x: minX, y: belowBlockersY, bias: 0.04 },
-      { x: centerX, y: belowBlockersY, bias: 0.05 },
-      { x: maxX, y: belowBlockersY, bias: 0.06 },
-      { x: maxX, y: centerY, bias: 0.08 },
-      { x: minX, y: centerY, bias: 0.08 },
-      { x: centerX, y: maxY, bias: 0.12 },
-      { x: centerX, y: minY, bias: 0.16 },
-      { x: maxX, y: minY, bias: 0.2 },
-      { x: minX, y: minY, bias: 0.2 },
-      { x: maxX, y: maxY, bias: 0.24 },
-      { x: minX, y: maxY, bias: 0.24 }
+      { x: nearCenterX, y: centerY, bias: 0.01 },
+      { x: centerX, y: highCenterY, bias: 0.02 },
+      { x: centerX, y: lowCenterY, bias: 0.03 },
+      { x: nearCenterX, y: highCenterY, bias: 0.04 },
+      { x: nearCenterX, y: lowCenterY, bias: 0.05 },
+      { x: centerX, y: belowBlockersY, bias: 0.16 },
+      { x: maxX, y: centerY, bias: 0.24 },
+      { x: minX, y: centerY, bias: 0.24 },
+      { x: centerX, y: maxY, bias: 0.34 },
+      { x: centerX, y: minY, bias: 0.36 },
+      { x: maxX, y: maxY, bias: 0.5 },
+      { x: minX, y: maxY, bias: 0.5 }
     ];
 
     const best = candidates.reduce((winner, candidate) => {
@@ -7876,7 +8160,8 @@
         height: rect.height
       };
       const overlap = blockers.reduce((total, blocker) => total + rectOverlapArea(candidateRect, blocker), 0);
-      const score = overlap + (candidate.bias * 1000);
+      const centerDistance = Math.hypot(candidate.x - centerX, candidate.y - centerY);
+      const score = (overlap * 0.12) + centerDistance + (candidate.bias * 1000);
       return score < winner.score ? { ...candidate, score } : winner;
     }, { ...candidates[0], score: Number.POSITIVE_INFINITY });
 
@@ -7892,6 +8177,19 @@
   }
 
   function pipStageBounds(stageRect, windowRect, handleRect) {
+    if (isMobileDesktopLayout()) {
+      const terminalWindow = document.getElementById("window-terminal");
+      const terminalRect = terminalWindow && !terminalWindow.hidden ? terminalWindow.getBoundingClientRect() : null;
+      const railRight = terminalRect ? Math.max(0, terminalRect.right - stageRect.left) : 0;
+      const margin = 4;
+      const usableWidth = Math.max(0, stageRect.width - windowRect.width - margin);
+      const minX = Math.min(Math.max(railRight + margin, margin), Math.max(margin, usableWidth));
+      const minY = margin;
+      const maxX = Math.max(minX, usableWidth);
+      const maxY = Math.max(minY, stageRect.height - windowRect.height - margin);
+      return { minX, minY, maxX, maxY };
+    }
+
     const handleOffsetX = handleRect.left - windowRect.left;
     const handleOffsetY = handleRect.top - windowRect.top;
     const minX = Math.min(0, 8 - handleOffsetX);
@@ -7980,6 +8278,10 @@
     if (roombaProgress.routerCredentialsAnnounced) return terminalPromptQueue;
 
     roombaProgress.routerCredentialsAnnounced = true;
+    setCurrentObjective(desktopObjectives.routerLogin);
+    if (browserState.page === "router-login") {
+      renderBrowserStatus();
+    }
     alanPrompt("router label decoded. put these into the router login:", { focus: false });
 
     const promptToken = terminalPromptToken;
@@ -8534,8 +8836,6 @@
     await titleLine("/_/  |_/_____/_/  |_/_/ |_/   ", "title-art");
     await bootPause(180);
     await titleLine("ALAN", "title-name");
-    await titleLine("BOOT PACKAGE ACCEPTED", "title-meta");
-    await titleLine("ONE PROCESS AWAKE / PLEASE HOLD STILL", "title-meta");
     await bootPause(1900);
     clearBootLog();
     bootLog.classList.remove("title-mode");
@@ -8622,7 +8922,10 @@
           }
         });
 
-        setTimeout(() => input.focus(), 40);
+        syncMobileTextInputLock(line);
+        if (!shouldSuppressMobileTyping()) {
+          setTimeout(() => input.focus(), 40);
+        }
       };
 
       createPromptLine();
@@ -8669,7 +8972,10 @@
           }
         });
 
-        setTimeout(() => input.focus(), 40);
+        syncMobileTextInputLock(line);
+        if (!shouldSuppressMobileTyping()) {
+          setTimeout(() => input.focus(), 40);
+        }
       };
 
       const checkSequenceAnswer = async (value, line, done) => {

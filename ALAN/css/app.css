@@ -2270,6 +2270,13 @@ button {
   box-shadow: 0 0 12px rgba(157, 255, 118, 0.14);
 }
 
+[data-mobile-text-lock="true"] {
+  caret-color: transparent;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .todo-copy {
   color: var(--desktop-cream);
 }
@@ -3071,6 +3078,17 @@ button {
   border-color: rgba(255, 96, 111, 0.24);
 }
 
+.router-override-panel .log-list {
+  gap: 5px;
+}
+
+.router-override-panel .log-list button {
+  grid-template-columns: 28px minmax(0, 1fr);
+  min-height: 29px;
+  padding: 5px 7px;
+  font-size: 0.68rem;
+}
+
 .router-override-timer {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -3184,8 +3202,8 @@ button {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 6px 10px;
   align-items: center;
-  min-height: 66px;
-  padding: 9px 10px;
+  min-height: 54px;
+  padding: 7px 8px;
   border: 1px solid rgba(126, 252, 255, 0.24);
   background:
     linear-gradient(135deg, rgba(126, 252, 255, 0.08), transparent 54%),
@@ -3212,7 +3230,7 @@ button {
 .router-bridge-switches strong {
   min-width: 0;
   color: var(--desktop-cyan);
-  font-size: 0.78rem;
+  font-size: 0.7rem;
 }
 
 .router-bridge-switches span {
@@ -3233,12 +3251,12 @@ button {
 .router-bridge-switches em {
   grid-column: 1 / -1;
   display: block;
-  padding: 5px 7px;
+  padding: 4px 6px;
   border: 1px solid rgba(236, 143, 240, 0.2);
   background: rgba(236, 143, 240, 0.08);
   color: var(--desktop-amber);
   font-style: normal;
-  font-size: 0.72rem;
+  font-size: 0.64rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -3257,6 +3275,7 @@ button {
 
 .router-lock-grid {
   grid-template-columns: repeat(6, minmax(0, 1fr));
+  width: min(100%, 172px);
   min-height: 0;
 }
 
@@ -3740,7 +3759,7 @@ button {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
 }
 
@@ -3802,6 +3821,7 @@ button {
 
 .scary-actions span {
   color: rgba(215, 253, 255, 0.78);
+  margin-right: 4px;
   font-size: 0.72rem;
 }
 
@@ -3901,9 +3921,54 @@ button {
   text-align: left;
 }
 
+.scary-rules {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 3px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 211, 107, 0.32);
+  background:
+    linear-gradient(90deg, rgba(255, 211, 107, 0.1), rgba(114, 222, 255, 0.05)),
+    rgba(2, 8, 18, 0.54);
+  color: rgba(255, 242, 216, 0.84);
+  font-size: 0.66rem;
+  line-height: 1.32;
+}
+
+.scary-rules strong {
+  color: var(--desktop-amber);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .scary-verify {
-  min-height: 32px;
-  padding: 5px 10px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-color: rgba(157, 255, 118, 0.72) !important;
+  background:
+    linear-gradient(180deg, rgba(157, 255, 118, 0.22), rgba(255, 211, 107, 0.12)),
+    rgba(5, 22, 13, 0.86) !important;
+  color: var(--desktop-green) !important;
+  font-weight: 800;
+  text-transform: uppercase;
+  box-shadow:
+    0 0 16px rgba(157, 255, 118, 0.18),
+    inset 0 0 12px rgba(157, 255, 118, 0.08);
+}
+
+.scary-verify:hover,
+.scary-verify:focus-visible {
+  border-color: var(--desktop-amber) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 211, 107, 0.28), rgba(157, 255, 118, 0.14)),
+    rgba(28, 21, 6, 0.9) !important;
+  color: var(--desktop-cream) !important;
+  box-shadow:
+    0 0 20px rgba(255, 211, 107, 0.28),
+    inset 0 0 12px rgba(255, 211, 107, 0.1);
+  outline: 0;
 }
 
 .scary-warning {
@@ -4772,6 +4837,55 @@ button {
   gap: 9px;
 }
 
+.router-login-options {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(114, 222, 255, 0.18);
+  background:
+    linear-gradient(180deg, rgba(114, 222, 255, 0.06), transparent),
+    rgba(0, 0, 0, 0.24);
+}
+
+.router-login-options > div {
+  display: grid;
+  gap: 5px;
+}
+
+.router-login-options span {
+  color: var(--desktop-lilac);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+
+.router-login-option-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.router-login-option-grid button {
+  min-width: 0;
+  min-height: 28px;
+  padding: 3px 5px;
+  overflow: hidden;
+  border: 1px solid rgba(236, 143, 240, 0.24);
+  background: rgba(255, 139, 213, 0.07);
+  color: var(--desktop-cream);
+  font: inherit;
+  font-size: 0.58rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.router-login-option-grid button:hover,
+.router-login-option-grid button:focus-visible {
+  border-color: var(--desktop-cyan);
+  outline: 0;
+  box-shadow: 0 0 14px rgba(114, 222, 255, 0.16);
+}
+
 .router-config-form,
 .router-devices,
 .router-final-route,
@@ -5108,6 +5222,13 @@ button {
   height: auto;
   max-height: min(780px, calc(100dvh - 104px));
   min-height: 0;
+}
+
+.roomba-camera-back {
+  width: auto;
+  min-width: 50px;
+  padding: 0 9px;
+  font-size: 0.62rem;
 }
 
 .roomba-device-card {
@@ -5505,29 +5626,12 @@ button {
 .roomba-interest-layer {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: 5;
   pointer-events: none;
 }
 
 .roomba-interest-eye-image {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: clamp(22px, 46%, 54px);
-  height: clamp(22px, 46%, 54px);
-  object-fit: contain;
-  pointer-events: none;
-  filter:
-    hue-rotate(92deg)
-    saturate(1.1)
-    brightness(0.94)
-    drop-shadow(0 0 5px rgba(157, 255, 118, 0.28));
-  opacity: 0.58;
-  transform: translate(-50%, -50%);
-  transition:
-    opacity 140ms ease,
-    filter 140ms ease,
-    transform 140ms ease;
+  display: none;
 }
 
 .roomba-interest-hotspot {
@@ -5536,6 +5640,8 @@ button {
   top: var(--interest-y, 50%);
   width: var(--interest-w, 8%);
   height: var(--interest-h, 8%);
+  min-width: 44px;
+  min-height: 44px;
   padding: 0;
   border: 0;
   border-radius: 999px;
@@ -5546,21 +5652,53 @@ button {
   transform: translate(-50%, -50%);
 }
 
+.roomba-interest-hotspot::before,
+.roomba-interest-hotspot::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.roomba-interest-hotspot::before {
+  width: clamp(26px, 4.8vw, 48px);
+  height: clamp(16px, 3vw, 28px);
+  border: 1px solid rgba(157, 255, 118, 0.92);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(157, 255, 118, 0.92) 0 13%, transparent 14%),
+    radial-gradient(circle at 50% 50%, rgba(114, 222, 255, 0.18), rgba(1, 12, 10, 0.52) 62%, transparent 64%);
+  box-shadow:
+    0 0 10px rgba(157, 255, 118, 0.48),
+    inset 0 0 10px rgba(114, 222, 255, 0.14);
+  opacity: 0.82;
+}
+
+.roomba-interest-hotspot::after {
+  width: clamp(42px, 7vw, 68px);
+  height: clamp(42px, 7vw, 68px);
+  border: 1px solid rgba(114, 222, 255, 0.16);
+  border-radius: 50%;
+  box-shadow: 0 0 18px rgba(114, 222, 255, 0.16);
+  opacity: 0.72;
+  animation: roombaInterestPulse 1.5s ease-in-out infinite;
+}
+
 .roomba-interest-hotspot:hover,
 .roomba-interest-hotspot:focus-visible {
   outline: 1px solid rgba(157, 255, 118, 0.38);
   outline-offset: 2px;
 }
 
-.roomba-interest-hotspot:hover .roomba-interest-eye-image,
-.roomba-interest-hotspot:focus-visible .roomba-interest-eye-image {
-  opacity: 0.86;
-  filter:
-    hue-rotate(92deg)
-    saturate(1.22)
-    brightness(1)
-    drop-shadow(0 0 7px rgba(157, 255, 118, 0.36));
-  transform: translate(-50%, -50%) scale(1.04);
+.roomba-interest-hotspot:hover::before,
+.roomba-interest-hotspot:focus-visible::before {
+  opacity: 1;
+  box-shadow:
+    0 0 16px rgba(157, 255, 118, 0.62),
+    inset 0 0 10px rgba(114, 222, 255, 0.2);
+  transform: translate(-50%, -50%) scale(1.06);
 }
 
 @keyframes roombaInterestPulse {
@@ -7193,10 +7331,11 @@ button {
 
   .pc-screen {
     --phone-edge: clamp(8px, 3vw, 14px);
+    --phone-dock-w: 62px;
     --phone-topbar-h: 64px;
     --phone-gap: 10px;
     --phone-cmd-h: clamp(206px, 30dvh, 252px);
-    --phone-dock-h: 68px;
+    --phone-dock-h: 0px;
     --phone-safe-bottom: max(10px, env(safe-area-inset-bottom));
   }
 
@@ -8067,10 +8206,21 @@ button {
     grid-column: 1 / -1;
   }
 
+  .scary-rules {
+    padding: 4px 6px;
+    font-size: 0.55rem;
+    line-height: 1.25;
+  }
+
+  .scary-rules strong {
+    font-size: 0.5rem;
+  }
+
   .scary-verify {
     grid-column: auto;
-    min-height: 28px;
-    padding: 4px 8px;
+    min-height: 30px;
+    padding: 4px 9px;
+    font-size: 0.62rem;
   }
 
   .scary-actions {
@@ -8240,18 +8390,21 @@ button {
   .os-dock {
     position: fixed;
     z-index: 320;
-    left: var(--phone-edge);
-    right: var(--phone-edge);
+    top: calc(var(--phone-topbar-h) + var(--phone-gap));
+    right: var(--phone-safe-right, var(--phone-edge));
     bottom: var(--phone-safe-bottom);
-    width: auto;
+    left: auto;
+    width: var(--phone-dock-w);
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
     gap: 4px;
-    height: var(--phone-dock-h);
-    min-height: var(--phone-dock-h);
-    padding: 6px;
+    height: auto;
+    min-height: 0;
+    padding: 6px 4px;
     border: 1px solid rgba(236, 143, 240, 0.26);
-    border-radius: 22px;
+    border-radius: 18px;
     background: rgba(18, 9, 32, 0.78);
     box-shadow: 0 18px 36px rgba(0, 0, 0, 0.42);
     overflow: visible;
@@ -8267,11 +8420,11 @@ button {
     display: grid;
     justify-items: center;
     gap: 3px;
-    flex: 0 0 54px;
-    width: 54px;
+    flex: 0 0 auto;
+    width: 100%;
     max-width: 100%;
     min-width: 0;
-    min-height: 46px;
+    min-height: 50px;
     padding: 4px 0;
     border: 0;
     background: transparent;
@@ -8292,21 +8445,23 @@ button {
     position: static;
     z-index: 330;
     display: flex;
-    flex: 0 0 174px;
-    width: 174px;
-    min-width: 174px;
-    max-width: 174px;
+    flex: 0 0 auto;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
     gap: 4px;
-    margin-left: auto;
-    transform: translateX(-4px);
+    margin-top: auto;
+    margin-left: 0;
+    transform: none;
     background: transparent;
   }
 
   .dock-system-controls .dock-tray-menu {
     position: relative;
     z-index: 331;
-    flex: 0 0 54px;
-    width: 54px;
+    flex: 0 0 auto;
+    width: 100%;
     height: auto;
   }
 
@@ -8318,10 +8473,10 @@ button {
     display: grid;
     justify-items: center;
     gap: 3px;
-    flex: 0 0 54px;
-    width: 54px;
-    min-width: 54px;
-    min-height: 46px;
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 50px;
     padding: 4px 0;
     border: 0;
     background: transparent;
@@ -8349,15 +8504,16 @@ button {
 
   .dock-tray-panel {
     position: fixed;
-    right: var(--phone-edge);
-    bottom: calc(var(--phone-dock-h) + var(--phone-safe-bottom) + 10px);
-    left: var(--phone-edge);
+    top: auto;
+    right: calc(var(--phone-safe-right, var(--phone-edge)) + var(--phone-dock-w) + 8px);
+    bottom: var(--phone-safe-bottom);
+    left: auto;
     z-index: 360;
-    width: auto;
+    width: min(276px, calc(100dvw - var(--phone-dock-w) - var(--phone-edge) - 20px));
     min-width: 0;
-    max-height: calc(100dvh - var(--phone-topbar-h) - var(--phone-dock-h) - 20px);
+    max-height: calc(100dvh - var(--phone-topbar-h) - var(--phone-safe-bottom) - 20px);
     overflow: auto;
-    transform-origin: center bottom;
+    transform-origin: right bottom;
   }
 
   .dock-audio-panel,
@@ -8387,27 +8543,31 @@ button {
 
   .app-tray {
     position: fixed;
-    left: var(--phone-edge);
-    right: var(--phone-edge);
-    bottom: calc(var(--phone-dock-h) + var(--phone-safe-bottom) + 8px);
-    width: auto;
-    max-height: min(330px, calc(100dvh - var(--phone-topbar-h) - var(--phone-dock-h) - 36px));
+    right: calc(var(--phone-safe-right, var(--phone-edge)) + var(--phone-dock-w) + 8px);
+    bottom: var(--phone-safe-bottom);
+    left: auto;
+    width: min(190px, calc(100dvw - var(--phone-dock-w) - var(--phone-edge) - 20px));
+    max-height: min(330px, calc(100dvh - var(--phone-topbar-h) - var(--phone-safe-bottom) - 22px));
     overflow: auto;
     border-radius: 18px;
   }
 
   .app-tray-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .app-tray-grid button {
-    min-height: 78px;
-    font-size: 0.62rem;
+    min-height: 44px;
+    font-size: 0.56rem;
   }
 
   .desktop-progress-layer {
     z-index: 123;
-    inset: calc(var(--phone-topbar-h) + var(--phone-cmd-h) + (var(--phone-gap) * 2)) var(--phone-edge) calc(var(--phone-dock-h) + var(--phone-safe-bottom) + var(--phone-gap));
+    inset:
+      calc(var(--phone-topbar-h) + var(--phone-cmd-h) + (var(--phone-gap) * 2))
+      calc(var(--phone-safe-right, var(--phone-edge)) + var(--phone-dock-w) + var(--phone-gap))
+      calc(var(--phone-safe-bottom) + var(--phone-gap))
+      var(--phone-edge);
   }
 
   .desktop-progress-layer .install-progress-panel {
@@ -8752,21 +8912,27 @@ button {
   }
 
   .pc-screen {
-    --phone-edge: max(5px, env(safe-area-inset-left));
-    --phone-topbar-h: 36px;
-    --phone-gap: 5px;
-    --phone-cmd-w: clamp(212px, 31dvw, 280px);
+    --phone-safe-left: max(4px, env(safe-area-inset-left));
+    --phone-safe-right: max(4px, env(safe-area-inset-right));
+    --phone-edge: max(4px, env(safe-area-inset-left), env(safe-area-inset-right));
+    --phone-copy: clamp(0.48rem, 1.05dvw, 0.58rem);
+    --phone-topbar-h: 30px;
+    --phone-gap: 4px;
+    --phone-cmd-w: clamp(148px, 28dvw, 206px);
     --phone-cmd-h: 100%;
-    --phone-dock-h: 44px;
-    --phone-safe-bottom: max(3px, env(safe-area-inset-bottom));
+    --phone-dock-w: 42px;
+    --phone-dock-h: 0px;
+    --phone-safe-bottom: max(2px, env(safe-area-inset-bottom));
   }
 
   .os-topbar {
-    grid-template-columns: minmax(96px, 0.8fr) minmax(0, 1fr) minmax(88px, 0.8fr);
+    inset: 0 var(--phone-safe-right) auto var(--phone-safe-left);
+    width: auto;
+    grid-template-columns: minmax(82px, 0.8fr) minmax(0, 1fr) minmax(74px, 0.8fr);
     grid-template-areas: "brand net status";
     height: var(--phone-topbar-h);
     min-height: var(--phone-topbar-h);
-    padding: 4px 7px;
+    padding: 3px 6px;
   }
 
   .os-brand,
@@ -8774,7 +8940,7 @@ button {
   .os-status {
     min-width: 0;
     justify-content: center;
-    font-size: clamp(0.52rem, 1.35dvw, 0.66rem);
+    font-size: clamp(0.46rem, 1.15dvw, 0.58rem);
     white-space: nowrap;
   }
 
@@ -8789,10 +8955,16 @@ button {
   }
 
   .desktop-stage {
+    position: fixed;
     top: calc(var(--phone-topbar-h) + var(--phone-gap));
-    bottom: calc(var(--phone-dock-h) + var(--phone-safe-bottom) + var(--phone-gap));
-    width: calc(100dvw - (var(--phone-edge) * 2));
+    right: calc(var(--phone-safe-right) + var(--phone-dock-w) + var(--phone-gap));
+    bottom: calc(var(--phone-safe-bottom) + var(--phone-gap));
+    left: var(--phone-safe-left);
+    width: auto;
+    min-width: 0;
     max-width: none;
+    transform: none;
+    overflow: visible;
   }
 
   .terminal-window,
@@ -8803,18 +8975,20 @@ button {
     right: auto;
     bottom: 0;
     width: var(--phone-cmd-w);
+    max-width: var(--phone-cmd-w);
     height: 100%;
+    min-width: 0;
   }
 
   .terminal-window .window-titlebar {
-    min-height: 26px;
-    padding: 0 8px;
+    min-height: 24px;
+    padding: 0 6px;
   }
 
   .terminal-window .window-body {
-    padding: 6px 8px;
-    font-size: clamp(0.54rem, 1.25dvw, 0.64rem);
-    line-height: 1.28;
+    padding: 5px 6px;
+    font-size: clamp(0.48rem, 1.05dvw, 0.58rem);
+    line-height: 1.32;
   }
 
   .terminal-window .window-body p {
@@ -8827,43 +9001,48 @@ button {
   }
 
   .cmd-question-panel button {
-    max-width: 118px;
-    min-height: 26px;
-    font-size: 0.52rem;
+    max-width: 104px;
+    min-height: 24px;
+    font-size: 0.48rem;
   }
 
-  .desktop-stage .desk-window:not(.terminal-window) {
+  .desktop-stage .desk-window:not(.terminal-window):not(.tamagotchi-window) {
     top: 0;
     left: calc(var(--phone-cmd-w) + var(--phone-gap));
     right: 0;
     bottom: 0;
-    width: calc(100% - var(--phone-cmd-w) - var(--phone-gap));
+    width: auto;
+    min-width: 0;
+    max-width: none;
     height: 100%;
+    transform: none;
   }
 
   .desk-window.is-installing-window {
     top: 50% !important;
-    left: calc(var(--phone-cmd-w) + var(--phone-gap) + 8px) !important;
-    right: 8px !important;
+    left: calc(var(--phone-cmd-w) + var(--phone-gap) + 6px) !important;
+    right: 6px !important;
     width: auto !important;
+    max-width: none !important;
     height: auto !important;
     transform: translateY(-50%) !important;
   }
 
   .window-titlebar {
-    min-height: 28px;
-    padding: 0 6px 0 10px;
+    min-height: 24px;
+    padding: 0 5px 0 8px;
     border-radius: 11px 11px 0 0;
+    font-size: 0.5rem;
   }
 
   .window-action {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
   }
 
   .window-body {
-    padding: 6px 8px;
-    font-size: clamp(0.52rem, 1.16dvw, 0.62rem);
+    padding: 5px 6px;
+    font-size: clamp(0.46rem, 1dvw, 0.56rem);
     line-height: 1.34;
   }
 
@@ -8878,9 +9057,9 @@ button {
   .music-window .window-body,
   .recovery-window .window-body,
   .photo-window .window-body {
-    padding: 6px 7px;
-    font-size: clamp(0.49rem, 1.05dvw, 0.58rem);
-    line-height: 1.3;
+    padding: 5px 6px;
+    font-size: clamp(0.44rem, 0.95dvw, 0.53rem);
+    line-height: 1.32;
   }
 
   .file-list {
@@ -8892,9 +9071,9 @@ button {
   .roomba-actions button,
   .music-controls button,
   .music-genre-list button {
-    min-height: 28px;
-    padding: 4px 6px;
-    font-size: 0.52rem;
+    min-height: 26px;
+    padding: 3px 5px;
+    font-size: 0.48rem;
   }
 
   .repair-panel,
@@ -8924,45 +9103,53 @@ button {
   }
 
   .os-dock {
-    left: var(--phone-edge);
-    right: var(--phone-edge);
+    top: calc(var(--phone-topbar-h) + var(--phone-gap));
+    right: var(--phone-safe-right);
+    bottom: var(--phone-safe-bottom);
+    left: auto;
     z-index: 320;
-    height: var(--phone-dock-h);
-    min-height: var(--phone-dock-h);
-    padding: 3px 5px;
-    border-radius: 13px;
+    width: var(--phone-dock-w);
+    height: auto;
+    min-height: 0;
+    padding: 4px 3px;
+    border-radius: 10px;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
     overflow: visible;
   }
 
   .os-dock button,
   .os-dock .dock-tray-trigger {
-    flex-basis: 44px;
-    width: 44px;
-    min-width: 44px;
-    min-height: 34px;
-    font-size: 0.44rem;
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 32px;
+    font-size: 0.4rem;
   }
 
   .os-dock button span,
   .os-dock .dock-tray-trigger .dock-tray-icon {
-    width: 20px;
-    height: 18px;
-    font-size: 0.4rem;
+    width: 18px;
+    height: 16px;
+    font-size: 0.36rem;
   }
 
   .dock-system-controls {
     position: relative;
     z-index: 330;
-    flex-basis: 160px;
-    width: 160px;
-    min-width: 160px;
-    max-width: 160px;
+    flex: 0 0 auto;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    margin-top: auto;
     transform: none;
   }
 
   .dock-system-controls .dock-tray-menu {
-    flex: 0 0 50px;
-    width: 50px;
+    flex: 0 0 auto;
+    width: 100%;
     z-index: 331;
   }
 
@@ -8972,37 +9159,44 @@ button {
 
   .dock-tray-panel {
     z-index: 360;
-    max-height: calc(100dvh - var(--phone-topbar-h) - var(--phone-dock-h) - 18px);
+    right: calc(var(--phone-safe-right) + var(--phone-dock-w) + 5px);
+    bottom: var(--phone-safe-bottom);
+    left: auto;
+    width: min(218px, calc(100dvw - var(--phone-safe-left) - var(--phone-safe-right) - var(--phone-dock-w) - 10px));
+    max-height: calc(100dvh - var(--phone-topbar-h) - var(--phone-safe-bottom) - 18px);
     overflow: auto;
   }
 
   .app-tray {
-    bottom: calc(var(--phone-dock-h) + var(--phone-safe-bottom) + 6px);
-    max-height: min(250px, calc(100dvh - var(--phone-topbar-h) - var(--phone-dock-h) - 24px));
+    right: calc(var(--phone-safe-right) + var(--phone-dock-w) + 5px);
+    bottom: var(--phone-safe-bottom);
+    left: auto;
+    width: min(132px, calc(100dvw - var(--phone-safe-left) - var(--phone-safe-right) - var(--phone-dock-w) - 8px));
+    max-height: min(250px, calc(100dvh - var(--phone-topbar-h) - var(--phone-safe-bottom) - 18px));
   }
 
   .app-tray-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .app-tray-grid button {
-    min-height: 50px;
-    font-size: 0.5rem;
+    min-height: 34px;
+    font-size: 0.44rem;
   }
 
   .desktop-progress-layer {
     inset:
       calc(var(--phone-topbar-h) + var(--phone-gap))
-      var(--phone-edge)
-      calc(var(--phone-dock-h) + var(--phone-safe-bottom) + var(--phone-gap))
-      calc(var(--phone-edge) + var(--phone-cmd-w) + var(--phone-gap));
+      calc(var(--phone-safe-right) + var(--phone-dock-w) + var(--phone-gap))
+      calc(var(--phone-safe-bottom) + var(--phone-gap))
+      calc(var(--phone-safe-left) + var(--phone-cmd-w) + var(--phone-gap));
   }
 
   .network-hud {
-    top: calc(var(--phone-topbar-h) + 6px);
-    right: var(--phone-edge);
+    top: calc(var(--phone-topbar-h) + 4px);
+    right: var(--phone-safe-right);
     left: auto;
-    width: min(360px, calc(100dvw - (var(--phone-edge) * 2)));
+    width: min(300px, calc(100dvw - var(--phone-safe-left) - var(--phone-safe-right)));
     max-height: calc(100dvh - var(--phone-topbar-h) - var(--phone-dock-h) - 18px);
     overflow: auto;
   }
@@ -9024,6 +9218,34 @@ button {
 
   .browser-ip-keypad {
     grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .router-login-form {
+    gap: 6px;
+  }
+
+  .router-login-options {
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .router-login-options > div {
+    gap: 4px;
+  }
+
+  .router-login-options span {
+    font-size: 0.48rem;
+  }
+
+  .router-login-option-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .router-login-option-grid button {
+    min-height: 24px;
+    padding: 2px 4px;
+    font-size: 0.46rem;
   }
 
   .dino-track {
@@ -9061,7 +9283,9 @@ button {
     top: 0 !important;
     left: calc(var(--phone-cmd-w) + var(--phone-gap)) !important;
     right: 0 !important;
-    width: calc(100% - var(--phone-cmd-w) - var(--phone-gap)) !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
     height: 100% !important;
     max-height: none;
     transform: none !important;
@@ -9141,6 +9365,10 @@ button {
     padding: 3px;
   }
 
+  .router-lock-grid {
+    width: min(100%, 154px);
+  }
+
   .scary-mode-row,
   .scary-actions {
     gap: 5px;
@@ -9153,13 +9381,16 @@ button {
     font-size: 0.58rem;
   }
 
+  .desktop-stage .tamagotchi-window:not(.terminal-window),
   .tamagotchi-window,
   .tamagotchi-window.desk-window.is-focused {
     top: 4px;
-    left: auto;
+    left: calc(var(--phone-cmd-w) + var(--phone-gap));
     right: 4px;
     bottom: auto;
-    width: min(360px, calc(100% - var(--phone-cmd-w) - 12px));
+    width: auto;
+    min-width: 0;
+    max-width: none;
     height: auto;
     max-height: calc(100% - 8px);
     overflow: visible;
@@ -9229,12 +9460,12 @@ button {
   }
 
   .tama-screen.is-reveal {
-    grid-template-columns: minmax(48px, 58px) minmax(0, 1fr);
+    grid-template-columns: minmax(54px, 64px) minmax(0, 1fr);
     gap: 7px;
   }
 
   .tama-screen.is-reveal .tama-device {
-    max-width: 58px;
+    max-width: 64px;
   }
 
   .tama-screen.is-reveal .tama-dialogue {
@@ -9243,6 +9474,10 @@ button {
 
   .tama-screen.is-reveal .tama-message p {
     line-height: 1.32;
+  }
+
+  .tama-screen.is-reveal .tama-dialogue {
+    padding-right: 30px;
   }
 
   .tama-choices {
@@ -9254,6 +9489,348 @@ button {
     min-height: 26px;
     padding: 4px 6px;
     font-size: 0.5rem;
+  }
+
+  .cmd-current-objective {
+    grid-template-columns: 1fr;
+    gap: 2px;
+    margin-bottom: 5px;
+    padding: 4px 5px;
+    font-size: clamp(0.38rem, 0.86dvw, 0.48rem);
+    line-height: 1.22;
+  }
+
+  .cmd-current-objective span {
+    font-size: 0.92em;
+  }
+
+  .terminal-copy,
+  .terminal-copy p,
+  .terminal-copy span,
+  .terminal-copy em,
+  .window-body {
+    font-size: var(--phone-copy);
+  }
+
+  .dock-tray-panel {
+    position: fixed;
+    right: calc(var(--phone-safe-right) + var(--phone-dock-w) + 5px);
+    bottom: var(--phone-safe-bottom);
+    left: auto;
+    width: min(218px, calc(100dvw - var(--phone-safe-left) - var(--phone-safe-right) - var(--phone-dock-w) - 10px));
+    min-width: 0;
+    max-height: min(210px, calc(100dvh - var(--phone-topbar-h) - var(--phone-safe-bottom) - 14px));
+    padding: 7px;
+    gap: 6px;
+    border-radius: 7px;
+    transform-origin: right bottom;
+  }
+
+  .dock-audio-panel {
+    width: min(226px, calc(100dvw - var(--phone-safe-left) - var(--phone-safe-right) - var(--phone-dock-w) - 10px));
+  }
+
+  .dock-text-panel,
+  .dock-language-panel {
+    width: min(166px, calc(100dvw - var(--phone-safe-left) - var(--phone-safe-right) - var(--phone-dock-w) - 10px));
+  }
+
+  .dock-system-controls .dock-volume {
+    grid-template-columns: 30px minmax(0, 1fr) 30px;
+    gap: 5px;
+    font-size: 0.48rem;
+  }
+
+  .dock-system-controls .text-speed-control,
+  .dock-system-controls .dock-language-control {
+    gap: 6px;
+    font-size: 0.48rem;
+  }
+
+  .dock-system-controls .speed-steps button {
+    min-width: 24px;
+    min-height: 24px;
+  }
+
+  .app-tray {
+    right: calc(var(--phone-safe-right) + var(--phone-dock-w) + 5px);
+    left: auto;
+    bottom: var(--phone-safe-bottom);
+    width: min(132px, calc(100dvw - var(--phone-safe-left) - var(--phone-safe-right) - var(--phone-dock-w) - 8px));
+    max-height: min(278px, calc(100dvh - var(--phone-topbar-h) - var(--phone-safe-bottom) - 18px));
+    padding: 7px;
+    border-radius: 10px;
+  }
+
+  .app-tray header {
+    display: none;
+  }
+
+  .app-tray-grid {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .app-tray-grid button {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 6px;
+    align-items: center;
+    justify-items: start;
+    min-height: 34px;
+    padding: 3px 5px;
+    font-size: 0.44rem;
+    text-align: left;
+  }
+
+  .app-tray-grid .icon-glyph {
+    width: 20px;
+    height: 18px;
+    min-width: 20px;
+    border-radius: 6px;
+    font-size: 0.38rem;
+  }
+
+  .trash-copy {
+    gap: 4px;
+  }
+
+  .trash-copy p {
+    margin-bottom: 1px;
+    font-size: var(--phone-copy);
+  }
+
+  .trash-copy button {
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 5px;
+    min-height: 27px;
+    padding: 3px 5px;
+    font-size: 0.48rem;
+  }
+
+  .trash-copy button span {
+    min-height: 18px;
+    font-size: 0.46rem;
+  }
+
+  .repair-panel {
+    gap: 4px;
+  }
+
+  .repair-panel > p,
+  .repair-warning {
+    font-size: var(--phone-copy);
+    line-height: 1.24;
+  }
+
+  .repair-header {
+    gap: 5px;
+    padding-bottom: 4px;
+  }
+
+  .repair-header span,
+  .repair-header strong {
+    font-size: 0.52rem;
+  }
+
+  .log-list {
+    gap: 3px;
+  }
+
+  .log-list button {
+    grid-template-columns: 22px minmax(0, 1fr);
+    gap: 5px;
+    min-height: 25px;
+    padding: 3px 5px;
+    font-size: 0.48rem;
+  }
+
+  .log-list button span {
+    font-size: 0.44rem;
+  }
+
+  .signal-sequence {
+    width: min(100%, 292px);
+    gap: 8px;
+  }
+
+  .simon-pad {
+    min-height: clamp(64px, 19dvh, 92px);
+    font-size: 0.72rem;
+  }
+
+  .desktop-stage .small-window:not(.terminal-window):not(.tamagotchi-window),
+  .desktop-stage .music-window:not(.terminal-window),
+  .desktop-stage .poems-window:not(.terminal-window),
+  .desktop-stage .trash-window:not(.terminal-window) {
+    top: 6px;
+    right: 6px;
+    bottom: auto;
+    left: auto;
+    width: min(300px, calc(100% - var(--phone-cmd-w) - 12px));
+    height: auto;
+    max-height: calc(100% - 12px);
+    transform: none;
+  }
+
+  .desktop-stage .tamagotchi-window:not(.terminal-window),
+  .tamagotchi-window,
+  .tamagotchi-window.desk-window.is-focused {
+    top: 6px;
+    right: 6px;
+    left: calc(var(--phone-cmd-w) + var(--phone-gap));
+    width: auto;
+    max-height: calc(100% - 12px);
+  }
+
+  .tamagotchi-window .window-titlebar {
+    top: 0;
+    right: 0;
+    left: auto;
+    width: 34px;
+    min-height: 34px;
+    pointer-events: none;
+  }
+
+  .tamagotchi-window .window-titlebar > div {
+    top: 0;
+    right: 0;
+    pointer-events: auto;
+  }
+
+  .tamagotchi-window .window-action[data-close] {
+    width: 30px;
+    height: 30px;
+    font-size: 0.56rem;
+  }
+
+  .tama-screen,
+  .tama-screen.is-reveal {
+    grid-template-columns: minmax(64px, 78px) minmax(0, 1fr);
+    gap: 7px 9px;
+    align-items: start;
+  }
+
+  .tama-device,
+  .tama-screen.is-reveal .tama-device {
+    max-width: 78px;
+  }
+
+  .tama-actions {
+    gap: 4px;
+  }
+
+  .tama-pet,
+  .tama-feed,
+  .tama-screen.is-reveal .tama-pet {
+    width: min(84px, 100%);
+    min-height: 26px;
+    padding: 2px 6px;
+    font-size: var(--phone-copy);
+  }
+
+  .tama-dialogue,
+  .tama-screen.is-reveal .tama-dialogue {
+    gap: 5px;
+    max-height: calc(100dvh - var(--phone-topbar-h) - var(--phone-dock-h) - 26px);
+    padding-right: 34px;
+    font-size: var(--phone-copy);
+    line-height: 1.32;
+  }
+
+  .tama-message,
+  .tama-screen.is-reveal .tama-message {
+    padding: 6px 8px;
+    border-color: rgba(255, 242, 216, 0.36);
+    background:
+      linear-gradient(180deg, rgba(255, 242, 216, 0.07), rgba(255, 242, 216, 0.025)),
+      rgba(3, 5, 14, 0.98);
+  }
+
+  .tama-message p,
+  .tama-screen.is-reveal .tama-message p {
+    line-height: 1.32;
+  }
+
+  .tama-message strong {
+    font-size: 0.5rem;
+  }
+
+  .tama-page-actions {
+    grid-column: 2;
+    grid-template-columns: auto repeat(2, minmax(62px, max-content));
+    justify-content: start;
+    gap: 5px;
+  }
+
+  .tama-page-actions button {
+    min-height: 27px;
+    padding: 4px 6px;
+    font-size: var(--phone-copy);
+  }
+
+  .tama-page-actions span {
+    font-size: var(--phone-copy);
+  }
+
+  .tama-choices {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .tama-choices button {
+    min-height: 27px;
+    padding: 4px 6px;
+    font-size: var(--phone-copy);
+  }
+
+  .roomba-camera-back {
+    display: grid;
+    width: auto;
+    min-width: 42px;
+    padding: 0 8px;
+    font-size: 0.52rem;
+  }
+
+  body.is-roomba-camera-open .roomba-camera-window .window-titlebar {
+    min-height: 26px;
+  }
+
+  body.is-roomba-camera-open .roomba-camera-window .window-action[data-close],
+  body.is-roomba-camera-open .roomba-camera-window .roomba-camera-back {
+    height: 24px;
+    min-height: 24px;
+  }
+
+  body.is-roomba-camera-open .roomba-feed-zoom {
+    top: 32px;
+    right: 6px;
+    padding: 3px;
+    gap: 3px;
+    font-size: 0.5rem;
+  }
+
+  body.is-roomba-camera-open .roomba-feed-zoom button {
+    min-width: 24px;
+    height: 22px;
+  }
+
+  body.is-roomba-camera-open .roomba-feed-zoom button:last-child {
+    min-width: 40px;
+  }
+
+  .roomba-interest-layer {
+    z-index: 8;
+  }
+
+  .roomba-interest-hotspot::before {
+    width: clamp(24px, 5dvw, 40px);
+    height: clamp(15px, 3dvw, 24px);
+  }
+
+  .roomba-interest-hotspot::after {
+    width: clamp(38px, 7dvw, 58px);
+    height: clamp(38px, 7dvw, 58px);
   }
 
   .closing-console {
