@@ -480,6 +480,11 @@ button {
   display: none;
 }
 
+.boot-visuals,
+.boot-visuals * {
+  pointer-events: none;
+}
+
 .boot-visual {
   --visual-transform: translateY(-50%);
   position: fixed;
@@ -885,7 +890,7 @@ button {
 
 .boot-log {
   position: absolute;
-  z-index: 2;
+  z-index: 4;
   top: 50%;
   left: 50%;
   width: min(1060px, calc(100vw - clamp(28px, 8vw, 128px)));
@@ -1003,6 +1008,8 @@ button {
 }
 
 .prompt-line {
+  position: relative;
+  z-index: 5;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1035,6 +1042,7 @@ button {
 }
 
 .code-choice {
+  position: relative;
   padding: 0;
   cursor: pointer;
 }
@@ -5489,20 +5497,23 @@ button {
 
 .roomba-interest-eye-image {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  left: 50%;
+  top: 50%;
+  width: clamp(22px, 46%, 54px);
+  height: clamp(22px, 46%, 54px);
+  object-fit: contain;
   pointer-events: none;
   filter:
     hue-rotate(92deg)
     saturate(1.1)
     brightness(0.94)
     drop-shadow(0 0 5px rgba(157, 255, 118, 0.28));
-  opacity: 0;
+  opacity: 0.58;
+  transform: translate(-50%, -50%);
   transition:
     opacity 140ms ease,
-    filter 140ms ease;
+    filter 140ms ease,
+    transform 140ms ease;
 }
 
 .roomba-interest-hotspot {
@@ -5527,14 +5538,15 @@ button {
   outline-offset: 2px;
 }
 
-.roomba-interest-layer:hover .roomba-interest-eye-image,
-.roomba-interest-layer:focus-within .roomba-interest-eye-image {
-  opacity: 0.72;
+.roomba-interest-hotspot:hover .roomba-interest-eye-image,
+.roomba-interest-hotspot:focus-visible .roomba-interest-eye-image {
+  opacity: 0.86;
   filter:
     hue-rotate(92deg)
     saturate(1.22)
     brightness(1)
     drop-shadow(0 0 7px rgba(157, 255, 118, 0.36));
+  transform: translate(-50%, -50%) scale(1.04);
 }
 
 @keyframes roombaInterestPulse {
@@ -5608,6 +5620,43 @@ button {
   color: var(--desktop-green);
   font-size: 0.68rem;
   pointer-events: none;
+}
+
+.roomba-cmd-overlay {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  z-index: 12;
+  display: none;
+  width: min(680px, calc(100% - 28px));
+  min-height: 28px;
+  padding: 6px 10px;
+  overflow: hidden;
+  border: 1px solid rgba(114, 222, 255, 0.3);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(114, 222, 255, 0.08), transparent),
+    rgba(2, 6, 14, 0.62);
+  color: rgba(244, 221, 196, 0.92);
+  font-size: 0.62rem;
+  line-height: 1.35;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.86);
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  backdrop-filter: blur(8px);
+}
+
+.roomba-cmd-overlay::before {
+  content: "CMD";
+  margin-right: 0.7ch;
+  color: var(--desktop-cyan);
+}
+
+.roomba-cmd-overlay[hidden] {
+  display: none !important;
 }
 
 .roomba-feed-zoom {
@@ -8437,26 +8486,67 @@ button {
   body.is-roomba-camera-open .roomba-camera-window,
   body.is-roomba-camera-open .roomba-camera-window.desk-window.is-focused {
     position: fixed !important;
-    inset: 0 !important;
+    inset:
+      max(4px, env(safe-area-inset-top))
+      max(4px, env(safe-area-inset-right))
+      max(4px, env(safe-area-inset-bottom))
+      max(4px, env(safe-area-inset-left)) !important;
     z-index: 165;
     display: grid !important;
-    width: 100dvw !important;
-    height: 100dvh !important;
+    grid-template-rows: minmax(0, 1fr);
+    width: auto !important;
+    height: auto !important;
     max-width: none;
     max-height: none;
-    border: 0;
-    border-radius: 0;
+    overflow: hidden;
+    border: 1px solid rgba(114, 222, 255, 0.42);
+    border-radius: 12px;
     background: #000;
-    box-shadow: none;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+      0 0 22px rgba(114, 222, 255, 0.12);
     transform: none !important;
   }
 
   body.is-roomba-camera-open .roomba-camera-window .window-titlebar {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    right: 6px;
+    z-index: 188;
+    display: flex;
+    min-height: 34px;
+    padding: 0 6px 0 10px;
+    border: 1px solid rgba(114, 222, 255, 0.24);
+    border-radius: 9px;
+    background: rgba(4, 8, 17, 0.58);
+    backdrop-filter: blur(8px);
+  }
+
+  body.is-roomba-camera-open .roomba-camera-window .window-titlebar span {
+    color: rgba(244, 221, 196, 0.88);
+    font-size: 0.62rem;
+  }
+
+  body.is-roomba-camera-open .roomba-camera-window .window-titlebar div {
+    display: flex;
+  }
+
+  body.is-roomba-camera-open .roomba-camera-window .window-action[data-minimize] {
     display: none;
   }
 
+  body.is-roomba-camera-open .roomba-camera-window .window-action[data-close] {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    border: 1px solid rgba(236, 143, 240, 0.34);
+    background: rgba(255, 139, 213, 0.16);
+    color: var(--desktop-cream);
+  }
+
   body.is-roomba-camera-open .roomba-camera-copy {
-    height: 100dvh;
+    height: 100%;
     padding: 0;
     overflow: hidden;
     background: #000;
@@ -8470,9 +8560,9 @@ button {
   }
 
   body.is-roomba-camera-open .roomba-feed-frame {
-    width: 100dvw;
-    height: 100dvh;
-    min-height: 100dvh;
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
     aspect-ratio: auto;
   }
 
@@ -8480,64 +8570,23 @@ button {
     inset: 0;
   }
 
+  body.is-roomba-camera-open .roomba-cmd-overlay {
+    display: block;
+    top: 46px;
+    width: min(74dvw, 480px);
+    min-height: 24px;
+    padding: 5px 9px;
+    border-color: rgba(114, 222, 255, 0.24);
+    background:
+      linear-gradient(180deg, rgba(114, 222, 255, 0.08), transparent),
+      rgba(2, 6, 14, 0.5);
+    font-size: clamp(0.48rem, 1.45dvw, 0.62rem);
+    opacity: 0.82;
+  }
+
   body.is-roomba-camera-open .terminal-window,
   body.is-roomba-camera-open .terminal-window[hidden] {
-    position: fixed !important;
-    top: 7px !important;
-    left: 50% !important;
-    right: auto !important;
-    bottom: auto !important;
-    z-index: 190;
-    display: grid !important;
-    width: min(68dvw, 430px) !important;
-    height: 48px !important;
-    min-height: 0;
-    border: 1px solid rgba(114, 222, 255, 0.22);
-    border-radius: 10px;
-    background: rgba(3, 7, 13, 0.42);
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.28);
-    opacity: 0.58;
-    pointer-events: none;
-    transform: translateX(-50%) !important;
-    backdrop-filter: blur(8px);
-  }
-
-  body.is-roomba-camera-open .terminal-window .window-titlebar,
-  body.is-roomba-camera-open .terminal-controls,
-  body.is-roomba-camera-open .cmd-current-objective {
     display: none !important;
-  }
-
-  body.is-roomba-camera-open .terminal-window .window-body {
-    padding: 5px 8px;
-    overflow: hidden;
-    background: transparent;
-  }
-
-  body.is-roomba-camera-open .terminal-copy {
-    height: 100%;
-    overflow: hidden;
-    font-size: 0.52rem;
-  }
-
-  body.is-roomba-camera-open .terminal-lines {
-    height: 100%;
-    overflow: hidden;
-    padding: 0;
-    scrollbar-width: none;
-  }
-
-  body.is-roomba-camera-open .terminal-lines::-webkit-scrollbar {
-    display: none;
-  }
-
-  body.is-roomba-camera-open .terminal-lines p {
-    margin: 0;
-    line-height: 1.35;
-  }
-
-  body.is-roomba-camera-open .terminal-lines p:not(:last-child) {
-    display: none;
   }
 
   body.is-roomba-camera-open .roomba-camera-readout {

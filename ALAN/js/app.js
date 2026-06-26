@@ -1373,6 +1373,7 @@
       }
 
       if (wirePortButton) {
+        event.preventDefault();
         handleWirePort(wirePortButton);
         return;
       }
@@ -3906,6 +3907,7 @@
               <span>${escapeHtml(scene.telemetry || "ROOMBA_CAM / LOCAL")}</span>
               <span>SIGNAL ${roombaProgress.movementUnlocked ? "74%" : "41%"}</span>
             </div>
+            <div class="roomba-cmd-overlay" data-roomba-cmd-overlay aria-live="polite"></div>
             ${canNavigate ? renderRoombaCameraHotspots(scene) : ""}
             <div class="roomba-feed-zoom" aria-label="Roomba camera zoom">
               <button data-roomba-zoom="out" type="button" aria-label="Zoom out">-</button>
@@ -3917,6 +3919,7 @@
         </div>
       </section>
     `;
+    syncRoombaCmdOverlay();
   }
 
   function renderRoombaCameraHotspots(scene) {
@@ -4002,14 +4005,15 @@
 
     return `
       <div class="roomba-interest-layer">
-        <img class="roomba-interest-eye-image" src="${escapeHtml(interest.eyeSrc)}" alt="" draggable="false" aria-hidden="true" />
         <button
           class="roomba-interest-hotspot"
           data-roomba-interest="${escapeHtml(scene.id)}"
           style="${style}"
           type="button"
           aria-label="${escapeHtml(interest.label || "Inspect marked object")}"
-        ></button>
+        >
+          <img class="roomba-interest-eye-image" src="${escapeHtml(interest.eyeSrc)}" alt="" draggable="false" aria-hidden="true" />
+        </button>
       </div>
     `;
   }
@@ -6271,7 +6275,7 @@
       <section class="repair-panel wire-panel">
         <div class="repair-header">
           <span>CAMERA POWER REROUTE</span>
-          <strong>${connectedCount}/${Object.keys(roombaWirePairs).length} CONNECTED</strong>
+          <strong id="wireConnectedCounter">${connectedCount}/${Object.keys(roombaWirePairs).length} CONNECTED</strong>
         </div>
         <div class="wire-timer" id="wireTimerPanel">
           <div>
@@ -6314,12 +6318,23 @@
     return Array.from(roombaProgress.connectedWires).map((color) => {
       const points = positions[color];
       if (!points) return "";
-      return `
-        <path class="wire-line ${color}" d="M 12 ${points.left} C 38 ${points.left}, 62 ${points.right}, 88 ${points.right}" fill="none" stroke="${roombaWireColors[color]}" stroke-width="5" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
-          <animate attributeName="stroke-dashoffset" from="1" to="0" dur="0.24s" fill="freeze" />
-        </path>
-      `;
+      return renderWireLinePath(color, points);
     }).join("");
+  }
+
+  function renderWireLinePath(color, points = null) {
+    const positions = {
+      red: { left: 15, right: 15 },
+      blue: { left: 38, right: 62 },
+      yellow: { left: 62, right: 38 },
+      purple: { left: 85, right: 85 }
+    };
+    const linePoints = points || positions[color];
+    if (!linePoints) return "";
+
+    return `
+      <path class="wire-line ${color}" data-wire-line="${color}" d="M 12 ${linePoints.left} C 38 ${linePoints.left}, 62 ${linePoints.right}, 88 ${linePoints.right}" fill="none" stroke="${roombaWireColors[color]}" stroke-width="5" stroke-linecap="round"></path>
+    `;
   }
 
   function shuffleWirePortsForDisplay(colors) {
@@ -6343,35 +6358,35 @@
 
     const side = button.dataset.wireSide;
     const id = button.dataset.wireId;
-    const warning = document.getElementById("wireWarning");
 
     if (side === "left") {
       roombaProgress.selectedWire = id;
       roombaProgress.wireWarning = "";
-      renderWirePuzzle();
+      syncWirePuzzleState();
       return;
     }
 
     if (!roombaProgress.selectedWire) {
       roombaProgress.wireWarning = "pick a colour on the left first.";
-      if (warning) warning.textContent = roombaProgress.wireWarning;
+      syncWirePuzzleState();
       return;
     }
 
     if (roombaWirePairs[roombaProgress.selectedWire] !== id) {
       roombaProgress.wireWarning = "wrong colour. the camera rail objects with tiny electrical panic.";
-      if (warning) warning.textContent = roombaProgress.wireWarning;
       roombaProgress.selectedWire = null;
-      window.setTimeout(renderWirePuzzle, 480);
+      syncWirePuzzleState();
       return;
     }
 
-    roombaProgress.connectedWires.add(roombaProgress.selectedWire);
+    const connectedWire = roombaProgress.selectedWire;
+    roombaProgress.connectedWires.add(connectedWire);
     roombaProgress.selectedWire = null;
     roombaProgress.wireWarning = "";
+    appendWireLine(connectedWire);
+    syncWirePuzzleState();
 
     if (roombaProgress.connectedWires.size >= Object.keys(roombaWirePairs).length) {
-      renderWirePuzzle();
       window.setTimeout(() => {
         if (roombaProgress.recoveryStage === "wiring" && roombaProgress.connectedWires.size >= Object.keys(roombaWirePairs).length) {
           completeWirePuzzle();
@@ -6379,8 +6394,36 @@
       }, 520);
       return;
     }
+  }
 
-    renderWirePuzzle();
+  function appendWireLine(color) {
+    const lineLayer = recoveryBody ? recoveryBody.querySelector(".wire-lines") : null;
+    if (!lineLayer || lineLayer.querySelector(`[data-wire-line="${color}"]`)) return;
+
+    lineLayer.insertAdjacentHTML("beforeend", renderWireLinePath(color));
+  }
+
+  function syncWirePuzzleState() {
+    if (!recoveryBody) return;
+
+    recoveryBody.querySelectorAll("[data-wire-port]").forEach((port) => {
+      const side = port.dataset.wireSide;
+      const color = port.dataset.wireId;
+      const connected = side === "left"
+        ? roombaProgress.connectedWires.has(color)
+        : Array.from(roombaProgress.connectedWires).some((leftId) => roombaWirePairs[leftId] === color);
+      const selected = side === "left" && roombaProgress.selectedWire === color;
+
+      port.classList.toggle("is-selected", selected);
+      port.classList.toggle("is-connected", connected);
+      port.disabled = connected;
+    });
+
+    const counter = document.getElementById("wireConnectedCounter");
+    if (counter) counter.textContent = `${roombaProgress.connectedWires.size}/${Object.keys(roombaWirePairs).length} CONNECTED`;
+
+    const warning = document.getElementById("wireWarning");
+    if (warning) warning.textContent = roombaProgress.wireWarning || (roombaProgress.selectedWire ? "select the matching colour." : "");
   }
 
   function completeWirePuzzle() {
@@ -7598,6 +7641,7 @@
     const cameraWindow = document.getElementById("window-roomba-camera");
     const isOpen = Boolean(cameraWindow && !cameraWindow.hidden && pcScreen && !pcScreen.hidden);
     document.body.classList.toggle("is-roomba-camera-open", isOpen);
+    if (isOpen) syncRoombaCmdOverlay();
   }
 
   function resetMobileWindowPlacement(windowEl) {
@@ -7844,6 +7888,7 @@
     line.append(document.createTextNode(localizedText));
     terminalLines.appendChild(line);
     scrollTerminalLog();
+    syncRoombaCmdOverlay();
   }
 
   function appendRouterCredentialLine() {
@@ -7872,6 +7917,7 @@
     );
     terminalLines.appendChild(line);
     scrollTerminalLog();
+    syncRoombaCmdOverlay();
   }
 
   function clearTerminalLines() {
@@ -7879,6 +7925,7 @@
     terminalPromptToken += 1;
     terminalPromptQueue = Promise.resolve();
     terminalLines.textContent = "";
+    syncRoombaCmdOverlay();
   }
 
   async function appendTypedTerminalLine(prefix, text, className) {
@@ -7897,16 +7944,29 @@
     line.appendChild(textNode);
     terminalLines.appendChild(line);
     scrollTerminalLog();
+    syncRoombaCmdOverlay();
 
     for (let i = 0; i < localizedText.length; i += 1) {
       textNode.textContent += localizedText[i];
       terminalLines.scrollTop = terminalLines.scrollHeight;
       terminalOutput.scrollTop = terminalOutput.scrollHeight;
+      syncRoombaCmdOverlay();
       await textPause(currentTerminalTypeSpeed());
     }
 
     line.classList.remove("cmd-typing-line");
     scrollTerminalLog();
+    syncRoombaCmdOverlay();
+  }
+
+  function syncRoombaCmdOverlay() {
+    const overlay = roombaCameraBody ? roombaCameraBody.querySelector("[data-roomba-cmd-overlay]") : null;
+    if (!overlay) return;
+
+    const latestLine = terminalLines ? terminalLines.lastElementChild : null;
+    const text = latestLine ? latestLine.textContent.replace(/\s+/g, " ").trim() : "";
+    overlay.textContent = text;
+    overlay.hidden = !text;
   }
 
   function scrollTerminalLog() {
