@@ -278,6 +278,7 @@
     movementUnlocked: false,
     routerKnockedDown: false,
     routerKnockMethod: "",
+    routerCredentialsAnnounced: false,
     pendingCameraAction: "",
     cameraInterestInspectedScenes: new Set(),
     usbDiscovered: false,
@@ -306,7 +307,7 @@
     scaryNumbersFlagged: new Set(),
     scaryNumberMode: "scan",
     scaryNumbersWarning: "",
-    scaryNumbersTimerRemaining: 30,
+    scaryNumbersTimerRemaining: 45,
     scaryNumbersTimerStarted: false,
     lastMoveCommand: "",
     pipExpression: "neutral",
@@ -435,14 +436,14 @@
       src: "assets/images/roomba/5 routerdown.png",
       alt: "Roomba camera close view of the knocked-down router showing its admin label",
       telemetry: "ROOMBA_CAM_05 / router underside / admin label visible",
-      prompt: "router underside exposed. username: admin. password clue: Mochi. physical stickers remain undefeated.",
+      prompt: "router underside exposed. label readable. physical stickers remain undefeated.",
       interest: {
         eyeSrc: "assets/images/roomba/5 routerdown eye.png",
         x: 48.5,
         y: 50.0,
         w: 7.6,
         h: 8.0,
-        inspectPrompt: "label confirmed. username: admin. password: mochi. humans invented secrets, then printed them on plastic."
+        inspectPrompt: "label confirmed. humans invented secrets, then printed them on plastic."
       },
       requiresRouterDown: true,
       links: [
@@ -473,8 +474,8 @@
     {
       id: "lofi",
       genre: "lo-fi",
-      label: "afternoon-coffee_loop-04 // low-fi",
-      src: `${musicBasePath}loops/afternoon-coffee_loop-04.wav`,
+      label: "lofi.mp3 // low-fi",
+      src: `${musicBasePath}lofi.mp3`,
       gain: 1,
       loop: true
     },
@@ -954,8 +955,9 @@
   ];
   const wireTimerDuration = 10;
   const wireTimerLowThreshold = 3;
-  const routerOverrideTimerDuration = 70;
-  const routerOverrideTimeBonus = 3;
+  const scaryNumberTimerDuration = 45;
+  const routerOverrideTimerDuration = 90;
+  const routerOverrideTimeBonus = 5;
   const routerOverrideTimerMaxDuration = routerOverrideTimerDuration + (routerOverrideTimeBonus * 3);
   const routerOverrideTimerLowThreshold = 20;
   const roombaWirePorts = ["red", "blue", "yellow", "purple"];
@@ -1325,31 +1327,37 @@
       }
 
       if (roombaMoveButton) {
+        event.preventDefault();
         handleRoombaMove(roombaMoveButton.dataset.roombaMove);
         return;
       }
 
       if (roombaCleanButton) {
+        event.preventDefault();
         handleRoombaClean();
         return;
       }
 
       if (roombaCameraActionButton) {
+        event.preventDefault();
         handleRoombaCameraAction(roombaCameraActionButton.dataset.roombaCameraAction);
         return;
       }
 
       if (roombaCameraSceneButton) {
+        event.preventDefault();
         navigateRoombaCameraTo(roombaCameraSceneButton.dataset.roombaCameraScene);
         return;
       }
 
       if (roombaInterestButton) {
+        event.preventDefault();
         inspectRoombaCameraInterest(roombaInterestButton.dataset.roombaInterest);
         return;
       }
 
       if (roombaZoomButton) {
+        event.preventDefault();
         handleRoombaZoom(roombaZoomButton);
         return;
       }
@@ -2351,6 +2359,7 @@
       movementUnlocked: false,
       routerKnockedDown: false,
       routerKnockMethod: "",
+      routerCredentialsAnnounced: false,
       pendingCameraAction: "",
       cameraInterestInspectedScenes: new Set(),
       usbDiscovered: false,
@@ -2379,7 +2388,7 @@
       scaryNumbersFlagged: new Set(),
       scaryNumberMode: "scan",
       scaryNumbersWarning: "",
-      scaryNumbersTimerRemaining: 30,
+      scaryNumbersTimerRemaining: scaryNumberTimerDuration,
       scaryNumbersTimerStarted: false,
       lastMoveCommand: "",
       pipExpression: "neutral",
@@ -3382,7 +3391,28 @@
         <p>${escapeHtml(popup.body)}</p>
       `;
       field.appendChild(popupEl);
+      requestAnimationFrame(() => clampSpamPopupToOverlay(popupEl));
     });
+  }
+
+  function clampSpamPopupToOverlay(popupEl) {
+    const field = popupEl && popupEl.parentElement;
+    if (!popupEl || !field) return;
+
+    const margin = isMobileDesktopLayout() ? 10 : 14;
+    const fieldRect = field.getBoundingClientRect();
+    const rect = popupEl.getBoundingClientRect();
+    if (!fieldRect.width || !fieldRect.height || !rect.width || !rect.height) return;
+
+    const currentLeft = rect.left - fieldRect.left;
+    const currentTop = rect.top - fieldRect.top;
+    const maxLeft = Math.max(margin, fieldRect.width - rect.width - margin);
+    const maxTop = Math.max(margin, fieldRect.height - rect.height - margin);
+    const nextLeft = clamp(currentLeft, margin, maxLeft);
+    const nextTop = clamp(currentTop, margin, maxTop);
+
+    popupEl.style.left = `${Math.round(nextLeft)}px`;
+    popupEl.style.top = `${Math.round(nextTop)}px`;
   }
 
   function renderSpamAdvertGif(index, tone = "virus") {
@@ -3961,11 +3991,13 @@
     const y = Number.isFinite(interest.y) ? interest.y : 50;
     const width = Number.isFinite(interest.w) ? interest.w : 8;
     const height = Number.isFinite(interest.h) ? interest.h : 8;
+    const hitWidth = width * 2;
+    const hitHeight = height * 2;
     const style = [
       `--interest-x:${clamp(x, 0, 100).toFixed(1)}%`,
       `--interest-y:${clamp(y, 0, 100).toFixed(1)}%`,
-      `--interest-w:${clamp(width, 4, 16).toFixed(1)}%`,
-      `--interest-h:${clamp(height, 4, 16).toFixed(1)}%`
+      `--interest-w:${clamp(hitWidth, 8, 32).toFixed(1)}%`,
+      `--interest-h:${clamp(hitHeight, 8, 32).toFixed(1)}%`
     ].join(";");
 
     return `
@@ -3999,12 +4031,13 @@
 
   function announceRoombaCameraScene(scene, options = {}) {
     if (!scene || !scene.prompt) return;
-    if (roombaProgress.routerKnockedDown && scene.id !== "secret") return;
+    if (roombaProgress.routerKnockedDown && scene.id !== "secret" && scene.id !== "step5") return;
     const alreadyPrompted = roombaProgress.lastCameraPromptScene === scene.id;
     if (!options.force && alreadyPrompted) return;
 
     roombaProgress.lastCameraPromptScene = scene.id;
     alanPrompt(scene.prompt, { focus: false });
+    if (scene.id === "step5") announceRouterCredentials();
   }
 
   function sceneById(sceneId) {
@@ -4021,6 +4054,7 @@
 
     if (scene.id === "step5") {
       setCurrentObjective(desktopObjectives.routerLogin);
+      announceRouterCredentials();
     }
 
     if (scene.id === "secret") {
@@ -4374,7 +4408,7 @@
     const rect = lens.getBoundingClientRect();
     const current = getRoombaPan(sceneId);
     const zoom = roombaSceneZoom(sceneId);
-    const panRange = 0.22 + ((zoom - 1) * 0.22);
+    const panRange = 0.42 + ((zoom - 1) * 0.38);
     const maxX = Math.max(20, rect.width * panRange);
     const maxY = Math.max(20, rect.height * panRange);
     const pan = {
@@ -4442,7 +4476,7 @@
   }
 
   function renderBrowserLocalAddressTools(page) {
-    if (page !== "offline" && page !== "router-login") return "";
+    if (page !== "offline") return "";
 
     const currentAddress = isRouterAddress(browserState.url) ? "192.168.1.1" : "";
     const discoveredShortcut = roombaProgress.routerKnockedDown || roombaProgress.routerAdminUnlocked || roombaProgress.routerPasswordTwisted;
@@ -4516,6 +4550,16 @@
   }
 
   function renderRouterLoginPage() {
+    const autofillCredentials = isMobileDesktopLayout() && roombaProgress.routerCredentialsAnnounced;
+    const usernameValue = autofillCredentials ? routerConfig.adminUser : "";
+    const passwordValue = autofillCredentials ? "mochi" : "";
+    const readonlyAttr = autofillCredentials ? " readonly" : "";
+    const note = browserState.routerError
+      ? browserState.routerError
+      : autofillCredentials
+        ? "Router label captured. Credentials autofilled from physical evidence. Sign in."
+        : "HOME_NETWORK admin panel reachable. Credentials required.";
+
     return `
       <section class="router-admin">
         <div class="router-admin-header">
@@ -4525,15 +4569,15 @@
         <form class="router-login-form" data-router-login-form autocomplete="off">
           <label>
             <span>username</span>
-            <input name="username" type="text" autocomplete="off" />
+            <input name="username" type="text" autocomplete="off" value="${escapeHtml(usernameValue)}"${readonlyAttr} />
           </label>
           <label>
             <span>password</span>
-            <input name="password" type="password" autocomplete="off" />
+            <input name="password" type="password" autocomplete="off" value="${escapeHtml(passwordValue)}"${readonlyAttr} />
           </label>
           <button type="submit">sign in</button>
         </form>
-        <p class="router-admin-note">${browserState.routerError ? escapeHtml(browserState.routerError) : "HOME_NETWORK admin panel reachable. Credentials required."}</p>
+        <p class="router-admin-note">${escapeHtml(note)}</p>
       </section>
     `;
   }
@@ -5308,6 +5352,7 @@
         <p>${escapeHtml(popup.body)}</p>
       `;
       field.appendChild(popupEl);
+      requestAnimationFrame(() => clampSpamPopupToOverlay(popupEl));
     });
   }
 
@@ -6836,7 +6881,7 @@
 
     roombaProgress.scaryNumbersTimerStarted = true;
     if (!Number.isFinite(roombaProgress.scaryNumbersTimerRemaining) || roombaProgress.scaryNumbersTimerRemaining <= 0) {
-      roombaProgress.scaryNumbersTimerRemaining = 30;
+      roombaProgress.scaryNumbersTimerRemaining = scaryNumberTimerDuration;
     }
     updateScaryNumberTimerDisplay();
     scaryNumberTimerId = window.setInterval(() => {
@@ -6888,7 +6933,7 @@
     roombaProgress.scaryNumbersFlagged = new Set();
     roombaProgress.scaryNumbersRemoved = new Set();
     roombaProgress.scaryNumberMode = "scan";
-    roombaProgress.scaryNumbersTimerRemaining = 30;
+    roombaProgress.scaryNumbersTimerRemaining = scaryNumberTimerDuration;
     roombaProgress.scaryNumbersTimerStarted = false;
     roombaProgress.scaryNumbersWarning = message;
     playUiSound("virusFail");
@@ -6899,7 +6944,7 @@
     if (!roombaProgress.cameraUnlocked || roombaProgress.movementUnlocked) return;
 
     roombaProgress.motorsRepairStarted = true;
-    roombaProgress.scaryNumbersTimerRemaining = 30;
+    roombaProgress.scaryNumbersTimerRemaining = scaryNumberTimerDuration;
     roombaProgress.scaryNumbersTimerStarted = false;
     hideWindowsForRepair();
     focusDesktopTarget("recovery");
@@ -6926,7 +6971,7 @@
         <div class="scary-console">
           <div class="scary-timer" id="scaryTimerPanel">
             <span>MOTOR DECAY</span>
-            <strong id="scaryTimer">${String(roombaProgress.scaryNumbersTimerRemaining || 30).padStart(2, "0")}s</strong>
+            <strong id="scaryTimer">${String(roombaProgress.scaryNumbersTimerRemaining || scaryNumberTimerDuration).padStart(2, "0")}s</strong>
           </div>
           <div class="scary-mode-row" aria-label="Motor data mode">
             <button class="${roombaProgress.scaryNumberMode === "scan" ? "is-active" : ""}" data-scary-mode="scan" type="button">open boxes</button>
@@ -7441,6 +7486,9 @@
     const wasHidden = windowEl.hidden;
     windowEl.hidden = false;
     resetMobileWindowPlacement(windowEl);
+    if (wasHidden && name === "tamagotchi") {
+      placePipOnOpen(windowEl);
+    }
     bringWindowToFront(windowEl);
     constrainWindowToStage(windowEl);
     if (wasHidden) {
@@ -7567,7 +7615,7 @@
   }
 
   function isMobileDesktopLayout() {
-    return window.matchMedia("(max-width: 760px)").matches;
+    return window.matchMedia("(max-width: 760px), (orientation: landscape) and (max-height: 760px) and (pointer: coarse)").matches;
   }
 
   function constrainWindowToStage(windowEl) {
@@ -7602,6 +7650,77 @@
     windowEl.style.bottom = "auto";
     windowEl.style.width = `${width}px`;
     windowEl.style.maxHeight = `${height}px`;
+  }
+
+  function placePipOnOpen(windowEl) {
+    if (!windowEl || isMobileDesktopLayout()) return;
+
+    const stage = document.querySelector(".desktop-stage");
+    if (!stage) return;
+
+    windowEl.style.inset = "";
+    windowEl.style.right = "auto";
+    windowEl.style.bottom = "auto";
+    windowEl.style.transform = "none";
+
+    const stageRect = stage.getBoundingClientRect();
+    const rect = windowEl.getBoundingClientRect();
+    if (!rect.width || !rect.height || !stageRect.width || !stageRect.height) return;
+
+    const margin = 12;
+    const handle = windowEl.querySelector("[data-pip-drag-handle]");
+    const handleBounds = handle ? pipStageBounds(stageRect, rect, handle.getBoundingClientRect()) : null;
+    const minX = handleBounds ? Math.max(margin, handleBounds.minX) : margin;
+    const minY = handleBounds ? Math.max(margin, handleBounds.minY) : margin;
+    const maxX = handleBounds ? Math.max(minX, handleBounds.maxX) : Math.max(margin, stageRect.width - rect.width - margin);
+    const maxY = handleBounds ? Math.max(minY, handleBounds.maxY) : Math.max(margin, stageRect.height - rect.height - margin);
+    const centerX = clamp((stageRect.width - rect.width) / 2, minX, maxX);
+    const centerY = clamp((stageRect.height - rect.height) / 2, minY, maxY);
+    const blockers = Array.from(document.querySelectorAll(".desk-window:not([hidden])"))
+      .filter((item) => item !== windowEl)
+      .map((item) => item.getBoundingClientRect())
+      .filter((itemRect) => itemRect.width > 0 && itemRect.height > 0);
+    const belowBlockersY = blockers.length
+      ? clamp(Math.max(...blockers.map((blocker) => blocker.bottom - stageRect.top)) + margin, minY, maxY)
+      : centerY;
+    const candidates = [
+      { x: centerX, y: centerY, bias: 0 },
+      { x: minX, y: belowBlockersY, bias: 0.04 },
+      { x: centerX, y: belowBlockersY, bias: 0.05 },
+      { x: maxX, y: belowBlockersY, bias: 0.06 },
+      { x: maxX, y: centerY, bias: 0.08 },
+      { x: minX, y: centerY, bias: 0.08 },
+      { x: centerX, y: maxY, bias: 0.12 },
+      { x: centerX, y: minY, bias: 0.16 },
+      { x: maxX, y: minY, bias: 0.2 },
+      { x: minX, y: minY, bias: 0.2 },
+      { x: maxX, y: maxY, bias: 0.24 },
+      { x: minX, y: maxY, bias: 0.24 }
+    ];
+
+    const best = candidates.reduce((winner, candidate) => {
+      const candidateRect = {
+        left: stageRect.left + candidate.x,
+        top: stageRect.top + candidate.y,
+        right: stageRect.left + candidate.x + rect.width,
+        bottom: stageRect.top + candidate.y + rect.height,
+        width: rect.width,
+        height: rect.height
+      };
+      const overlap = blockers.reduce((total, blocker) => total + rectOverlapArea(candidateRect, blocker), 0);
+      const score = overlap + (candidate.bias * 1000);
+      return score < winner.score ? { ...candidate, score } : winner;
+    }, { ...candidates[0], score: Number.POSITIVE_INFINITY });
+
+    windowEl.style.left = `${Math.round(best.x)}px`;
+    windowEl.style.top = `${Math.round(best.y)}px`;
+    windowEl.style.width = `${rect.width}px`;
+  }
+
+  function rectOverlapArea(first, second) {
+    const width = Math.max(0, Math.min(first.right, second.right) - Math.max(first.left, second.left));
+    const height = Math.max(0, Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top));
+    return width * height;
   }
 
   function pipStageBounds(stageRect, windowRect, handleRect) {
@@ -7689,6 +7808,23 @@
     return terminalPromptQueue;
   }
 
+  function announceRouterCredentials() {
+    if (roombaProgress.routerCredentialsAnnounced) return terminalPromptQueue;
+
+    roombaProgress.routerCredentialsAnnounced = true;
+    alanPrompt("router label decoded. put these into the router login:", { focus: false });
+
+    const promptToken = terminalPromptToken;
+    terminalPromptQueue = terminalPromptQueue
+      .catch(() => {})
+      .then(async () => {
+        if (promptToken !== terminalPromptToken) return;
+        appendRouterCredentialLine();
+        await textPause(180);
+      });
+    return terminalPromptQueue;
+  }
+
   async function terminalCode(text, className = "cmd-system-line") {
     await appendTypedTerminalLine(null, text, className);
     await textPause(230);
@@ -7706,6 +7842,34 @@
       line.append(prefixEl, " ");
     }
     line.append(document.createTextNode(localizedText));
+    terminalLines.appendChild(line);
+    scrollTerminalLog();
+  }
+
+  function appendRouterCredentialLine() {
+    if (!terminalLines || !terminalOutput) return;
+
+    const line = document.createElement("p");
+    line.className = "alan-cmd-line cmd-router-credential-line";
+
+    const prefixEl = document.createElement("span");
+    prefixEl.textContent = "ALAN>";
+
+    const username = document.createElement("strong");
+    username.textContent = "admin";
+
+    const password = document.createElement("strong");
+    password.textContent = "mochi";
+
+    line.append(
+      prefixEl,
+      " ",
+      document.createTextNode(`${localizeText("username")}: `),
+      username,
+      document.createTextNode(" / "),
+      document.createTextNode(`${localizeText("password")}: `),
+      password
+    );
     terminalLines.appendChild(line);
     scrollTerminalLog();
   }
@@ -7749,18 +7913,23 @@
     if (!terminalLines || !terminalOutput) return;
 
     const latestLine = terminalLines.lastElementChild;
+    const suppressPageScroll = shouldSuppressTerminalPageScroll();
     terminalLines.scrollTop = terminalLines.scrollHeight;
     terminalOutput.scrollTop = terminalOutput.scrollHeight;
-    if (latestLine) latestLine.scrollIntoView({ block: "end" });
+    if (latestLine && !suppressPageScroll) latestLine.scrollIntoView({ block: "end" });
     requestAnimationFrame(() => {
       terminalLines.scrollTop = terminalLines.scrollHeight;
       terminalOutput.scrollTop = terminalOutput.scrollHeight;
-      if (latestLine) latestLine.scrollIntoView({ block: "end" });
+      if (latestLine && !suppressPageScroll) latestLine.scrollIntoView({ block: "end" });
     });
     setTimeout(() => {
       terminalLines.scrollTop = terminalLines.scrollHeight;
-      if (latestLine) latestLine.scrollIntoView({ block: "end" });
+      if (latestLine && !suppressPageScroll) latestLine.scrollIntoView({ block: "end" });
     }, 80);
+  }
+
+  function shouldSuppressTerminalPageScroll() {
+    return isMobileDesktopLayout() && document.body.classList.contains("is-roomba-camera-open");
   }
 
   function startWindowDrag(event) {

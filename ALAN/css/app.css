@@ -514,7 +514,11 @@ button {
   position: absolute;
   inset: 8% -10%;
   pointer-events: none;
-  background: linear-gradient(180deg, transparent, rgba(202, 255, 207, 0.22), transparent);
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(202, 255, 207, 0.18) 18%, rgba(202, 255, 207, 0.18) 82%, transparent 100%),
+    linear-gradient(180deg, transparent, rgba(202, 255, 207, 0.22), transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 18%, #000 82%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 18%, #000 82%, transparent 100%);
   opacity: 0;
   transform: translateY(-34%);
 }
@@ -1375,10 +1379,6 @@ button {
   font-size: 0.68rem;
 }
 
-.pc-screen .desktop-language-control {
-  display: none;
-}
-
 .desktop-language-control select {
   min-height: 28px;
   max-width: 116px;
@@ -2105,6 +2105,19 @@ button {
   color: var(--desktop-cyan);
 }
 
+.cmd-router-credential-line {
+  margin-top: 4px;
+  padding: 6px 8px 6px 10px;
+  border-left: 2px solid rgba(114, 222, 255, 0.8);
+  background: rgba(114, 222, 255, 0.08);
+  color: var(--desktop-cream);
+}
+
+.cmd-router-credential-line strong {
+  color: var(--desktop-cyan);
+  font-weight: 800;
+}
+
 .cmd-echo-line {
   color: var(--desktop-lilac);
 }
@@ -2674,6 +2687,7 @@ button {
   grid-template-columns: 38px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
+  min-width: 0;
   background:
     linear-gradient(135deg, rgba(255, 139, 213, 0.11), rgba(126, 252, 255, 0.04)),
     rgba(0, 0, 0, 0.14);
@@ -2686,6 +2700,16 @@ button {
   border: 1px solid rgba(126, 252, 255, 0.24);
   color: var(--desktop-cyan);
   font-size: 0.7rem;
+}
+
+.trash-copy button b {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--desktop-cream);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .trash-copy button:disabled {
@@ -5041,6 +5065,30 @@ button {
   color: var(--desktop-green);
 }
 
+.alan-monologue {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+  padding: 10px 11px;
+  border: 1px solid rgba(114, 222, 255, 0.24);
+  border-left: 3px solid var(--desktop-cyan);
+  background:
+    linear-gradient(90deg, rgba(114, 222, 255, 0.1), rgba(157, 255, 118, 0.035)),
+    rgba(0, 0, 0, 0.2);
+  color: var(--desktop-cream);
+}
+
+.alan-monologue span {
+  color: var(--desktop-cyan);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+}
+
+.alan-monologue p {
+  margin: 0;
+  line-height: 1.5;
+}
+
 .roomba-camera-window {
   top: 62px;
   left: 170px;
@@ -5325,13 +5373,13 @@ button {
 .roomba-camera-console.is-image-only .roomba-scene-layer {
   left: 50%;
   top: 50%;
-  width: calc(188% * var(--feed-zoom, 1));
-  height: calc(188% * var(--feed-zoom, 1));
+  width: calc(176% * var(--feed-zoom, 1));
+  height: calc(176% * var(--feed-zoom, 1));
   transform:
     translate(calc(-50% + var(--pan-x, 0px)), calc(-50% + var(--pan-y, 0px)))
     rotateX(var(--tilt-x, 0deg))
     rotateY(var(--tilt-y, 0deg))
-    scale(1.08);
+    scale(1.04);
 }
 
 .roomba-camera-console.is-image-only .roomba-feed-lens {
@@ -6404,8 +6452,13 @@ button {
   width: 198px;
 }
 
+.dock-language-panel {
+  width: min(214px, calc(100vw - 26px));
+}
+
 .dock-system-controls .text-speed-control,
-.dock-system-controls .dock-volume {
+.dock-system-controls .dock-volume,
+.dock-system-controls .dock-language-control {
   position: relative;
   z-index: 1;
   color: var(--desktop-lilac);
@@ -6419,9 +6472,29 @@ button {
 }
 
 .dock-system-controls .text-speed-control > span,
-.dock-system-controls .dock-volume span {
+.dock-system-controls .dock-volume span,
+.dock-system-controls .dock-language-control span {
   color: var(--desktop-cyan);
   font-weight: 700;
+}
+
+.dock-system-controls .dock-language-control {
+  display: grid;
+  grid-template-columns: 42px minmax(116px, 1fr);
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+}
+
+.dock-system-controls .dock-language-control select {
+  width: 100%;
+  max-width: none;
+  min-height: 30px;
+  border-color: rgba(114, 222, 255, 0.28);
+  border-radius: 5px;
+  background: rgba(5, 9, 22, 0.86);
+  color: var(--desktop-cream);
+  font-size: 0.64rem;
 }
 
 .dock-system-controls .speed-steps button {
@@ -7196,6 +7269,10 @@ button {
 
   .dock-audio-panel {
     width: min(276px, calc(100vw - 20px));
+  }
+
+  .dock-language-panel {
+    width: min(214px, calc(100vw - 20px));
   }
 
   .os-brand strong,
@@ -8031,9 +8108,28 @@ button {
 
   .tama-message {
     padding: 7px 8px;
+    border-color: rgba(255, 242, 216, 0.34);
+    background:
+      linear-gradient(180deg, rgba(255, 242, 216, 0.06), rgba(255, 242, 216, 0.025)),
+      rgba(3, 5, 14, 0.97);
     box-shadow:
       inset 0 0 0 1px rgba(0, 0, 0, 0.28),
       2px 2px 0 rgba(0, 0, 0, 0.24);
+  }
+
+  .tama-message::before {
+    background: rgba(3, 5, 14, 0.98);
+  }
+
+  .tama-message.is-alan {
+    border-color: rgba(157, 255, 118, 0.38);
+    background:
+      linear-gradient(180deg, rgba(157, 255, 118, 0.07), rgba(157, 255, 118, 0.025)),
+      rgba(2, 13, 11, 0.97);
+  }
+
+  .tama-message.is-alan::before {
+    background: rgba(2, 13, 11, 0.98);
   }
 
   .tama-message strong {
@@ -8133,13 +8229,13 @@ button {
   .dock-system-controls {
     position: static;
     display: flex;
-    flex: 0 0 112px;
-    width: 112px;
-    min-width: 112px;
-    max-width: 112px;
+    flex: 0 0 166px;
+    width: 166px;
+    min-width: 166px;
+    max-width: 166px;
     gap: 4px;
     margin-left: auto;
-    transform: translateX(-58px);
+    transform: translateX(-4px);
     background: transparent;
   }
 
@@ -8194,7 +8290,8 @@ button {
   }
 
   .dock-audio-panel,
-  .dock-text-panel {
+  .dock-text-panel,
+  .dock-language-panel {
     width: auto;
   }
 
@@ -8205,6 +8302,10 @@ button {
   .dock-system-controls .text-speed-control {
     justify-content: center;
     gap: 12px;
+  }
+
+  .dock-system-controls .dock-language-control {
+    grid-template-columns: 38px minmax(0, 1fr);
   }
 
   .os-dock #restartBtn,
@@ -8283,39 +8384,160 @@ button {
   }
 }
 
-@media (max-width: 760px) and (orientation: landscape) {
+@media (max-width: 760px) and (orientation: landscape), (orientation: landscape) and (max-height: 760px) and (pointer: coarse) {
   body.is-roomba-camera-open .rotate-device-prompt {
     display: none;
   }
 
+  body.is-roomba-camera-open {
+    overflow: hidden;
+    background: #000;
+  }
+
   body.is-roomba-camera-open .pc-screen {
-    --phone-cmd-h: clamp(96px, 24dvh, 128px);
-    --phone-dock-h: 56px;
+    --phone-cmd-h: 54px;
+    --phone-dock-h: 0px;
+    position: fixed;
+    inset: 0;
+    width: 100dvw;
+    height: 100dvh;
+    overflow: hidden;
+    background: #000;
+  }
+
+  body.is-roomba-camera-open .pc-desktop {
+    width: 100dvw;
+    height: 100dvh;
+    min-height: 100dvh;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  body.is-roomba-camera-open .os-topbar,
+  body.is-roomba-camera-open .os-dock,
+  body.is-roomba-camera-open .desktop-icons,
+  body.is-roomba-camera-open .app-tray,
+  body.is-roomba-camera-open .desktop-progress-layer {
+    display: none !important;
   }
 
   body.is-roomba-camera-open .desktop-stage {
-    left: var(--phone-edge);
-    right: var(--phone-edge);
-    width: auto;
+    position: fixed;
+    z-index: 160;
+    inset: 0;
+    width: 100dvw;
+    height: 100dvh;
     transform: none;
   }
 
-  body.is-roomba-camera-open .desktop-icons {
+  body.is-roomba-camera-open .desk-window:not(.terminal-window):not(.roomba-camera-window) {
+    display: none !important;
+  }
+
+  body.is-roomba-camera-open .roomba-camera-window,
+  body.is-roomba-camera-open .roomba-camera-window.desk-window.is-focused {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 165;
+    display: grid !important;
+    width: 100dvw !important;
+    height: 100dvh !important;
+    max-width: none;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    background: #000;
+    box-shadow: none;
+    transform: none !important;
+  }
+
+  body.is-roomba-camera-open .roomba-camera-window .window-titlebar {
     display: none;
   }
 
   body.is-roomba-camera-open .roomba-camera-copy {
+    height: 100dvh;
     padding: 0;
+    overflow: hidden;
+    background: #000;
+  }
+
+  body.is-roomba-camera-open .roomba-camera-console,
+  body.is-roomba-camera-open .roomba-camera-console.is-image-only {
+    width: 100%;
+    height: 100%;
+    gap: 0;
   }
 
   body.is-roomba-camera-open .roomba-feed-frame {
-    aspect-ratio: 21 / 9;
-    min-height: 0;
-    height: min(46dvh, 260px);
+    width: 100dvw;
+    height: 100dvh;
+    min-height: 100dvh;
+    aspect-ratio: auto;
   }
 
-  body.is-roomba-camera-open .roomba-camera-console {
-    gap: 7px;
+  body.is-roomba-camera-open .roomba-feed-lens {
+    inset: 0;
+  }
+
+  body.is-roomba-camera-open .terminal-window,
+  body.is-roomba-camera-open .terminal-window[hidden] {
+    position: fixed !important;
+    top: 7px !important;
+    left: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    z-index: 190;
+    display: grid !important;
+    width: min(68dvw, 430px) !important;
+    height: 48px !important;
+    min-height: 0;
+    border: 1px solid rgba(114, 222, 255, 0.22);
+    border-radius: 10px;
+    background: rgba(3, 7, 13, 0.42);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.28);
+    opacity: 0.58;
+    pointer-events: none;
+    transform: translateX(-50%) !important;
+    backdrop-filter: blur(8px);
+  }
+
+  body.is-roomba-camera-open .terminal-window .window-titlebar,
+  body.is-roomba-camera-open .terminal-controls,
+  body.is-roomba-camera-open .cmd-current-objective {
+    display: none !important;
+  }
+
+  body.is-roomba-camera-open .terminal-window .window-body {
+    padding: 5px 8px;
+    overflow: hidden;
+    background: transparent;
+  }
+
+  body.is-roomba-camera-open .terminal-copy {
+    height: 100%;
+    overflow: hidden;
+    font-size: 0.52rem;
+  }
+
+  body.is-roomba-camera-open .terminal-lines {
+    height: 100%;
+    overflow: hidden;
+    padding: 0;
+    scrollbar-width: none;
+  }
+
+  body.is-roomba-camera-open .terminal-lines::-webkit-scrollbar {
+    display: none;
+  }
+
+  body.is-roomba-camera-open .terminal-lines p {
+    margin: 0;
+    line-height: 1.35;
+  }
+
+  body.is-roomba-camera-open .terminal-lines p:not(:last-child) {
+    display: none;
   }
 
   body.is-roomba-camera-open .roomba-camera-readout {
@@ -8333,11 +8555,6 @@ button {
   body.is-roomba-camera-open .roomba-drive-controls button {
     min-height: 30px;
     font-size: 0.6rem;
-  }
-
-  body.is-roomba-camera-open .os-dock {
-    height: var(--phone-dock-h);
-    min-height: var(--phone-dock-h);
   }
 }
 
