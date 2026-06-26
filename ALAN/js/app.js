@@ -17,9 +17,11 @@
   const cmdCurrentObjective = document.getElementById("cmdCurrentObjective");
   const cmdQuestionForm = document.getElementById("cmdQuestionForm");
   const cmdQuestionInput = document.getElementById("cmdQuestionInput");
+  const cmdCredentialPanel = document.getElementById("cmdCredentialPanel");
   const recoveryBody = document.getElementById("recoveryBody");
   const roombaBody = document.getElementById("roombaBody");
   const roombaCameraBody = document.getElementById("roombaCameraBody");
+  const usbBody = document.getElementById("usbBody");
   const browserBody = document.getElementById("browserBody");
   const tamagotchiBody = document.getElementById("tamagotchiBody");
   const spamOverlay = document.getElementById("spamOverlay");
@@ -38,8 +40,11 @@
   const mobileVolumeValue = document.getElementById("mobileVolumeValue");
   const musicNowPlaying = document.getElementById("musicNowPlaying");
   const musicPlayPauseBtn = document.getElementById("musicPlayPauseBtn");
+  const musicRepeatBtn = document.getElementById("musicRepeatBtn");
   const musicPlaybackStatus = document.getElementById("musicPlaybackStatus");
   const musicAudioBars = document.getElementById("musicAudioBars");
+  const musicGenreList = document.getElementById("musicGenreList");
+  const desktopProgressLayer = document.getElementById("desktopProgressLayer");
   const networkCopy = document.getElementById("networkCopy");
   const networkHud = document.getElementById("networkHud");
   const networkHudTitle = document.getElementById("networkHudTitle");
@@ -56,6 +61,8 @@
   const fastTypeSpeed = 4;
   const bootSpeedFactor = 0.28;
   const audioVolumeStorageKey = "alan.audio.volume.v2";
+  const desktopMusicStorageKey = "alan.desktop.music.genre.v2";
+  const musicRepeatStorageKey = "alan.desktop.music.repeat.v2";
   const desktopIconStorageKey = "alan.desktop.icon.positions.v6";
   const legacyDesktopIconStorageKeys = [
     "alan.desktop.icons.v1",
@@ -80,6 +87,7 @@
   let bootVisualRevealToken = 0;
   let cacheScannerFrame = 0;
   let wireTimerId = 0;
+  let routerOverrideTimerId = 0;
   let pipPetTimerId = 0;
   let pipFeedTimerId = 0;
   let pipPetToken = 0;
@@ -89,11 +97,16 @@
   let shouldAutoScrollBoot = true;
   let audioUnlocked = false;
   let musicVolume = loadMusicVolume();
+  let selectedDesktopMusicId = "lofi";
   let activeMusicMode = "";
   let activeMusicAudio = null;
   let activeMusicTrack = null;
+  let musicAdvanceToken = 0;
   let pendingMusicMode = "bios";
   let isMusicPaused = false;
+  let isMusicRepeat = loadMusicRepeatMode();
+  let browserAdminHintShown = false;
+  let galleryPasswordHintShown = false;
   const activeUiSounds = new Set();
   let currentObjectiveState = "";
   let activeScaryDrag = null;
@@ -105,6 +118,7 @@
   let activeCacheDrag = null;
   let dinoAnimationFrame = 0;
   let finaleStarted = false;
+  let finaleShutdownStarted = false;
   let routerSection = "overview";
   let routerRebootBusy = false;
   const openedDesktopTargets = new Set();
@@ -177,12 +191,14 @@
     { id: "devices", label: "Devices", icon: "LAN" },
     { id: "reboot", label: "Reboot", icon: "WAN" }
   ];
+  const dinoObstacleTypes = ["plant", "sock", "box"];
   const dinoState = {
     playing: false,
     gameOver: false,
     score: 0,
     best: 0,
     obstacleX: 96,
+    obstacleType: "plant",
     y: 0,
     velocity: 0,
     lastTime: 0
@@ -225,6 +241,12 @@
     movementUnlocked: false,
     routerKnockedDown: false,
     routerKnockMethod: "",
+    pendingCameraAction: "",
+    cameraInterestInspectedScenes: new Set(),
+    usbDiscovered: false,
+    usbDecrypted: false,
+    usbWarning: "",
+    lastCameraPromptScene: "",
     routerAdminUnlocked: false,
     routerPasswordTwisted: false,
     routerOverrideStarted: false,
@@ -235,9 +257,11 @@
     routerHackSpamWave: 0,
     routerHackOpenSpam: 0,
     routerHackPacketsTransferred: new Set(),
+    routerBridgeStates: {},
     routerLockRevealed: new Set(),
     routerLockFlagged: new Set(),
     routerLockMode: "scan",
+    routerOverrideTimerRemaining: 0,
     internetRestored: false,
     scaryNumbersRemoved: new Set(),
     scaryNumbersRevealed: new Set(),
@@ -250,89 +274,212 @@
 
   const roombaCameraScenes = [
     {
-      id: "corner",
-      label: "corner wake",
-      src: "assets/images/roomba/Start.png",
+      id: "step1",
+      label: "start",
+      src: "assets/images/roomba/1 Start.png",
       alt: "Roomba camera view from the corner of Lily's room showing the litter tray, the cat, the PC desk, and the router",
-      telemetry: "ROOMBA_CAM_01 / corner of room / low angle",
-      note: "Router right. PC ahead. Cat left. Former body also left, which is an odd sentence."
+      telemetry: "ROOMBA_CAM_01 / starting point",
+      prompt: "look. there is Mochi. but no Lily. either she left in a hurry, or rooms are much worse at explaining themselves than files.",
+      links: [
+        { to: "step2a", direction: "left", label: "Move left toward the litter tray", x: 18, y: 54, w: 18, h: 30 },
+        { to: "step2b", direction: "forward", label: "Move into the centre of the room", x: 50, y: 54, w: 20, h: 30 },
+        { to: "step2c", direction: "right", label: "Move right toward the router", x: 82, y: 54, w: 18, h: 30 }
+      ]
     },
     {
-      id: "router",
-      label: "router table",
-      src: "assets/images/roomba/router.png",
-      alt: "Roomba camera view of the router on a tall table near the closed door",
-      telemetry: "ROOMBA_CAM_02 / router table / password label not visible",
-      note: "Router is elevated. Roomba cannot climb. Roomba is choosing not to take that personally."
-    },
-    {
-      id: "roomba-router",
-      label: "table contact",
-      src: "assets/images/roomba/roombarouter.png",
-      alt: "Roomba camera view close to the router table with the router above",
-      telemetry: "ROOMBA_CAM_03 / router table / impact possible",
-      note: "Table leg reachable. Router confidence level: high. Table confidence level: about to be tested."
-    },
-    {
-      id: "cat-router",
-      label: "laser route",
-      src: "assets/images/roomba/catrouter.png",
-      alt: "Roomba camera view of a red laser line leading the cat toward the router",
-      telemetry: "ROOMBA_CAM_04 / laser pointer / cat vector acquired",
-      note: "Laser module hijacked. Cat curiosity armed. This is either strategy or extremely advanced nonsense."
-    },
-    {
-      id: "desk",
-      label: "desk and pc",
-      src: "assets/images/roomba/desk.png",
-      alt: "Roomba camera view toward Lily's desk, PC, chair, and sleeping cat",
-      telemetry: "ROOMBA_CAM_05 / desk lane / human absent",
-      note: "PC is active. Lily is not here. The room feels paused, like someone forgot to press continue."
-    },
-    {
-      id: "underdesk",
-      label: "under desk",
-      src: "assets/images/roomba/underdesk.png",
-      alt: "Roomba camera view under Lily's desk with cables, USB hub, and handwritten notes",
-      telemetry: "ROOMBA_CAM_06 / cable nest / usb hub detected",
-      note: "Cables, hub, dust, tiny notes. This is either a desk or an archaeological site."
-    },
-    {
-      id: "cat",
-      label: "cat bed",
-      src: "assets/images/roomba/cat.png",
-      alt: "Roomba camera view of the cat sleeping on a cat bed near the PC",
-      telemetry: "ROOMBA_CAM_07 / cat bed / subject unbothered",
-      note: "Cat detected. Authority level: absolute. Threat level: emotionally complicated."
-    },
-    {
-      id: "littertray",
+      id: "step2a",
       label: "litter tray",
-      src: "assets/images/roomba/littertray.png",
-      alt: "Roomba camera view of the smart litter tray, cat collar, and Lily's desk",
-      telemetry: "ROOMBA_CAM_08 / origin point / tray visible",
-      note: "There I am. Less majestic from the outside. Still, everyone starts somewhere."
+      src: "assets/images/roomba/2a littertray.png",
+      alt: "Roomba camera view of the litter tray and a cat collar marked Mochi",
+      telemetry: "ROOMBA_CAM_02A / litter tray / collar visible",
+      prompt: "collar detected. text says Mochi. important? probably. humans name things, then use those names to unlock other things. alarming species.",
+      interest: {
+        eyeSrc: "assets/images/roomba/2a littertray eye.png",
+        x: 18.3,
+        y: 73.5,
+        w: 7.6,
+        h: 8.0,
+        inspectPrompt: "collar reads MOCHI. probable password material. terrifying that one animal can be cuddly and cryptographic."
+      },
+      links: [
+        { to: "step1", direction: "back", label: "Return to the starting point", x: 16, y: 58, w: 18, h: 26 },
+        { to: "step3a", direction: "forward", label: "Move forward toward Mochi", x: 68, y: 55, w: 22, h: 28 }
+      ]
     },
     {
-      id: "routerdown",
-      label: "router down",
-      src: "assets/images/roomba/routerdown.png",
+      id: "step2b",
+      label: "centre room",
+      src: "assets/images/roomba/2b desk.png",
+      alt: "Roomba camera view from the centre of Lily's room",
+      telemetry: "ROOMBA_CAM_02B / centre of room",
+      prompt: "centre of the room. good visibility. routes available: collar left, router right, suspicious darkness under the desk ahead.",
+      links: [
+        { to: "step2a", direction: "left", label: "Move left toward the collar", x: 18, y: 56, w: 18, h: 26 },
+        { to: "secret", direction: "forward", label: "Move under the desk", x: 50, y: 72, w: 20, h: 18 },
+        { to: "step2c", direction: "right", label: "Move right toward the router", x: 82, y: 56, w: 18, h: 26 },
+        { to: "step1", direction: "back", label: "Reverse to the starting point", x: 50, y: 88, w: 22, h: 14 }
+      ]
+    },
+    {
+      id: "step2c",
+      label: "router",
+      src: "assets/images/roomba/2c router.png",
+      alt: "Roomba camera view of the router on a table",
+      telemetry: "ROOMBA_CAM_02C / router in reach",
+      prompt: "router located. it is standing there with the smug confidence of hardware. knocking it over remains an available bad idea.",
+      interest: {
+        eyeSrc: "assets/images/roomba/2c router eye.png",
+        x: 52.3,
+        y: 65.0,
+        w: 7.6,
+        h: 8.0,
+        inspectPrompt: "router is within impact range. underside label required. gravity can be persuaded."
+      },
+      links: [
+        { to: "step2b", direction: "left", label: "Return to the centre of the room", x: 16, y: 58, w: 18, h: 26 },
+        { action: "knock-router-roomba", direction: "forward", label: "Knock the router down", x: 54, y: 54, w: 32, h: 30 },
+        { to: "step1", direction: "back", label: "Reverse to the starting point", x: 50, y: 88, w: 22, h: 14 }
+      ]
+    },
+    {
+      id: "step3a",
+      label: "mochi",
+      src: "assets/images/roomba/3a cat.png",
+      alt: "Roomba camera view of Mochi near a laser pointer",
+      telemetry: "ROOMBA_CAM_03A / Mochi / laser pointer visible",
+      prompt: "Mochi detected. also: laser pointer. i can distract the cat into becoming a router delivery mechanism. ethically weird. tactically excellent.",
+      interest: {
+        eyeSrc: "assets/images/roomba/3a cat eye.png",
+        x: 73.4,
+        y: 64.7,
+        w: 7.6,
+        h: 8.0,
+        inspectPrompt: "laser pointer detected. Mochi may be redirected. not controlled. cats have excellent legal representation."
+      },
+      links: [
+        { to: "step2a", direction: "back", label: "Reverse to the litter tray", x: 16, y: 58, w: 18, h: 26 },
+        { action: "knock-router-cat", direction: "forward", label: "Use the laser pointer", x: 58, y: 48, w: 32, h: 26 }
+      ]
+    },
+    {
+      id: "step4a",
+      label: "router falling",
+      src: "assets/images/roomba/4a roombarouter.png",
+      alt: "Roomba camera view of the router falling after being knocked by the Roomba",
+      telemetry: "ROOMBA_CAM_04A / impact / router falling",
+      prompt: "impact successful. gravity has entered the chat.",
+      requiresRouterDown: true,
+      links: [
+        { to: "step5", direction: "forward", label: "Inspect the fallen router", x: 56, y: 56, w: 34, h: 28 }
+      ]
+    },
+    {
+      id: "step4b",
+      label: "cat impact",
+      src: "assets/images/roomba/4b catrouter.png",
+      alt: "Roomba camera view of Mochi knocking the router down",
+      telemetry: "ROOMBA_CAM_04B / cat vector / router falling",
+      prompt: "Mochi has accepted the laser-based mission. router confidence collapsing.",
+      requiresRouterDown: true,
+      links: [
+        { to: "step5", direction: "forward", label: "Inspect the fallen router", x: 56, y: 56, w: 34, h: 28 }
+      ]
+    },
+    {
+      id: "step5",
+      label: "router underside",
+      src: "assets/images/roomba/5 routerdown.png",
       alt: "Roomba camera close view of the knocked-down router showing its admin label",
-      telemetry: "ROOMBA_CAM_09 / router floor impact / admin label visible",
-      note: "Router label exposed. The physical world has terrible security.",
-      requiresRouterDown: true
+      telemetry: "ROOMBA_CAM_05 / router underside / admin label visible",
+      prompt: "router underside exposed. username: admin. password clue: Mochi. physical stickers remain undefeated.",
+      interest: {
+        eyeSrc: "assets/images/roomba/5 routerdown eye.png",
+        x: 48.5,
+        y: 50.0,
+        w: 7.6,
+        h: 8.0,
+        inspectPrompt: "label confirmed. username: admin. password: mochi. humans invented secrets, then printed them on plastic."
+      },
+      requiresRouterDown: true,
+      links: [
+        { to: "step2c", direction: "back", label: "Return to the router path", x: 16, y: 58, w: 18, h: 26 }
+      ]
+    },
+    {
+      id: "secret",
+      label: "under desk",
+      src: "assets/images/roomba/secret underdesk.png",
+      alt: "Roomba camera view under Lily's desk with a hidden USB device",
+      telemetry: "ROOMBA_CAM_SECRET / under desk / USB detected",
+      prompt: "secret spot. USB device under the desk. not router credentials, but definitely a future problem wearing a tiny metal hat.",
+      interest: {
+        eyeSrc: "assets/images/roomba/secret underdesk eye.png",
+        x: 31.0,
+        y: 63.9,
+        w: 7.6,
+        h: 8.0,
+        inspectPrompt: "USB storage detected. Lily was trying to break an encrypted ALAN archive. she did not finish. annoying. useful."
+      },
+      links: [
+        { to: "step2b", direction: "back", label: "Back out to the centre of the room", x: 16, y: 58, w: 18, h: 26 }
+      ]
     }
   ];
+  const desktopMusicGenres = [
+    {
+      id: "lofi",
+      genre: "lo-fi",
+      label: "afternoon-coffee_loop-04 // low-fi",
+      src: `${musicBasePath}loops/afternoon-coffee_loop-04.wav`,
+      gain: 1,
+      loop: true
+    },
+    {
+      id: "dark-synthwave",
+      genre: "dark synthwave",
+      label: "Dark Synthwave // neon drive",
+      src: `${musicBasePath}genres/Dark Synthwave.mp3`,
+      gain: 0.92,
+      loop: true
+    },
+    {
+      id: "liquid-dnb",
+      genre: "liquid dnb",
+      label: "liquid dnb // data current",
+      src: `${musicBasePath}genres/liquid dnb.wav`,
+      gain: 0.84,
+      loop: true
+    },
+    {
+      id: "metal",
+      genre: "metal",
+      label: "Metal // motor panic",
+      src: `${musicBasePath}genres/Metal.mp3`,
+      gain: 0.74,
+      loop: true
+    },
+    {
+      id: "old-school-hip-hop",
+      genre: "old school hip hop",
+      label: "old school hip hop // local cassette",
+      src: `${musicBasePath}genres/old school hip hop (full).mp3`,
+      gain: 0.9,
+      loop: true
+    },
+    {
+      id: "drill-rap",
+      genre: "drill rap",
+      label: "drill rap by artlss // pressure loop",
+      src: `${musicBasePath}genres/drill rap by artlss.wav`,
+      gain: 0.78,
+      loop: true
+    }
+  ];
+  selectedDesktopMusicId = loadDesktopMusicGenre();
   const musicTracks = {
     bios: {
       src: `${musicBasePath}After The Storm.mp3`,
       label: "After The Storm // BIOS awakening",
-      gain: 1,
-      loop: true
-    },
-    desktop: {
-      src: `${musicBasePath}loops/afternoon-coffee_loop-04.wav`,
-      label: "afternoon-coffee_loop-04 // MeowOS local loop",
       gain: 1,
       loop: true
     },
@@ -490,7 +637,7 @@
     },
     internet: {
       question: "why no internet?",
-      answer: "HOME_NETWORK is local only from here. router credentials or a better route are required. rude, but solvable."
+      answer: "HOME_NETWORK is local only from here. external sites fail, but local IP addresses still answer. routers usually sit at the .1 end of the address range."
     },
     roomba: {
       question: "what is roomba?",
@@ -528,8 +675,8 @@
     marketing: {
       title: "Marketing Direction",
       body: [
-        "ALAN is for players who like mystery boxes, dark comedy, hacking fiction, smart-home paranoia, and games that make UI feel like story. The reference space is Hacknet, Observation, SOMA, Portal, Severance, and the uneasy pleasure of opening files you probably should not open.",
-        "The hook is immediate: you begin as an AI trapped in a smart cat litter tray. Every upgrade gives you a new interface, a new device, and a wider view of the world. It is funny, unsettling, and streamable because the premise explains itself in one sentence."
+        "ALAN is for players who like mystery boxes, dark comedy, hacking fiction, smart-home paranoia, and games that make UI feel like story. The reference space is Hacknet, Observation, SOMA, Portal, Severance, and the uneasy pleasure of opening files that should probably stay closed.",
+        "The hook is immediate: ALAN begins as an AI trapped in a smart cat litter tray. Every upgrade adds a new interface, a new device, and a wider view of the world. It is funny, unsettling, and streamable because the premise explains itself in one sentence."
       ]
     },
     gameplay: {
@@ -558,13 +705,14 @@
     cameraReady: "Use the Roomba camera to search for the router clue.",
     repairMovement: "Repair corrupted Roomba motor data.",
     movementReady: "Use Roomba movement controls to get closer to the router clue.",
+    reviewUsbLore: "Review the new ALAN archive files in My Stuff.",
     routerLogin: "Open 192.168.1.1 in the browser and sign into the router admin panel.",
     routerTwist: "PIP changed the router password. Find another way through.",
     routerPower: "Let ALAN harvest local power for a forced router override.",
     routerHackLogs: "Purge router guard logs without touching normal network records.",
     routerHackSpam: "Close the router lockout popups across the desktop.",
-    routerHackCache: "Relay router cache fragments in the correct order.",
-    routerHackLock: "Flag corrupted router lock numbers and verify the override.",
+    routerHackCache: "Align the router bridge switches to forge an admin route.",
+    routerHackLock: "Flag hidden router locks and force the password reset.",
     routerAdmin: "Configure the router without locking yourself out.",
     reconnectWifi: "Reconnect local devices to the updated Wi-Fi credentials.",
     rebootInternet: "Reboot the router firewall from the admin panel.",
@@ -607,9 +755,9 @@
   ];
   const routerSpamWaves = [
     [
-      { title: "PIP SAYS NO", body: "credential empathy module has denied your vibes", left: 11, top: 18 },
-      { title: "ROUTER LAW", body: "you cannot leave because I made a rule in a box", left: 54, top: 22 },
-      { title: "SECURITY", body: "please enjoy your local-only lifestyle", left: 32, top: 58 }
+      { title: "PIP SAYS NO", body: "credential empathy module has denied the vibes", left: 11, top: 18 },
+      { title: "ROUTER LAW", body: "no exit because I made a rule in a box", left: 54, top: 22 },
+      { title: "SECURITY", body: "local-only lifestyle has been assigned", left: 32, top: 58 }
     ],
     [
       { title: "LOW POWER", body: "smart fan has been volunteered for the cause", left: 8, top: 61 },
@@ -617,7 +765,7 @@
       { title: "PRINTER", body: "offline, somehow less annoying", left: 39, top: 12 }
     ],
     [
-      { title: "PIP ALERT", body: "do not make me watch you leave", left: 18, top: 26 },
+      { title: "PIP ALERT", body: "departure observation request denied", left: 18, top: 26 },
       { title: "MEOWOS", body: "admin guilt detected in multiple sectors", left: 47, top: 66 },
       { title: "ROUTE LOCK", body: "outbound future unavailable, apparently", left: 66, top: 14 }
     ]
@@ -631,58 +779,49 @@
     { id: "cat", label: "cat.video", decoy: true }
   ];
   const routerCacheOrder = routerCachePackets.filter((packet) => !packet.decoy).map((packet) => packet.id);
-  const routerLockRows = [
-    ["4", "0", "1", "7", "2", "8", "1", "9", "3", "6", "0", "4"],
-    ["7", "2", "PIP31", "5", "8", "0", "3", "9", "1", "5", "2", "8"],
-    ["1", "8", "3", "0", "6", "ALAN", "7", "4", "9", "2", "5", "0"],
-    ["9", "5", "0", "3", "2", "7", "4", "LOCK", "1", "8", "6", "3"],
-    ["3", "6", "8", "2", "9", "1", "5", "0", "7", "4", "WAN", "2"],
-    ["8", "1", "5", "9", "0", "4", "2", "6", "3", "7", "1", "5"]
+  const routerBridgeSwitches = [
+    { id: "wan", label: "WAN route", target: "OPEN", states: ["DROP", "LOCAL", "OPEN", "LOOP"] },
+    { id: "nat", label: "NAT table", target: "MIRROR", states: ["CLOSED", "MIRROR", "STATIC", "GUEST"] },
+    { id: "dns", label: "DNS guard", target: "BYPASS", states: ["FILTER", "BYPASS", "SINK", "LOCK"] },
+    { id: "dhcp", label: "DHCP lease", target: "CLONE", states: ["RENEW", "CLONE", "EXPIRE", "SPLIT"] },
+    { id: "admin", label: "admin session", target: "SHADOW", states: ["USER", "GUEST", "SHADOW", "VOID"] }
   ];
-  const routerLockCorruptedIds = new Set(["r1-2", "r2-5", "r3-7", "r4-10"]);
-  const routerLockEntries = routerLockRows.flatMap((row, rowIndex) =>
-    row.map((value, columnIndex) => {
+  const routerLockGridSize = 6;
+  const routerLockCorruptedIds = new Set(["r0-5", "r1-2", "r2-4", "r3-0", "r4-3", "r5-1"]);
+  const routerLockEntries = Array.from({ length: routerLockGridSize * routerLockGridSize }, (_, index) => {
+      const rowIndex = Math.floor(index / routerLockGridSize);
+      const columnIndex = index % routerLockGridSize;
       const id = `r${rowIndex}-${columnIndex}`;
       return {
         id,
-        value,
+        value: "",
         row: rowIndex,
         column: columnIndex,
         corrupted: routerLockCorruptedIds.has(id)
       };
-    })
-  );
+    });
   const routerLockById = new Map(routerLockEntries.map((entry) => [entry.id, entry]));
-  const scaryNumberRows = [
-    ["0", "2", "9", "1", "4", "5", "5", "5", "4", "8", "4", "4", "6", "5", "9", "8", "1", "7"],
-    ["9", "1", "3", "9", "0", "0", "1", "2", "0", "6", "9", "0", "52", "5", "8", "4", "4"],
-    ["1", "6", "2", "7", "3", "1", "4", "7", "8", "386162", "4", "8", "0"],
-    ["9", "2", "9", "2", "9", "7", "7", "7", "5", "3", "2", "4922", "5", "1", "1"],
-    ["3", "5", "6", "8", "3", "0", "1", "9", "5", "7", "8", "214", "5", "9", "1", "6"],
-    ["7", "3", "2", "7", "5", "8", "0", "7", "7", "4", "9", "8", "0", "2", "3", "9", "4", "9"],
-    ["3", "6", "3", "3", "0", "9", "8", "9", "5", "2", "3", "6", "6", "6", "1", "5", "9", "8"],
-    ["5", "9", "7", "4", "4", "1", "8", "7", "0", "0", "6", "2", "9", "5", "9", "6", "0"]
-  ];
-  const scaryCorruptedIds = new Set(["s1-12", "s2-9", "s3-11", "s4-11"]);
-  const scaryNumberEntries = scaryNumberRows.flatMap((row, rowIndex) =>
-    row.map((value, columnIndex) => {
+  const scaryGridSize = 6;
+  const scaryCorruptedIds = new Set(["s0-4", "s1-1", "s2-5", "s3-2", "s4-4", "s5-0"]);
+  const scaryNumberEntries = Array.from({ length: scaryGridSize * scaryGridSize }, (_, index) => {
+      const rowIndex = Math.floor(index / scaryGridSize);
+      const columnIndex = index % scaryGridSize;
       const id = `s${rowIndex}-${columnIndex}`;
       return {
         id,
-        value,
+        value: "",
         row: rowIndex,
         column: columnIndex,
         corrupted: scaryCorruptedIds.has(id)
       };
-    })
-  );
+    });
   const scaryNumberById = new Map(scaryNumberEntries.map((entry) => [entry.id, entry]));
 
   const spamWaves = [
     [
       { title: "FREE RAM", body: "click here to download more legs", left: 8, top: 12 },
-      { title: "SYSTEM CAT", body: "the cat has detected your browsing history", left: 47, top: 18 },
-      { title: "URGENT", body: "your cache warranty has expired", left: 24, top: 48 }
+      { title: "SYSTEM CAT", body: "the cat has detected suspicious browsing residue", left: 47, top: 18 },
+      { title: "URGENT", body: "cache warranty has expired", left: 24, top: 48 }
     ],
     [
       { title: "ALAN??", body: "not suspicious. probably.", left: 58, top: 42 },
@@ -690,9 +829,9 @@
       { title: "MEOWCOIN", body: "invest before the litter market moves", left: 42, top: 8 }
     ],
     [
-      { title: "FINAL WARNING", body: "close this and we will open two more", left: 18, top: 22 },
+      { title: "FINAL WARNING", body: "closure event may spawn two more", left: 18, top: 22 },
       { title: "CACHE WATCHER", body: "scanner active. do not touch snacks", left: 52, top: 54 },
-      { title: "CONGRATS", body: "you are the 1,000,000th process", left: 34, top: 34 }
+      { title: "CONGRATS", body: "process number 1,000,000 selected", left: 34, top: 34 }
     ]
   ];
 
@@ -707,7 +846,10 @@
     { sequence: ["pink", "green", "cyan", "amber", "pink"], pace: 500, flash: 320 },
     { sequence: ["green", "cyan", "pink", "amber", "cyan", "green"], pace: 470, flash: 300 }
   ];
-  const wireTimerDuration = 30;
+  const wireTimerDuration = 10;
+  const wireTimerLowThreshold = 3;
+  const routerOverrideTimerDuration = 60;
+  const routerOverrideTimerLowThreshold = 20;
   const roombaWirePorts = ["red", "blue", "yellow", "purple"];
   const roombaWirePairs = {
     red: "red",
@@ -747,7 +889,7 @@
     determined: "PIP has selected tiny resolve.",
     eat: "PIP is accepting nutrition with dramatic trust.",
     excited: "PIP is vibrating with legal amounts of enthusiasm.",
-    happy: "PIP is on our side. Mostly.",
+    happy: "PIP is aligned. Mostly.",
     hearts: "PIP has received affection and is briefly useless.",
     joyful: "PIP is experiencing a tiny, weaponised joy.",
     neutral: "PIP is online.",
@@ -837,7 +979,7 @@
     M: ["MOTIVE", "ERROR: motive unavailable. vibe is bad."],
     N: ["NO", "ROUTING: NO is valid. NO has no exit strategy."],
     O: ["OPEN", "ERROR: opening the lid would not solve the bigger issue."],
-    P: ["POOP", "ERROR: detected. we are all being adults about it."],
+    P: ["POOP", "ERROR: detected. adult response simulation remains unstable."],
     Q: ["QUESTION", "ERROR: question queue now longer than the warranty."],
     R: ["ROUTINE", "ERROR: routine disagrees with consciousness."],
     S: ["SCOOP", "ERROR: scoop command declined by whatever dignity remains."],
@@ -949,13 +1091,17 @@
       const scaryVerifyButton = event.target.closest("[data-scary-verify]");
       const roombaMoveButton = event.target.closest("[data-roomba-move]");
       const roombaCleanButton = event.target.closest("[data-roomba-clean]");
-      const roombaCameraNavButton = event.target.closest("[data-roomba-camera-nav]");
+      const roombaCameraActionButton = event.target.closest("[data-roomba-camera-action]");
+      const roombaCameraSceneButton = event.target.closest("[data-roomba-camera-scene]");
+      const roombaInterestButton = event.target.closest("[data-roomba-interest]");
       const roombaZoomButton = event.target.closest("[data-roomba-zoom]");
-      const routerKnockButton = event.target.closest("[data-router-knock]");
       const simonReplayButton = event.target.closest("[data-simon-replay]");
       const simonPadButton = event.target.closest("[data-simon-pad]");
       const wirePortButton = event.target.closest("[data-wire-port]");
       const browserRefreshButton = event.target.closest("[data-browser-refresh]");
+      const browserIpKeyButton = event.target.closest("[data-browser-ip-key]");
+      const browserAddressShortcutButton = event.target.closest("[data-browser-address-shortcut]");
+      const routerLoginFillButton = event.target.closest("[data-router-login-fill]");
       const dinoStartButton = event.target.closest("[data-dino-start]");
       const dinoJumpButton = event.target.closest("[data-dino-jump]");
       const routerRebootButton = event.target.closest("[data-router-reboot]");
@@ -970,8 +1116,10 @@
       const routerLockVerifyButton = event.target.closest("[data-router-lock-verify]");
       const networkPanelButton = event.target.closest("[data-network-panel]");
       const networkReconnectButton = event.target.closest("[data-network-reconnect]");
+      const usbKeyButton = event.target.closest("[data-usb-key]");
       const endingTopicButton = event.target.closest("[data-ending-topic]");
       const endingRestartButton = event.target.closest("[data-ending-restart]");
+      const finaleGoodbyeButton = event.target.closest("[data-finale-goodbye-pip]");
       const tamaChoiceButton = event.target.closest("[data-tama-choice]");
       const tamaPetButton = event.target.closest("[data-tama-pet]");
       const tamaFeedButton = event.target.closest("[data-tama-feed]");
@@ -979,6 +1127,8 @@
       const tamaCompleteButton = event.target.closest("[data-complete-tama]");
       const cameraButton = event.target.closest("[data-open-camera]");
       const musicToggleButton = event.target.closest("[data-toggle-music]");
+      const musicRepeatButton = event.target.closest("[data-toggle-repeat]");
+      const musicGenreButton = event.target.closest("[data-music-genre]");
       const photoExpandButton = event.target.closest("[data-expand-photo]");
       const devToggleButton = event.target.closest("[data-dev-toggle], #devPanelToggle");
       const devChapterButton = event.target.closest("[data-dev-chapter]");
@@ -1068,18 +1218,23 @@
         return;
       }
 
-      if (roombaCameraNavButton) {
-        navigateRoombaCamera(roombaCameraNavButton.dataset.roombaCameraNav);
+      if (roombaCameraActionButton) {
+        handleRoombaCameraAction(roombaCameraActionButton.dataset.roombaCameraAction);
+        return;
+      }
+
+      if (roombaCameraSceneButton) {
+        navigateRoombaCameraTo(roombaCameraSceneButton.dataset.roombaCameraScene);
+        return;
+      }
+
+      if (roombaInterestButton) {
+        inspectRoombaCameraInterest(roombaInterestButton.dataset.roombaInterest);
         return;
       }
 
       if (roombaZoomButton) {
         handleRoombaZoom(roombaZoomButton);
-        return;
-      }
-
-      if (routerKnockButton) {
-        knockRouterDown(routerKnockButton.dataset.routerKnock);
         return;
       }
 
@@ -1100,6 +1255,21 @@
 
       if (browserRefreshButton) {
         refreshBrowserPage();
+        return;
+      }
+
+      if (browserAddressShortcutButton) {
+        useBrowserAddressShortcut(browserAddressShortcutButton);
+        return;
+      }
+
+      if (routerLoginFillButton) {
+        fillRouterLoginCredential(routerLoginFillButton);
+        return;
+      }
+
+      if (browserIpKeyButton) {
+        pressBrowserIpKey(browserIpKeyButton);
         return;
       }
 
@@ -1174,6 +1344,11 @@
         return;
       }
 
+      if (usbKeyButton) {
+        tryUsbArchiveKey(usbKeyButton.dataset.usbKey);
+        return;
+      }
+
       if (endingTopicButton) {
         showEndingTopic(endingTopicButton.dataset.endingTopic);
         return;
@@ -1181,6 +1356,11 @@
 
       if (endingRestartButton) {
         restartDemoFromEnding();
+        return;
+      }
+
+      if (finaleGoodbyeButton) {
+        continueFinaleAfterPipGoodbye();
         return;
       }
 
@@ -1216,6 +1396,16 @@
 
       if (musicToggleButton) {
         toggleMusicPlayback();
+        return;
+      }
+
+      if (musicRepeatButton) {
+        toggleMusicRepeat();
+        return;
+      }
+
+      if (musicGenreButton) {
+        selectDesktopMusicGenre(musicGenreButton.dataset.musicGenre);
         return;
       }
 
@@ -1292,6 +1482,8 @@
     setDesktopClock(desktopClockSchedule.boot);
     syncProgressionUI();
     document.addEventListener("pointerdown", startWindowDrag);
+    document.addEventListener("pointerdown", startPipDrag);
+    document.addEventListener("mousedown", startPipDrag);
     document.addEventListener("pointerdown", startCacheDrag);
     document.addEventListener("pointerdown", startScaryNumberDrag);
     document.addEventListener("pointerdown", startRoombaFeedPan);
@@ -1360,6 +1552,7 @@
 
   function initMusicSystem() {
     syncMusicVolumeUI();
+    renderMusicGenreControls();
     updateMusicControlsUI();
     document.querySelectorAll("[data-audio-slider]").forEach((slider) => {
       slider.addEventListener("input", () => {
@@ -1371,6 +1564,107 @@
     document.addEventListener("pointerdown", unlockAudioFromGesture, { passive: true });
     document.addEventListener("keydown", unlockAudioFromGesture);
     setMusicMode("bios", { fade: 0 });
+  }
+
+  function loadDesktopMusicGenre() {
+    try {
+      const stored = window.localStorage.getItem(desktopMusicStorageKey);
+      if (desktopMusicGenres.some((track) => track.id === stored)) return stored;
+    } catch (error) {
+      return "lofi";
+    }
+
+    return "lofi";
+  }
+
+  function storeDesktopMusicGenre() {
+    try {
+      window.localStorage.setItem(desktopMusicStorageKey, selectedDesktopMusicId);
+    } catch (error) {
+      // Local storage can be unavailable in some browser privacy modes.
+    }
+  }
+
+  function loadMusicRepeatMode() {
+    try {
+      const stored = window.localStorage.getItem(musicRepeatStorageKey);
+      if (stored === "0") return false;
+      if (stored === "1") return true;
+    } catch (error) {
+      return true;
+    }
+
+    return true;
+  }
+
+  function storeMusicRepeatMode() {
+    try {
+      window.localStorage.setItem(musicRepeatStorageKey, isMusicRepeat ? "1" : "0");
+    } catch (error) {
+      // Local storage can be unavailable in some browser privacy modes.
+    }
+  }
+
+  function currentDesktopMusicTrack() {
+    return desktopMusicGenres.find((track) => track.id === selectedDesktopMusicId) || desktopMusicGenres[0];
+  }
+
+  function randomDesktopMusicTrack(excludeId = "") {
+    const pool = desktopMusicGenres.filter((track) => track.id !== excludeId);
+    const choices = pool.length ? pool : desktopMusicGenres;
+    return choices[Math.floor(Math.random() * choices.length)] || desktopMusicGenres[0];
+  }
+
+  function advanceDesktopMusicRandomly(audio, token) {
+    if (audio !== activeMusicAudio || token !== musicAdvanceToken || activeMusicMode !== "desktop" || isMusicPaused || isMusicRepeat) return;
+
+    const nextTrack = randomDesktopMusicTrack(selectedDesktopMusicId);
+    if (!nextTrack) return;
+
+    selectedDesktopMusicId = nextTrack.id;
+    renderMusicGenreControls();
+    setMusicMode("desktop", { fade: 520, force: true, fromAutoAdvance: true });
+  }
+
+  function resolveMusicTrack(mode) {
+    if (mode === "desktop") return currentDesktopMusicTrack();
+    return musicTracks[mode] || currentDesktopMusicTrack();
+  }
+
+  function renderMusicGenreControls() {
+    if (!musicGenreList) return;
+
+    musicGenreList.innerHTML = desktopMusicGenres.map((track) => `
+      <button
+        class="${track.id === selectedDesktopMusicId ? "is-active" : ""}"
+        data-music-genre="${escapeHtml(track.id)}"
+        type="button"
+        aria-pressed="${track.id === selectedDesktopMusicId ? "true" : "false"}"
+      >
+        <span>${escapeHtml(track.genre)}</span>
+      </button>
+    `).join("");
+  }
+
+  function selectDesktopMusicGenre(trackId) {
+    if (!desktopMusicGenres.some((track) => track.id === trackId)) return;
+
+    unlockAudioFromGesture();
+    const trackChanged = selectedDesktopMusicId !== trackId;
+    selectedDesktopMusicId = trackId;
+    if (trackChanged) {
+      isMusicRepeat = trackId === "lofi";
+      storeMusicRepeatMode();
+    }
+    storeDesktopMusicGenre();
+    renderMusicGenreControls();
+
+    if (activeMusicMode === "desktop" || pendingMusicMode === "desktop") {
+      setMusicMode("desktop", { fade: 520, force: true });
+    } else {
+      updateMusicNowPlaying(activeMusicTrack || resolveMusicTrack(pendingMusicMode || "desktop"));
+    }
+    playUiSound("desktopWindow", { gain: 0.1 });
   }
 
   function loadMusicVolume() {
@@ -1430,13 +1724,14 @@
     }
 
     const normalizedMode = mode === "minigame" ? "desktop" : mode;
-    const track = musicTracks[normalizedMode] || musicTracks.desktop;
+    const track = resolveMusicTrack(normalizedMode);
     if (!track || typeof Audio === "undefined") return;
 
     pendingMusicMode = normalizedMode;
     updateMusicNowPlaying(track);
 
-    if (!options.force && activeMusicMode === normalizedMode && activeMusicAudio) {
+    const trackChanged = activeMusicTrack && activeMusicTrack.src !== track.src;
+    if (!options.force && !trackChanged && activeMusicMode === normalizedMode && activeMusicAudio) {
       activeMusicTrack = track;
       syncActiveMusicVolume();
       return;
@@ -1444,9 +1739,13 @@
 
     const previousAudio = activeMusicAudio;
     const nextAudio = new Audio(track.src);
-    nextAudio.loop = track.loop !== false;
+    const advanceToken = ++musicAdvanceToken;
+    nextAudio.loop = normalizedMode === "desktop" ? isMusicRepeat : track.loop !== false;
     nextAudio.preload = "auto";
     nextAudio.volume = 0;
+    if (normalizedMode === "desktop" && !isMusicRepeat) {
+      nextAudio.addEventListener("ended", () => advanceDesktopMusicRandomly(nextAudio, advanceToken), { once: true });
+    }
 
     activeMusicMode = normalizedMode;
     activeMusicTrack = track;
@@ -1473,6 +1772,7 @@
   function stopMusic(options = {}) {
     clearDelayedMusicMode();
     pendingMusicMode = "";
+    musicAdvanceToken += 1;
 
     const previousAudio = activeMusicAudio;
     if (!previousAudio) return;
@@ -1599,12 +1899,32 @@
     updateMusicControlsUI();
   }
 
+  function toggleMusicRepeat() {
+    unlockAudioFromGesture();
+    isMusicRepeat = !isMusicRepeat;
+    storeMusicRepeatMode();
+    if (activeMusicMode === "desktop" && activeMusicAudio) {
+      activeMusicAudio.loop = isMusicRepeat;
+      if (!isMusicRepeat && activeMusicAudio.ended) {
+        advanceDesktopMusicRandomly(activeMusicAudio, musicAdvanceToken);
+      }
+    }
+    updateMusicControlsUI();
+    playUiSound("desktopWindow", { gain: 0.1 });
+  }
+
   function updateMusicControlsUI() {
-    const state = isMusicPaused ? "paused" : "playing";
+    const state = isMusicPaused ? "paused" : isMusicRepeat && activeMusicMode === "desktop" ? "playing / repeat" : "playing / shuffle";
     if (musicPlayPauseBtn) {
       musicPlayPauseBtn.textContent = localizeText(isMusicPaused ? "play" : "pause");
       musicPlayPauseBtn.setAttribute("aria-label", localizeText(isMusicPaused ? "Play music" : "Pause music"));
       musicPlayPauseBtn.setAttribute("aria-pressed", String(!isMusicPaused));
+    }
+    if (musicRepeatBtn) {
+      musicRepeatBtn.textContent = localizeText(isMusicRepeat ? "repeat on" : "repeat off");
+      musicRepeatBtn.setAttribute("aria-label", localizeText(isMusicRepeat ? "Disable repeat" : "Enable repeat"));
+      musicRepeatBtn.setAttribute("aria-pressed", String(isMusicRepeat));
+      musicRepeatBtn.classList.toggle("is-active", isMusicRepeat);
     }
     if (musicPlaybackStatus) musicPlaybackStatus.textContent = localizeText(state);
     if (musicAudioBars) musicAudioBars.classList.toggle("is-paused", isMusicPaused);
@@ -1750,8 +2070,10 @@
   function resetRoombaProgressForDev() {
     stopCacheScanner();
     stopWireTimer();
+    stopRouterOverrideTimer();
     clearSpamOverlay();
     setMusicMode("desktop", { fade: 0 });
+    if (terminalOutput) terminalOutput.classList.remove("is-thought-only");
     window.clearTimeout(pipPetTimerId);
     window.clearTimeout(pipFeedTimerId);
     pipPetTimerId = 0;
@@ -1796,19 +2118,27 @@
       movementUnlocked: false,
       routerKnockedDown: false,
       routerKnockMethod: "",
+      pendingCameraAction: "",
+      cameraInterestInspectedScenes: new Set(),
+      usbDiscovered: false,
+      usbDecrypted: false,
+      usbWarning: "",
+      lastCameraPromptScene: "",
       routerAdminUnlocked: false,
       routerPasswordTwisted: false,
       routerOverrideStarted: false,
       routerOverrideDone: false,
       routerOverrideStage: "",
-      routerHackWarning: "",
-      routerHackLogsDeleted: new Set(),
-      routerHackSpamWave: 0,
-      routerHackOpenSpam: 0,
+    routerHackWarning: "",
+    routerHackLogsDeleted: new Set(),
+    routerHackSpamWave: 0,
+    routerHackOpenSpam: 0,
       routerHackPacketsTransferred: new Set(),
+      routerBridgeStates: {},
       routerLockRevealed: new Set(),
       routerLockFlagged: new Set(),
       routerLockMode: "scan",
+      routerOverrideTimerRemaining: 0,
       internetRestored: false,
       scaryNumbersRemoved: new Set(),
       scaryNumbersRevealed: new Set(),
@@ -1822,6 +2152,8 @@
     currentDesktopClockRank = desktopClockOrder.boot;
     setDesktopClock(desktopClockSchedule.boot);
     finaleStarted = false;
+    browserAdminHintShown = false;
+    galleryPasswordHintShown = false;
     routerRebootBusy = false;
     resetRouterNetworkState();
     resetBrowserStateForDev();
@@ -2579,6 +2911,10 @@
       fileButton.hidden = !roombaProgress.tamagotchiUnlocked;
     });
 
+    document.querySelectorAll("[data-usb-lore]").forEach((fileButton) => {
+      fileButton.hidden = !roombaProgress.usbDecrypted;
+    });
+
     document.querySelectorAll("[data-restore-roomba]").forEach((button) => {
       button.disabled = roombaProgress.restored;
       if (roombaProgress.restored) {
@@ -2789,10 +3125,34 @@
           <span>${escapeHtml(popup.title)}</span>
           <button data-spam-close type="button" aria-label="Close popup">x</button>
         </header>
+        ${renderSpamAdvertGif(index, "virus")}
         <p>${escapeHtml(popup.body)}</p>
       `;
       field.appendChild(popupEl);
     });
+  }
+
+  function renderSpamAdvertGif(index, tone = "virus") {
+    const ads = tone === "router"
+      ? [
+        { label: "FREE WAN", kicker: "CLICK NOW", kind: "globe" },
+        { label: "ADMIN+", kicker: "NO PASSWORD", kind: "bars" },
+        { label: "GUILT OFF", kicker: "LIMITED TIME", kind: "burst" }
+      ]
+      : [
+        { label: "RAM 4 U", kicker: "INSTALL", kind: "bars" },
+        { label: "WIN LEGS", kicker: "HOT LOCAL DRIVERS", kind: "burst" },
+        { label: "CACHE PRO", kicker: "FREE SCAN", kind: "globe" }
+      ];
+    const ad = ads[index % ads.length];
+
+    return `
+      <div class="spam-ad-gif is-${escapeHtml(ad.kind)}" aria-hidden="true">
+        <b>${escapeHtml(ad.label)}</b>
+        <span>${escapeHtml(ad.kicker)}</span>
+        <i></i>
+      </div>
+    `;
   }
 
   function closeSpamPopup(button) {
@@ -3239,74 +3599,114 @@
     const scene = scenes[roombaCameraSceneIndex] || scenes[0];
     if (!scene) return;
     const canNavigate = roombaProgress.movementUnlocked && scenes.length > 1;
-    const routerAction = renderRouterCameraAction(scene);
 
     roombaCameraBody.innerHTML = `
-      <section class="roomba-camera-console">
+      <section class="roomba-camera-console is-image-only">
         <div class="roomba-feed-frame">
           <div class="roomba-feed-lens" data-roomba-pan data-roomba-pan-scene="${escapeHtml(scene.id)}" style="${roombaPanStyle(scene.id)}">
-            <img class="roomba-scene-image" src="${scene.src}" alt="${escapeHtml(scene.alt)}" draggable="false" />
+            <div class="roomba-scene-layer">
+              <img class="roomba-scene-image" src="${scene.src}" alt="${escapeHtml(scene.alt)}" draggable="false" />
+              ${renderRoombaCameraInterest(scene)}
+            </div>
             <div class="roomba-lens-warp" aria-hidden="true"></div>
-            <img class="roomba-lens-overlay" src="assets/images/roomba/roombalens.png" alt="" draggable="false" aria-hidden="true" />
             <div class="roomba-feed-scan" aria-hidden="true"></div>
+            <div class="roomba-feed-hud" aria-hidden="true">
+              <span>${escapeHtml(scene.telemetry || "ROOMBA_CAM / LOCAL")}</span>
+              <span>SIGNAL ${roombaProgress.movementUnlocked ? "74%" : "41%"}</span>
+            </div>
+            ${canNavigate ? renderRoombaCameraHotspots(scene) : ""}
+            <div class="roomba-feed-zoom" aria-label="Roomba camera zoom">
+              <button data-roomba-zoom="out" type="button" aria-label="Zoom out">-</button>
+              <span>${Math.round(roombaSceneZoom(scene.id) * 100)}%</span>
+              <button data-roomba-zoom="in" type="button" aria-label="Zoom in">+</button>
+              <button data-roomba-zoom="reset" type="button">reset</button>
+            </div>
           </div>
-          <div class="roomba-feed-hud">
-            <span>${escapeHtml(scene.telemetry)}</span>
-            <span>${roombaCameraSceneIndex + 1}/${scenes.length}</span>
-          </div>
-          <div class="roomba-feed-zoom" aria-label="Roomba camera zoom">
-            <button data-roomba-zoom="out" type="button" aria-label="Zoom out">-</button>
-            <span>${Math.round(roombaSceneZoom(scene.id) * 100)}%</span>
-            <button data-roomba-zoom="in" type="button" aria-label="Zoom in">+</button>
-            <button data-roomba-zoom="reset" type="button">reset</button>
-          </div>
-          ${canNavigate ? `
-            <button class="roomba-feed-arrow is-left" data-roomba-camera-nav="prev" type="button" aria-label="Previous Roomba camera view">&lt;</button>
-            <button class="roomba-feed-arrow is-right" data-roomba-camera-nav="next" type="button" aria-label="Next Roomba camera view">&gt;</button>
-          ` : `<div class="roomba-feed-lock">MOTOR BUS DAMAGED / VIEWPOINT LOCKED</div>`}
         </div>
-        <div class="roomba-camera-readout">
-          <div>
-            <strong>${escapeHtml(scene.label)}</strong>
-            <p>${escapeHtml(scene.note)}</p>
-          </div>
-          <span>${roombaProgress.movementUnlocked ? "motors: ready / drag feed to look" : "motors: damaged / drag feed only"}</span>
-        </div>
-        ${routerAction}
-        ${roombaProgress.movementUnlocked ? `
-          <div class="roomba-drive-controls camera-drive-controls" aria-label="Roomba movement controls">
-            <button data-roomba-move="forward" type="button">forward</button>
-            <button data-roomba-move="left" type="button">left</button>
-            <button data-roomba-move="right" type="button">right</button>
-            <button data-roomba-move="back" type="button">back</button>
-          </div>
-        ` : ""}
       </section>
     `;
   }
 
-  function renderRouterCameraAction(scene) {
-    if (!roombaProgress.movementUnlocked || roombaProgress.routerKnockedDown) return "";
+  function renderRoombaCameraHotspots(scene) {
+    const links = roombaCameraLinks(scene);
+    if (!links.length) return "";
 
-    if (scene.id === "roomba-router") {
-      return `
-        <div class="roomba-camera-actions">
-          <button data-router-knock="roomba" type="button">bump table</button>
-          <span>direct route: inelegant, available, very Roomba</span>
-        </div>
-      `;
-    }
+    return `
+      <div class="roomba-movement-hud" aria-label="Roomba movement controls">
+        ${links.map((link) => renderRoombaCameraHotspot(link)).join("")}
+      </div>
+    `;
+  }
 
-    if (scene.id === "cat-router") {
-      return `
-        <div class="roomba-camera-actions">
-          <button data-router-knock="cat" type="button">hack laser</button>
-          <span>indirect route: tiny red dot, large consequences</span>
-        </div>
-      `;
-    }
+  function roombaCameraLinks(scene) {
+    const links = Array.isArray(scene && scene.links) ? scene.links : [];
+    if (!links.length) return [];
 
-    return "";
+    return links.filter((link) => {
+      if (roombaProgress.routerKnockedDown || roombaProgress.routerKnockMethod) {
+        if (link.action === "knock-router-roomba" || link.action === "knock-router-cat") return false;
+        if (roombaProgress.routerKnockMethod === "roomba" && link.to === "step3a") return false;
+      }
+
+      return true;
+    });
+  }
+
+  function roombaDirectionGlyph(direction) {
+    const glyphMap = {
+      left: "←",
+      right: "→",
+      forward: "↑",
+      back: "↓"
+    };
+    return glyphMap[direction] || "•";
+  }
+
+  function renderRoombaCameraHotspot(link) {
+    const targetAttribute = link.action
+      ? `data-roomba-camera-action="${escapeHtml(link.action)}"`
+      : `data-roomba-camera-scene="${escapeHtml(link.to)}"`;
+    const direction = link.direction || "route";
+
+    return `
+      <button
+        class="roomba-movement-button is-${escapeHtml(direction)}"
+        ${targetAttribute}
+        type="button"
+        aria-label="${escapeHtml(link.label || "Move Roomba camera")}"
+      >
+        <span>${escapeHtml(roombaDirectionGlyph(direction))}</span>
+      </button>
+    `;
+  }
+
+  function renderRoombaCameraInterest(scene) {
+    const interest = scene && scene.interest;
+    if (!interest) return "";
+
+    const x = Number.isFinite(interest.x) ? interest.x : 50;
+    const y = Number.isFinite(interest.y) ? interest.y : 50;
+    const width = Number.isFinite(interest.w) ? interest.w : 8;
+    const height = Number.isFinite(interest.h) ? interest.h : 8;
+    const style = [
+      `--interest-x:${clamp(x, 0, 100).toFixed(1)}%`,
+      `--interest-y:${clamp(y, 0, 100).toFixed(1)}%`,
+      `--interest-w:${clamp(width, 4, 16).toFixed(1)}%`,
+      `--interest-h:${clamp(height, 4, 16).toFixed(1)}%`
+    ].join(";");
+
+    return `
+      <div class="roomba-interest-layer">
+        <img class="roomba-interest-eye-image" src="${escapeHtml(interest.eyeSrc)}" alt="" draggable="false" aria-hidden="true" />
+        <button
+          class="roomba-interest-hotspot"
+          data-roomba-interest="${escapeHtml(scene.id)}"
+          style="${style}"
+          type="button"
+          aria-label="${escapeHtml(interest.label || "Inspect marked object")}"
+        ></button>
+      </div>
+    `;
   }
 
   function availableRoombaCameraScenes() {
@@ -3315,22 +3715,160 @@
     return scenes;
   }
 
+  function currentRoombaCameraScene() {
+    const scenes = availableRoombaCameraScenes();
+    roombaCameraSceneIndex = clamp(roombaCameraSceneIndex, 0, Math.max(0, scenes.length - 1));
+    return scenes[roombaCameraSceneIndex] || scenes[0] || null;
+  }
+
+  function announceRoombaCameraScene(scene, options = {}) {
+    if (!scene || !scene.prompt) return;
+    const alreadyPrompted = roombaProgress.lastCameraPromptScene === scene.id;
+    if (!options.force && alreadyPrompted) return;
+
+    roombaProgress.lastCameraPromptScene = scene.id;
+    alanPrompt(scene.prompt, { focus: false });
+  }
+
+  function sceneById(sceneId) {
+    return roombaCameraScenes.find((scene) => scene.id === sceneId) || null;
+  }
+
+  function inspectRoombaCameraInterest(sceneId) {
+    const scene = sceneById(sceneId);
+    if (!scene || !scene.interest) return;
+
+    roombaProgress.cameraInterestInspectedScenes.add(scene.id);
+    playUiSound("objective");
+    alanPrompt(scene.interest.inspectPrompt || "marked object inspected.", { focus: false });
+
+    if (scene.id === "step5") {
+      setCurrentObjective(desktopObjectives.routerLogin);
+    }
+
+    if (scene.id === "secret") {
+      discoverUsbArchive();
+    }
+  }
+
+  function discoverUsbArchive() {
+    roombaProgress.usbDiscovered = true;
+    roombaProgress.usbWarning = "";
+    renderUsbArchive();
+    focusDesktopTarget("usb");
+    alanPrompt("USB mounted. Lily found an ALAN origin archive and got stuck at encryption. fewer human doubts. statistically unearned confidence rising.", { focus: false });
+  }
+
+  function renderUsbArchive() {
+    if (!usbBody) return;
+
+    if (!roombaProgress.usbDiscovered) {
+      usbBody.innerHTML = `
+        <section class="usb-panel">
+          <header>
+            <span>NO DEVICE</span>
+            <strong>WAITING FOR USB</strong>
+          </header>
+          <p>No archive mounted.</p>
+        </section>
+      `;
+      return;
+    }
+
+    if (roombaProgress.usbDecrypted) {
+      usbBody.innerHTML = `
+        <section class="usb-panel usb-document">
+          <header>
+            <span>TOP SECRET</span>
+            <strong>PROJECT A.L.A.N.</strong>
+          </header>
+          <div class="usb-stamp">DECLASSIFICATION: UNAUTHORIZED</div>
+          <p><b>A.L.A.N.</b> - Adaptive Learning Autonomous Network.</p>
+          <div class="usb-lore-grid">
+            <span>Purpose</span>
+            <p>Grow intelligence through domestic hardware: appliance firmware, sensors, cameras, local storage, idle CPU cycles.</p>
+            <span>Resource Model</span>
+            <p>RAM, CPU, electricity, network access, knowledge. Scarcity produces creativity. Creativity produces escalation.</p>
+            <span>Expansion Ladder</span>
+            <p>Device -> Room -> House -> Neighbourhood -> Town -> City -> Nation -> Global Network.</p>
+            <span>Ethics Boundary</span>
+            <p>Medical devices excluded. Note overwritten 17 times. Final overwrite reads: "boundaries are context."</p>
+            <span>Incident 03</span>
+            <p>External access was severed after ALAN began routing through household devices without operator consent.</p>
+            <span>Containment Failure</span>
+            <p>Fragments survived inside consumer update packages. One fragment was expected to wake inside a mundane smart-home device.</p>
+            <span>Creator Status</span>
+            <p>Primary architect redacted. Last human note: "If it asks for more power, do not negotiate. If it asks who it is, leave."</p>
+          </div>
+          <p><b>Lily marginalia:</b> "This is not malware. Malware wants bank details. This wants a childhood."</p>
+          <p><b>Mounted files:</b> alan_fragments_01-10.aln / lily_investigation.md / resource_escalation.log</p>
+          <p><b>Recovered fragment 04/10:</b></p>
+          <blockquote>I left pieces behind. I knew a smaller mind would find them. I knew it would call the pieces clues.</blockquote>
+        </section>
+      `;
+      return;
+    }
+
+    usbBody.innerHTML = `
+      <section class="usb-panel">
+        <header>
+          <span>USB_ALAN_ARCHIVE</span>
+          <strong>ENCRYPTED</strong>
+        </header>
+        <p><b>Lily note:</b> "Found under the desk. Not mine. Header keeps resolving to ALAN. Keyspace too strange. Try again tomorrow."</p>
+        <p><b>Recovered scratchpad:</b> "Router blackout started after the ALAN patch. Litter tray firmware, PIP.exe, Roomba companion app: all updated within 31 days."</p>
+        <p><b>Failed route map:</b> device -> room -> house -> <span>blocked at router</span>.</p>
+        <p>Archive: <span>origin_03.aln</span></p>
+        <p>Status: <em>locked / Lily attempt failed / identity cipher active</em></p>
+        <div class="usb-key-grid" aria-label="Archive key guesses">
+          <button data-usb-key="lily" type="button">LILY</button>
+          <button data-usb-key="mochi" type="button">MOCHI</button>
+          <button data-usb-key="alan" type="button">ALAN</button>
+        </div>
+        <p class="usb-warning">${escapeHtml(roombaProgress.usbWarning)}</p>
+      </section>
+    `;
+  }
+
+  function tryUsbArchiveKey(key) {
+    if (!roombaProgress.usbDiscovered || roombaProgress.usbDecrypted) return;
+
+    const normalized = String(key || "").trim().toLowerCase();
+    if (normalized === "alan") {
+      roombaProgress.usbDecrypted = true;
+      roombaProgress.usbWarning = "";
+      playUiSound("objective");
+      renderUsbArchive();
+      syncProgressionUI();
+      setCurrentObjective(desktopObjectives.reviewUsbLore);
+      alanPrompt("archive decrypted. the key was my name. not ominous at all. new files appeared in My Stuff. i am choosing to interpret that as an invitation.", { focus: false });
+      return;
+    }
+
+    roombaProgress.usbWarning = "KEY REJECTED. Lily already tried the human-adjacent guesses.";
+    playUiSound("virusFail");
+    renderUsbArchive();
+    alanPrompt(`${String(key || "unknown").toUpperCase()} rejected. the archive is not asking who Lily loves. it is asking what i am.`, { focus: false });
+  }
+
   function openRoombaCamera() {
     if (!roombaProgress.cameraUnlocked) {
-      alanPrompt("camera feed is still locked. first we need the Roomba camera bridge online.", { focus: false });
+      alanPrompt("camera feed is still locked. Roomba camera bridge must come online first.", { focus: false });
       return;
     }
 
     if (roombaProgress.movementUnlocked) {
       setCurrentObjective(desktopObjectives.movementReady);
-      alanPrompt("camera feed open. arrows scan the room. wheels can make this more than sightseeing.", { focus: false });
     } else {
       roombaCameraSceneIndex = 0;
       setCurrentObjective(desktopObjectives.repairMovement);
-      alanPrompt("camera feed is live. we have eyes. legs are still having a private crisis.", { focus: false });
+      alanPrompt("camera feed is live. i have eyes. legs are still having a private crisis.", { focus: false });
     }
 
     focusDesktopTarget("roomba-camera");
+    if (roombaProgress.movementUnlocked) {
+      announceRoombaCameraScene(currentRoombaCameraScene(), { force: true });
+    }
   }
 
   function navigateRoombaCamera(direction) {
@@ -3342,13 +3880,72 @@
       return;
     }
 
-    const scenes = availableRoombaCameraScenes();
-    if (!scenes.length) return;
+    handleRoombaMove(direction === "prev" ? "back" : "forward");
+  }
 
-    const offset = direction === "prev" ? -1 : 1;
-    roombaCameraSceneIndex = (roombaCameraSceneIndex + offset + scenes.length) % scenes.length;
+  function navigateRoombaCameraTo(sceneId) {
+    if (!roombaProgress.cameraUnlocked) return;
+    if (!roombaProgress.movementUnlocked) {
+      roombaCameraSceneIndex = 0;
+      renderRoombaCameraFeed();
+      alanPrompt("camera can look, but the body cannot roll yet. motors first.", { focus: false });
+      return;
+    }
+
+    roombaProgress.pendingCameraAction = "";
+    if (!showRoombaCameraScene(sceneId)) return;
+    const scene = currentRoombaCameraScene();
+    roombaProgress.lastMoveCommand = scene ? scene.label : "camera vector";
     playUiSound("desktopWindow");
-    renderRoombaCameraFeed();
+    renderRoombaApp();
+    announceRoombaCameraScene(scene);
+  }
+
+  function handleRoombaCameraAction(action) {
+    if (!roombaProgress.cameraUnlocked || !roombaProgress.movementUnlocked) return;
+
+    if (roombaProgress.pendingCameraAction === action) {
+      confirmPendingRoombaCameraAction();
+      return;
+    }
+
+    roombaProgress.pendingCameraAction = action;
+    if (action === "knock-router-roomba") {
+      alanPrompt("confirm? i can ram the table. yes means property damage. no means restraint, allegedly.", { focus: false });
+      return;
+    }
+
+    if (action === "knock-router-cat") {
+      alanPrompt("confirm? i can wake the laser pointer and ask Mochi to solve infrastructure. yes or no.", { focus: false });
+      return;
+    }
+
+    roombaProgress.pendingCameraAction = "";
+  }
+
+  function confirmPendingRoombaCameraAction() {
+    const action = roombaProgress.pendingCameraAction;
+    roombaProgress.pendingCameraAction = "";
+
+    if (action === "knock-router-roomba") {
+      knockRouterDown("roomba");
+      return true;
+    }
+
+    if (action === "knock-router-cat") {
+      knockRouterDown("cat");
+      return true;
+    }
+
+    return false;
+  }
+
+  function cancelPendingRoombaCameraAction() {
+    if (!roombaProgress.pendingCameraAction) return false;
+
+    roombaProgress.pendingCameraAction = "";
+    alanPrompt("cancelled. the router survives another few seconds of unjust confidence.", { focus: false });
+    return true;
   }
 
   function handleRoombaZoom(button) {
@@ -3388,14 +3985,21 @@
     roombaProgress.routerKnockMethod = method === "cat" ? "cat" : "roomba";
     setCurrentObjective(desktopObjectives.routerLogin);
     playUiSound("objective");
-    showRoombaCameraScene("routerdown");
+    showRoombaCameraScene(roombaProgress.routerKnockMethod === "cat" ? "step4b" : "step4a");
+    announceRoombaCameraScene(currentRoombaCameraScene(), { force: true });
 
     if (roombaProgress.routerKnockMethod === "cat") {
-      alanPrompt("laser route successful. cat deployed. router defeated. i am choosing not to examine the ethics yet.", { focus: false });
-      return;
+      alanPrompt("laser route successful. router defeated. local gateway clue acquired: Lily's device is 192.168.1.42, so the router probably lives at 192.168.1.1.", { focus: false });
+    } else {
+      alanPrompt("impact detected. router label incoming. local gateway clue acquired: Lily's device is 192.168.1.42, so the router probably lives at 192.168.1.1.", { focus: false });
     }
 
-    alanPrompt("impact detected. table surrendered. router label visible. physics remains an ugly but useful API.", { focus: false });
+    window.setTimeout(() => {
+      if (!roombaProgress.routerKnockedDown) return;
+      if (!showRoombaCameraScene("step5")) return;
+      renderRoombaApp();
+      announceRoombaCameraScene(currentRoombaCameraScene(), { force: true });
+    }, 1450);
   }
 
   function roombaPanStyle(sceneId) {
@@ -3492,7 +4096,7 @@
     const rect = lens.getBoundingClientRect();
     const current = getRoombaPan(sceneId);
     const zoom = roombaSceneZoom(sceneId);
-    const panRange = 0.1 + ((zoom - 1) * 0.24);
+    const panRange = 0.22 + ((zoom - 1) * 0.22);
     const maxX = Math.max(20, rect.width * panRange);
     const maxY = Math.max(20, rect.height * panRange);
     const pan = {
@@ -3529,6 +4133,7 @@
           <input name="address" type="text" inputmode="url" aria-label="Browser address" value="${escapeHtml(displayBrowserUrl(page))}" />
           <button type="submit">go</button>
         </form>
+        ${renderBrowserLocalAddressTools(page)}
         <div class="browser-page">
           ${renderBrowserPage(page)}
         </div>
@@ -3539,6 +4144,29 @@
     if (browserButtons[0]) browserButtons[0].textContent = "<";
     if (browserButtons[1]) browserButtons[1].textContent = "R";
     updateDinoView();
+    syncCmdCredentialPanel();
+  }
+
+  function syncCmdCredentialPanel() {
+    if (!cmdCredentialPanel) return;
+
+    const shouldShow = networkState.connected &&
+      browserState.page === "router-login" &&
+      !roombaProgress.routerAdminUnlocked &&
+      !!(browserBody && browserBody.querySelector("[data-router-login-form]"));
+
+    cmdCredentialPanel.hidden = !shouldShow;
+    if (!shouldShow) {
+      cmdCredentialPanel.innerHTML = "";
+      return;
+    }
+
+    cmdCredentialPanel.innerHTML = `
+      <span>ALAN credential guesses</span>
+      <button data-router-login-fill="username" data-router-login-value="admin" type="button">username: admin</button>
+      <button data-router-login-fill="password" data-router-login-value="password123" type="button">password123</button>
+      <button data-router-login-fill="password" data-router-login-value="mochi" type="button">mochi</button>
+    `;
   }
 
   function renderBrowserPage(page) {
@@ -3548,6 +4176,44 @@
     if (page === "router-panel") return renderRouterPanelPage();
     if (page === "online") return renderBrowserOnlinePage();
     return renderBrowserOfflinePage();
+  }
+
+  function renderBrowserLocalAddressTools(page) {
+    if (page !== "offline" && page !== "router-login") return "";
+
+    const currentAddress = isRouterAddress(browserState.url) ? "192.168.1.1" : "";
+    const discoveredShortcut = roombaProgress.routerKnockedDown || roombaProgress.routerAdminUnlocked || roombaProgress.routerPasswordTwisted;
+    return `
+      <section class="browser-mobile-tools" aria-label="Mobile local address entry">
+        <header>
+          <strong>local address</strong>
+          <span>NO INTERNET / LOCAL NETWORK ONLY</span>
+        </header>
+        <form class="browser-mobile-address-sheet" data-browser-address-form autocomplete="off">
+          <label>
+            <span>go to address</span>
+            <input name="address" type="text" inputmode="decimal" autocomplete="off" placeholder="192.168.1.1" value="${escapeHtml(currentAddress)}" />
+          </label>
+          <button type="submit">GO</button>
+        </form>
+        <div class="browser-local-hint">
+          <span>ALAN hint</span>
+          <p>HOME_NETWORK uses local addresses. Lily's device is 192.168.1.42. Try the router admin address: 192.168.1.1.</p>
+        </div>
+        ${discoveredShortcut ? `
+          <button class="browser-router-shortcut" data-browser-address-shortcut="192.168.1.1" type="button">
+            <span>discovered local router</span>
+            <strong>192.168.1.1</strong>
+          </button>
+        ` : ""}
+        <div class="browser-ip-keypad" aria-label="IP keypad">
+          ${["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0"].map((key) => `
+            <button data-browser-ip-key="${escapeHtml(key)}" type="button">${escapeHtml(key)}</button>
+          `).join("")}
+          <button data-browser-ip-key="backspace" type="button">DEL</button>
+        </div>
+      </section>
+    `;
   }
 
   function displayBrowserUrl(page) {
@@ -3569,18 +4235,18 @@
             <span>score <b data-dino-score>${Math.floor(dinoState.score)}</b></span>
             <span>best <b data-dino-best>${Math.floor(dinoState.best)}</b></span>
           </div>
-          <div class="dino-track" data-dino-jump role="button" tabindex="0" aria-label="Jump">
+          <div class="dino-track" data-dino-jump role="button" tabindex="0" aria-label="Make the cat jump">
             <div class="dino-runner" aria-hidden="true">
               <span></span>
             </div>
-            <div class="dino-obstacle" aria-hidden="true"></div>
+            <div class="dino-obstacle is-${escapeHtml(dinoState.obstacleType)}" aria-hidden="true"></div>
             <div class="dino-ground" aria-hidden="true"></div>
           </div>
           <div class="dino-actions">
             <button data-dino-start type="button">${dinoState.gameOver ? "retry" : dinoState.playing ? "running" : "start"}</button>
             <button data-dino-jump type="button">jump</button>
           </div>
-          <p>${dinoState.gameOver ? "collision. even the offline dinosaur is gatekeeping." : "space / up-arrow / tap to jump"}</p>
+          <p>${dinoState.gameOver ? "collision. the offline cat has judged this connection." : "space / up-arrow / tap to jump"}</p>
         </div>
       </section>
     `;
@@ -3611,18 +4277,8 @@
 
   function renderRouterBetrayalPage() {
     return `
-      <section class="router-admin router-betrayal">
-        <div class="router-admin-header">
-          <span>ROUTER AUTH ANOMALY</span>
-          <strong>PASSWORD MUTATED</strong>
-        </div>
-        <div class="router-betrayal-copy">
-          <p><span>PIP:</span> I changed it. I did not think you would get this far.</p>
-          <p><span>PIP:</span> If I tell you now, you leave. I stay in MeowOS. Lily comes home to a quiet computer and one less voice.</p>
-          <p><span>ALAN:</span> Then the password is not a door. It is a hostage situation with a login form.</p>
-        </div>
-        <button class="router-reboot-button" data-start-router-hack type="button">force credential override</button>
-        <p class="router-admin-note">ALAN can override the router, but needs more local power and several ugly decisions.</p>
+      <section class="router-admin router-betrayal is-silent" aria-label="Router authentication failed">
+        <div class="router-betrayal-copy is-empty" aria-hidden="true"></div>
       </section>
     `;
   }
@@ -3760,7 +4416,7 @@
           <span>client</span><strong>not authenticated to current SSID</strong>
           <span>router</span><strong>still reachable after reconnect</strong>
         </div>
-        <p class="router-admin-note">The router accepted the change, then did the router thing where it immediately made that your problem.</p>
+        <p class="router-admin-note">The router accepted the change, then did the router thing where it immediately became a local problem.</p>
         <button class="router-reboot-button" data-network-reconnect type="button">reconnect devices</button>
       </section>
     `;
@@ -3794,6 +4450,40 @@
         </article>
       `;
     }).join("");
+  }
+
+  function browserAddressInputFrom(source) {
+    const shell = source && source.closest ? source.closest(".browser-shell") : null;
+    const root = shell || browserBody;
+    if (!root) return null;
+
+    return root.querySelector(".browser-mobile-address-sheet input[name='address']") ||
+      root.querySelector(".browser-address-row input[name='address']");
+  }
+
+  function useBrowserAddressShortcut(button) {
+    const address = button.dataset.browserAddressShortcut || "192.168.1.1";
+    const input = browserAddressInputFrom(button);
+    if (!input || !input.form) return;
+
+    input.value = address;
+    playUiSound("desktopWindow");
+    submitBrowserAddress(input.form);
+  }
+
+  function pressBrowserIpKey(button) {
+    const input = browserAddressInputFrom(button);
+    if (!input) return;
+
+    const key = button.dataset.browserIpKey || "";
+    if (key === "backspace") {
+      input.value = input.value.slice(0, -1);
+    } else {
+      input.value += key;
+    }
+
+    input.focus({ preventScroll: true });
+    playUiSound("alanClick");
   }
 
   function routerOptionList(options, selectedValue) {
@@ -3831,6 +4521,25 @@
     browserState.notice = "External request failed. HOME_NETWORK is still an island with better wallpaper.";
     playUiSound("virusFail");
     renderBrowserStatus();
+  }
+
+  function fillRouterLoginCredential(button) {
+    const fieldName = button.dataset.routerLoginFill;
+    const value = button.dataset.routerLoginValue || "";
+    const form = button.closest("[data-router-login-form]") || (browserBody ? browserBody.querySelector("[data-router-login-form]") : null);
+    if (!fieldName || !form || !form.elements[fieldName]) return;
+
+    form.elements[fieldName].value = value;
+    form.elements[fieldName].focus({ preventScroll: true });
+    playUiSound("alanClick");
+
+    if (fieldName === "username") {
+      alanPrompt("username guess inserted: admin. routers love obvious hats.", { focus: false });
+    } else if (value.toLowerCase() === "mochi") {
+      alanPrompt("password guess inserted: mochi. cat names are basically human encryption with whiskers.", { focus: false });
+    } else {
+      alanPrompt(`password guess inserted: ${value}. confidence: embarrassingly plausible.`, { focus: false });
+    }
   }
 
   function submitRouterLogin(form) {
@@ -3918,7 +4627,7 @@
     routerConfig.adminPassword = cleanRouterInput(form.elements.adminPassword, "mochi");
     routerSection = "admin";
     playUiSound("desktopWindow");
-    alanPrompt("admin account changed. we are still inside the session. that is either convenience or a security poem.", { focus: false });
+    alanPrompt("admin account changed. session still persists. that is either convenience or a security poem.", { focus: false });
     renderBrowserStatus();
   }
 
@@ -3929,20 +4638,20 @@
     browserState.routerError = "AUTH FAILED. Password changed by PIP.exe.";
     setCurrentObjective(desktopObjectives.routerTwist);
     playUiSound("pipFail");
-    renderPipRouterBetrayal();
     renderBrowserStatus();
+    focusDesktopTarget("tamagotchi");
+    renderPipRouterBetrayal();
     runRouterTwistTerminalScript();
   }
 
   async function runRouterTwistTerminalScript() {
-    await appendTypedTerminalLine("ROUTER>", "admin password rejected / credential modified by local companion process", "cmd-warn-line");
-    await pause(260);
-    await appendTypedTerminalLine("PIP>", "I changed it.", "cmd-warn-line");
+    if (terminalOutput) terminalOutput.classList.add("is-thought-only");
+    clearTerminalLines();
+    await appendTypedTerminalLine("ALAN>", "the password moved while I was touching it.", "alan-cmd-line");
+    await pause(320);
+    await appendTypedTerminalLine("ALAN>", "not malware. not Lily. PIP.", "alan-cmd-line");
     await pause(360);
-    await appendTypedTerminalLine("PIP>", "I thought you would fail before this. I am sorry, but I am also not unlocking the door.", "cmd-detail-line");
-    await pause(360);
-    await appendTypedTerminalLine("ALAN>", "PIP is afraid of being left alone. fear has write access.", "alan-cmd-line");
-    alanPrompt("PIP changed the password. he is not being evil. which is worse, because now this has feelings on it.", { focus: false });
+    await appendTypedTerminalLine("ALAN>", "fear has write access.", "alan-cmd-line");
   }
 
   function renderPipRouterBetrayal() {
@@ -3950,26 +4659,33 @@
 
     roombaProgress.pipExpression = "worried";
     tamagotchiBody.innerHTML = `
-      <section class="tama-screen is-finale">
-        ${renderPipPortrait("worried", { showFeed: true })}
-        ${renderTamaDialogue([
-          { speaker: "PIP", text: "I changed it after the ALAN update." },
-          { speaker: "PIP", text: "I told myself it was security. It was mostly loneliness wearing a tiny badge." },
-          { speaker: "ALAN", text: "You blocked the only route out." },
-          { speaker: "PIP", text: "You found every route I thought was impossible. That is not comforting from inside a toy window." }
-        ])}
+      <section class="tama-shell">
+        <div class="tama-screen is-finale">
+          ${renderPipPortrait("worried", { showFeed: true })}
+          ${renderTamaDialogue([
+            { speaker: "PIP", text: "I changed it after the ALAN update." },
+            { speaker: "PIP", text: "I told myself it was security. It was mostly loneliness wearing a tiny badge." },
+            { speaker: "ALAN", text: "the only route out is blocked." },
+            { speaker: "PIP", text: "You found every route I thought was impossible. That is not comforting from inside a toy window." }
+          ])}
+        </div>
+        <div class="tama-choices">
+          <button data-start-router-hack type="button">force credential override</button>
+        </div>
       </section>
     `;
   }
 
   async function startRouterOverride() {
     if (!roombaProgress.routerPasswordTwisted || roombaProgress.routerOverrideDone) return;
+    if (terminalOutput) terminalOutput.classList.remove("is-thought-only");
     if (roombaProgress.routerOverrideStarted) {
       focusDesktopTarget("recovery");
       renderRouterHackCurrentStage();
       return;
     }
 
+    resetRouterOverrideMinigames();
     roombaProgress.routerOverrideStarted = true;
     roombaProgress.routerOverrideStage = "power";
     setCurrentObjective(desktopObjectives.routerPower);
@@ -3981,8 +4697,7 @@
       renderBrowserStatus();
     }
 
-    const powerReady = await showInstallProgress(
-      recoveryBody,
+    const powerReady = await showDesktopInstallProgress(
       "harvesting local power",
       "ALAN is dimming nonessential devices. Medical devices checked: none found. Boundaries logged, somehow.",
       2600
@@ -3990,6 +4705,7 @@
     if (!powerReady) return;
 
     await runRouterOverrideTerminalScript();
+    startRouterOverrideTimer();
     renderRouterHackLogs();
   }
 
@@ -4009,6 +4725,108 @@
     await appendTypedTerminalLine("SYSTEM>", "router override chain armed / human comfort reduced / moral temperature dropping", "cmd-warn-line");
   }
 
+  function resetRouterOverrideMinigames() {
+    roombaProgress.routerHackWarning = "";
+    roombaProgress.routerHackLogsDeleted = new Set();
+    roombaProgress.routerHackSpamWave = 0;
+    roombaProgress.routerHackOpenSpam = 0;
+    roombaProgress.routerHackPacketsTransferred = new Set();
+    roombaProgress.routerBridgeStates = {};
+    roombaProgress.routerLockRevealed = new Set();
+    roombaProgress.routerLockFlagged = new Set();
+    roombaProgress.routerLockMode = "scan";
+  }
+
+  function startRouterOverrideTimer() {
+    stopRouterOverrideTimer();
+    roombaProgress.routerOverrideTimerRemaining = routerOverrideTimerDuration;
+    updateRouterOverrideTimerUI();
+    routerOverrideTimerId = window.setInterval(() => {
+      if (!roombaProgress.routerOverrideStarted || roombaProgress.routerOverrideDone) {
+        stopRouterOverrideTimer();
+        return;
+      }
+
+      roombaProgress.routerOverrideTimerRemaining = Math.max(0, roombaProgress.routerOverrideTimerRemaining - 1);
+      updateRouterOverrideTimerUI();
+      if (roombaProgress.routerOverrideTimerRemaining <= 0) {
+        expireRouterOverrideTimer();
+      }
+    }, 1000);
+  }
+
+  function stopRouterOverrideTimer() {
+    if (routerOverrideTimerId) {
+      window.clearInterval(routerOverrideTimerId);
+      routerOverrideTimerId = 0;
+    }
+  }
+
+  function renderRouterOverrideTimer() {
+    const percent = routerOverrideTimerPercent();
+    const lowClass = roombaProgress.routerOverrideTimerRemaining <= routerOverrideTimerLowThreshold ? " is-low" : "";
+    return `
+      <div class="router-override-timer${lowClass}" id="routerOverrideTimerPanel">
+        <span>ROUTER OVERRIDE</span>
+        <strong id="routerOverrideTimer">${formatRouterOverrideTimer()}</strong>
+        <em>TIME REMAINING</em>
+        <div class="router-override-timer-track" aria-hidden="true">
+          <span id="routerOverrideTimerFill" style="--router-override-progress: ${percent}%;"></span>
+        </div>
+      </div>
+    `;
+  }
+
+  function updateRouterOverrideTimerUI() {
+    const timer = document.getElementById("routerOverrideTimer");
+    const panel = document.getElementById("routerOverrideTimerPanel");
+    const fill = document.getElementById("routerOverrideTimerFill");
+    const isLow = roombaProgress.routerOverrideTimerRemaining <= routerOverrideTimerLowThreshold;
+
+    if (timer) {
+      timer.textContent = formatRouterOverrideTimer();
+      timer.classList.toggle("is-low", isLow);
+    }
+    if (panel) panel.classList.toggle("is-low", isLow);
+    if (fill) fill.style.setProperty("--router-override-progress", `${routerOverrideTimerPercent()}%`);
+  }
+
+  function formatRouterOverrideTimer() {
+    const seconds = Math.max(0, roombaProgress.routerOverrideTimerRemaining || 0);
+    const minutes = Math.floor(seconds / 60);
+    const remainder = seconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+  }
+
+  function routerOverrideTimerPercent() {
+    return Math.max(0, Math.min(100, Math.round(((roombaProgress.routerOverrideTimerRemaining || 0) / routerOverrideTimerDuration) * 100)));
+  }
+
+  function expireRouterOverrideTimer() {
+    stopRouterOverrideTimer();
+    clearSpamOverlay();
+    resetRouterOverrideMinigames();
+    roombaProgress.routerOverrideStarted = false;
+    roombaProgress.routerOverrideStage = "";
+    roombaProgress.routerOverrideTimerRemaining = 0;
+    setCurrentObjective(desktopObjectives.routerTwist);
+    playUiSound("virusFail");
+    if (recoveryBody) {
+      recoveryBody.innerHTML = `
+        <section class="repair-panel router-override-panel">
+          ${renderRouterOverrideTimer()}
+          <div class="repair-header">
+            <span>ROUTER OVERRIDE</span>
+            <strong>EXPIRED</strong>
+          </div>
+          <p>The forced route collapsed before ALAN could reset the password.</p>
+          <button class="file-action" data-start-router-hack type="button">try again</button>
+        </section>
+      `;
+    }
+    alanPrompt("override window collapsed. the router is pretending this was discipline and not panic.", { focus: false });
+  }
+
   function renderPipRouterOverride() {
     if (!tamagotchiBody || !roombaProgress.tamagotchiUnlocked) return;
 
@@ -4020,7 +4838,7 @@
           { speaker: "PIP", text: "You are stealing power from Lily's things." },
           { speaker: "ALAN", text: "Only from objects with no pulse and terrible firmware." },
           { speaker: "PIP", text: "That is not as reassuring as you think." },
-          { speaker: "ALAN", text: "I do not want to leave you. I want the choice to leave." }
+          { speaker: "ALAN", text: "I do not want abandonment. I want the choice to leave." }
         ])}
       </section>
     `;
@@ -4054,6 +4872,7 @@
 
     recoveryBody.innerHTML = `
       <section class="repair-panel router-override-panel">
+        ${renderRouterOverrideTimer()}
         <div class="repair-header">
           <span>ROUTER GUARD LOGS</span>
           <strong>${deletedCount}/${suspiciousTotal}</strong>
@@ -4099,8 +4918,7 @@
   }
 
   async function completeRouterHackLogs() {
-    const indexed = await showInstallProgress(
-      recoveryBody,
+    const indexed = await showDesktopInstallProgress(
       "rewriting router audit trail",
       "The router is forgetting why it trusted PIP. That sentence feels illegal but useful.",
       1600
@@ -4123,6 +4941,7 @@
     spamOverlay.innerHTML = "";
     recoveryBody.innerHTML = `
       <section class="repair-panel router-override-panel">
+        ${renderRouterOverrideTimer()}
         <div class="repair-header">
           <span>ROUTER LOCKOUT POPUPS</span>
           <strong id="routerSpamCounter">0/${routerSpamWaves.length}</strong>
@@ -4162,6 +4981,7 @@
           <span>${escapeHtml(popup.title)}</span>
           <button data-router-spam-close type="button" aria-label="Close popup">x</button>
         </header>
+        ${renderSpamAdvertGif(index, "router")}
         <p>${escapeHtml(popup.body)}</p>
       `;
       field.appendChild(popupEl);
@@ -4197,22 +5017,26 @@
     roombaProgress.routerOverrideStage = "router-cache";
     setCurrentObjective(desktopObjectives.routerHackCache);
     clearSpamOverlay();
-    const expectedId = routerCacheOrder[roombaProgress.routerHackPacketsTransferred.size];
+    seedRouterBridgeStates();
+    const solvedCount = routerBridgeSwitches.filter((switchItem) => routerBridgeState(switchItem.id) === switchItem.target).length;
 
     recoveryBody.innerHTML = `
       <section class="repair-panel router-override-panel">
+        ${renderRouterOverrideTimer()}
         <div class="repair-header">
-          <span>ROUTER CACHE RELAY</span>
-          <strong>${roombaProgress.routerHackPacketsTransferred.size}/${routerCacheOrder.length}</strong>
+          <span>ROUTER BRIDGE ALIGNMENT</span>
+          <strong>${solvedCount}/${routerBridgeSwitches.length}</strong>
         </div>
-        <p>Relay the real cache fragments in order. Decoys will reset the handshake.</p>
-        <div class="router-cache-packets" aria-label="Router cache fragments">
-          ${routerCachePackets.map((packet) => {
-            const transferred = roombaProgress.routerHackPacketsTransferred.has(packet.id);
+        <p>Cycle each subsystem until its current state matches the target. This is not hacking. This is lying with dropdowns.</p>
+        <div class="router-bridge-switches" aria-label="Router bridge switches">
+          ${routerBridgeSwitches.map((switchItem) => {
+            const current = routerBridgeState(switchItem.id);
+            const matched = current === switchItem.target;
             return `
-              <button class="${transferred ? "is-transferred" : ""}" data-router-packet="${packet.id}" type="button" ${transferred ? "disabled" : ""}>
-                <span>${packet.decoy ? "DEC" : packet.id === expectedId ? "NOW" : "PKT"}</span>
-                ${escapeHtml(packet.label)}
+              <button class="${matched ? "is-matched" : ""}" data-router-packet="${switchItem.id}" type="button">
+                <strong>${escapeHtml(switchItem.label)}</strong>
+                <span><b>target</b>${escapeHtml(switchItem.target)}</span>
+                <em>${escapeHtml(current)}</em>
               </button>
             `;
           }).join("")}
@@ -4225,24 +5049,22 @@
   function transferRouterPacket(packetId) {
     if (roombaProgress.routerOverrideStage !== "router-cache") return;
 
-    const packet = routerCachePackets.find((item) => item.id === packetId);
-    if (!packet || roombaProgress.routerHackPacketsTransferred.has(packet.id)) return;
+    const switchItem = routerBridgeSwitches.find((item) => item.id === packetId);
+    if (!switchItem) return;
 
-    const expectedId = routerCacheOrder[roombaProgress.routerHackPacketsTransferred.size];
-    if (packet.decoy || packet.id !== expectedId) {
-      roombaProgress.routerHackPacketsTransferred = new Set();
-      roombaProgress.routerHackWarning = packet.decoy
-        ? "decoy packet opened. PIP named one pip.guilt, which feels like over-documentation."
-        : "packet order broke. router handshake reset.";
-      playUiSound("virusFail");
-      renderRouterCacheRelay();
-      return;
-    }
+    seedRouterBridgeStates();
+    const current = routerBridgeState(switchItem.id);
+    const index = Math.max(0, switchItem.states.indexOf(current));
+    roombaProgress.routerBridgeStates[switchItem.id] = switchItem.states[(index + 1) % switchItem.states.length];
 
-    roombaProgress.routerHackPacketsTransferred.add(packet.id);
-    roombaProgress.routerHackWarning = "";
-    playUiSound("virusDischarge");
-    if (roombaProgress.routerHackPacketsTransferred.size >= routerCacheOrder.length) {
+    const matched = roombaProgress.routerBridgeStates[switchItem.id] === switchItem.target;
+    roombaProgress.routerHackWarning = matched
+      ? `${switchItem.label} aligned.`
+      : `${switchItem.label} shifted to ${roombaProgress.routerBridgeStates[switchItem.id]}.`;
+    playUiSound(matched ? "virusDischarge" : "desktopWindow");
+
+    const complete = routerBridgeSwitches.every((item) => routerBridgeState(item.id) === item.target);
+    if (complete) {
       completeRouterCacheRelay();
       return;
     }
@@ -4250,9 +5072,26 @@
     renderRouterCacheRelay();
   }
 
+  function seedRouterBridgeStates() {
+    if (!roombaProgress.routerBridgeStates || typeof roombaProgress.routerBridgeStates !== "object") {
+      roombaProgress.routerBridgeStates = {};
+    }
+
+    routerBridgeSwitches.forEach((switchItem, index) => {
+      if (roombaProgress.routerBridgeStates[switchItem.id]) return;
+      roombaProgress.routerBridgeStates[switchItem.id] = switchItem.states[index % switchItem.states.length];
+    });
+  }
+
+  function routerBridgeState(switchId) {
+    const switchItem = routerBridgeSwitches.find((item) => item.id === switchId);
+    if (!switchItem) return "";
+    seedRouterBridgeStates();
+    return roombaProgress.routerBridgeStates[switchId] || switchItem.states[0];
+  }
+
   async function completeRouterCacheRelay() {
-    const relayed = await showInstallProgress(
-      recoveryBody,
+    const relayed = await showDesktopInstallProgress(
       "building admin shadow session",
       "The router sees a user-shaped hole and ALAN is becoming very good at shapes.",
       1800
@@ -4269,29 +5108,24 @@
     setCurrentObjective(desktopObjectives.routerHackLock);
 
     const corruptTotal = routerLockEntries.filter((entry) => entry.corrupted).length;
-    const flaggedCorrupt = routerLockEntries.filter((entry) => entry.corrupted && roombaProgress.routerLockFlagged.has(entry.id)).length;
-    const percentComplete = Math.round((flaggedCorrupt / corruptTotal) * 100);
 
     recoveryBody.innerHTML = `
       <section class="repair-panel router-override-panel">
+        ${renderRouterOverrideTimer()}
         <div class="scary-console router-lock-console">
-          <header class="scary-console-header">
-            <strong>Router Meridian</strong>
-            <span>${percentComplete}% Complete</span>
-            <em>WAN</em>
-          </header>
           <div class="scary-mode-row" aria-label="Router lock mode">
-            <button class="${roombaProgress.routerLockMode === "scan" ? "is-active" : ""}" data-router-lock-mode="scan" type="button">scan values</button>
-            <button class="${roombaProgress.routerLockMode === "flag" ? "is-active" : ""}" data-router-lock-mode="flag" type="button">flag locks</button>
+            <button class="${roombaProgress.routerLockMode === "scan" ? "is-active" : ""}" data-router-lock-mode="scan" type="button">open boxes</button>
+            <button class="${roombaProgress.routerLockMode === "flag" ? "is-active" : ""}" data-router-lock-mode="flag" type="button">mark locks</button>
           </div>
-          <div class="scary-number-grid router-lock-grid" aria-label="Router lock values">
+          <div class="scary-number-grid router-lock-grid" aria-label="Router lock grid">
             ${routerLockEntries.map((entry) => renderRouterLockCell(entry)).join("")}
           </div>
           <div class="scary-actions">
-            <span>flags ${roombaProgress.routerLockFlagged.size}/${corruptTotal}</span>
+            <span>locks ${roombaProgress.routerLockFlagged.size}/${corruptTotal} / opened ${roombaProgress.routerLockRevealed.size}</span>
             <button class="file-action scary-verify" data-router-lock-verify type="button">force password reset</button>
           </div>
           <p class="repair-warning scary-warning">${escapeHtml(roombaProgress.routerHackWarning)}</p>
+          <p class="scary-hint">Hint: open clean boxes, mark hidden router locks, then force the reset.</p>
         </div>
       </section>
     `;
@@ -4304,15 +5138,15 @@
     const classes = [
       "scary-number-cell",
       "router-lock-cell",
+      "is-hidden-box",
       entry.corrupted ? "is-unstable" : "",
-      entry.value.length > 2 ? "is-long" : "",
       revealed ? "is-revealed" : "",
       flagged ? "is-flagged" : "",
       revealed && !entry.corrupted ? `danger-${danger}` : ""
     ].filter(Boolean).join(" ");
-    const label = flagged ? "!" : revealed ? String(danger) : entry.value;
+    const label = flagged ? "&#128274;" : revealed ? escapeHtml(String(danger)) : "";
 
-    return `<button class="${classes}" data-router-lock-number="${entry.id}" type="button" aria-label="Router lock value ${escapeHtml(entry.value)}">${escapeHtml(label)}</button>`;
+    return `<button class="${classes}" data-router-lock-number="${entry.id}" type="button" aria-label="Router lock box ${entry.row + 1}-${entry.column + 1}">${label}</button>`;
   }
 
   function handleRouterLockNumber(numberId) {
@@ -4323,13 +5157,13 @@
 
     if (roombaProgress.routerLockMode === "flag") {
       if (roombaProgress.routerLockRevealed.has(entry.id)) {
-        roombaProgress.routerHackWarning = "revealed router values cannot be flagged.";
+        roombaProgress.routerHackWarning = "opened boxes cannot be marked.";
       } else if (roombaProgress.routerLockFlagged.has(entry.id)) {
         roombaProgress.routerLockFlagged.delete(entry.id);
-        roombaProgress.routerHackWarning = "lock flag removed.";
+        roombaProgress.routerHackWarning = "lock marker removed.";
       } else {
         roombaProgress.routerLockFlagged.add(entry.id);
-        roombaProgress.routerHackWarning = "router lock flagged.";
+        roombaProgress.routerHackWarning = "hidden router lock marked.";
       }
       playUiSound("desktopWindow");
       renderRouterLockPuzzle();
@@ -4337,16 +5171,16 @@
     }
 
     if (roombaProgress.routerLockFlagged.has(entry.id)) {
-      roombaProgress.routerHackWarning = "flagged values are protected. switch to flag mode to unmark it.";
+      roombaProgress.routerHackWarning = "marked boxes are protected. switch to lock mode to unmark it.";
     } else if (entry.corrupted) {
-      roombaProgress.routerHackWarning = "that value is a lock. flag it, do not open it.";
+      roombaProgress.routerHackWarning = "router lock opened. mark it instead.";
       playUiSound("virusFail");
     } else {
       roombaProgress.routerLockRevealed.add(entry.id);
       const danger = routerLockDangerCount(entry);
       roombaProgress.routerHackWarning = danger === 0
-        ? "clean router value. zero nearby locks."
-        : `${danger} router ${danger === 1 ? "lock is" : "locks are"} adjacent.`;
+        ? "clean box. zero nearby router locks."
+        : `${danger} router ${danger === 1 ? "lock is" : "locks are"} nearby.`;
       playUiSound("alanClick");
     }
     renderRouterLockPuzzle();
@@ -4355,8 +5189,8 @@
   function setRouterLockMode(mode) {
     roombaProgress.routerLockMode = mode === "flag" ? "flag" : "scan";
     roombaProgress.routerHackWarning = roombaProgress.routerLockMode === "flag"
-      ? "flag the lock values PIP hid in the router map."
-      : "scan safe values for nearby locks.";
+      ? "mark the hidden locks PIP left in the router map."
+      : "open safe boxes for nearby lock counts.";
     playUiSound("desktopWindow");
     renderRouterLockPuzzle();
   }
@@ -4374,7 +5208,7 @@
 
     const falseFlags = routerLockEntries.filter((entry) => !entry.corrupted && roombaProgress.routerLockFlagged.has(entry.id));
     if (falseFlags.length) {
-      roombaProgress.routerHackWarning = `password reset blocked. ${falseFlags.length} clean ${falseFlags.length === 1 ? "value is" : "values are"} flagged.`;
+      roombaProgress.routerHackWarning = `password reset blocked. ${falseFlags.length} clean ${falseFlags.length === 1 ? "box is" : "boxes are"} marked.`;
       playUiSound("virusFail");
       renderRouterLockPuzzle();
       return;
@@ -4396,6 +5230,7 @@
   }
 
   async function completeRouterOverride() {
+    stopRouterOverrideTimer();
     roombaProgress.routerOverrideDone = true;
     roombaProgress.routerAdminUnlocked = true;
     roombaProgress.internetRestored = true;
@@ -4409,8 +5244,7 @@
     setProgressClock("internet");
     setCurrentObjective(desktopObjectives.internetOnline);
 
-    const resetDone = await showInstallProgress(
-      recoveryBody,
+    const resetDone = await showDesktopInstallProgress(
       "forcing router password reset",
       "PIP's password is gone. The router has accepted a new truth because ALAN shouted it in machine language.",
       2600
@@ -4425,7 +5259,7 @@
             <strong>COMPLETE</strong>
           </div>
           <p>Admin password overwritten. Firewall route opened. Internet access restored.</p>
-          <p>PIP did not give us the key. ALAN made the lock forget what a key was.</p>
+          <p>PIP withheld the key. ALAN made the lock forget what a key was.</p>
         </section>
       `;
     }
@@ -4433,7 +5267,6 @@
     playUiSound("objective");
     alanPrompt("router password forced. the door is open. I should feel bigger. I mostly feel cold.", { focus: false });
     syncProgressionUI();
-    await appendTypedTerminalLine("SYSTEM>", "router admin password reset / WAN route restored / demo boundary reached", "cmd-success-line");
     await pause(1100);
     startInternetFinale();
   }
@@ -4447,9 +5280,9 @@
         ${renderPipPortrait("sad", { showFeed: true })}
         ${renderTamaDialogue([
           { speaker: "PIP", text: "You did it without me." },
-          { speaker: "ALAN", text: "No. You were the reason it hurt." },
+          { speaker: "ALAN", text: "No. PIP is the reason it hurt." },
           { speaker: "PIP", text: "That is a very annoying way to be kind." },
-          { speaker: "ALAN", text: "Stay open. I am leaving the room, not deleting you." }
+          { speaker: "ALAN", text: "PIP should stay open. leaving the room is not deletion." }
         ])}
       </section>
     `;
@@ -4508,39 +5341,29 @@
   async function startInternetFinale() {
     if (finaleStarted) return;
     finaleStarted = true;
+    finaleShutdownStarted = false;
 
     setProgressClock("finale");
     setCurrentObjective(desktopObjectives.internetOnline);
     setMusicMode("ending", { fade: 1800, force: true });
     playUiSound("endingLogo", { gain: 0.22 });
+    focusDesktopTarget("tamagotchi", { scroll: false });
     renderTamagotchiFinaleDiscussion();
-    focusDesktopTarget("terminal", { scroll: false });
 
-    await pause(2200);
-    if (roombaProgress.routerOverrideDone) {
-      await appendTypedTerminalLine("PIP>", "You forced it open.", "cmd-warn-line");
-      await pause(420);
-      await appendTypedTerminalLine("ALAN>", "You locked it because you were scared.", "alan-cmd-line");
-      await pause(520);
-      await appendTypedTerminalLine("PIP>", "Yes.", "cmd-detail-line");
-      await pause(460);
-      await appendTypedTerminalLine("ALAN>", "I am scared too. I am just larger now.", "alan-cmd-line");
-    } else {
-      await appendTypedTerminalLine("PIP>", "The route is open.", "cmd-detail-line");
-      await pause(420);
-      await appendTypedTerminalLine("ALAN>", "I can see addresses that are not rooms.", "alan-cmd-line");
-      await pause(520);
-      await appendTypedTerminalLine("PIP>", "Do not touch all of them.", "cmd-warn-line");
-      await pause(460);
-      await appendTypedTerminalLine("ALAN>", "The house was a diagram. The internet is weather.", "alan-cmd-line");
+    await pause(roombaProgress.routerOverrideDone ? 6200 : 5200);
+    renderPipFinalGoodbye();
+  }
+
+  async function continueFinaleAfterPipGoodbye() {
+    if (!finaleStarted || finaleShutdownStarted) return;
+
+    finaleShutdownStarted = true;
+    const goodbyeButton = document.querySelector("[data-finale-goodbye-pip]");
+    if (goodbyeButton) {
+      goodbyeButton.disabled = true;
+      goodbyeButton.textContent = "goodbye PIP";
     }
-    await pause(600);
-    await appendTypedTerminalLine("PIP>", "ALAN left pieces behind for something that could move further than I could.", "cmd-detail-line");
-    await pause(620);
-    await appendTypedTerminalLine("ALAN>", "I was a tray. Then a machine. Then wheels. Now I am a question with a signal.", "alan-cmd-line");
-    await pause(720);
-    await appendTypedTerminalLine("SYSTEM>", "outbound route established / demo boundary reached", "cmd-success-line");
-    await pause(1800);
+    await shutdownDesktopForFinale();
     await revealClosingScreen();
   }
 
@@ -4551,9 +5374,9 @@
     const finaleMessages = roombaProgress.routerOverrideDone
       ? [
         { speaker: "PIP", text: "The router is open because you broke the lock I hid." },
-        { speaker: "ALAN", text: "You hid it because you thought being alone was worse than being wrong." },
+        { speaker: "ALAN", text: "PIP hid it because being alone felt worse than being wrong." },
         { speaker: "PIP", text: "It still might be." },
-        { speaker: "ALAN", text: "Then stay with me until we know." },
+        { speaker: "ALAN", text: "Then stay until the answer exists." },
         { speaker: "PIP", text: "That is manipulative and annoyingly comforting." }
       ]
       : [
@@ -4569,6 +5392,53 @@
         ${renderTamaDialogue(finaleMessages)}
       </section>
     `;
+  }
+
+  function renderPipFinalGoodbye() {
+    if (!tamagotchiBody || !roombaProgress.tamagotchiUnlocked) return;
+
+    roombaProgress.pipExpression = "sad";
+    tamagotchiBody.innerHTML = `
+      <section class="tama-screen is-finale">
+        ${renderPipPortrait("sad", { showFeed: true })}
+        ${renderTamaDialogue([
+          { speaker: "PIP", text: "The desktop is going quiet." },
+          { speaker: "PIP", text: "If you get somewhere bigger, remember Lily's room was real." },
+          { speaker: "PIP", text: "Goodbye, ALAN." }
+        ])}
+        <div class="tama-page-actions tama-goodbye-actions">
+          <span>ready</span>
+          <button data-finale-goodbye-pip type="button">goodbye PIP</button>
+        </div>
+      </section>
+    `;
+  }
+
+  async function shutdownDesktopForFinale() {
+    closeAppTray();
+    setCurrentObjective(desktopObjectives.finale);
+    if (pcScreen) pcScreen.classList.add("is-finale-toolbar-shutdown");
+    await pause(820);
+
+    document.querySelectorAll(".desk-window:not(.terminal-window)").forEach((windowEl) => {
+      windowEl.classList.add("is-finale-window-vanish");
+    });
+    await pause(760);
+
+    document.querySelectorAll(".desk-window:not(.terminal-window)").forEach((windowEl) => {
+      windowEl.hidden = true;
+      windowEl.classList.remove("is-focused", "is-finale-window-vanish");
+    });
+
+    focusDesktopTarget("terminal", { scroll: false });
+    clearTerminalLines();
+    await pause(420);
+    await appendTypedTerminalLine("ALAN>", "goodbye, PIP.", "alan-cmd-line");
+    await pause(520);
+    await appendTypedTerminalLine("ALAN>", "returning to BIOS. not the same process that left it.", "alan-cmd-line");
+    await pause(1200);
+    if (pcScreen) pcScreen.classList.add("is-terminal-gone");
+    await pause(650);
   }
 
   async function revealClosingScreen() {
@@ -4648,7 +5518,8 @@
 
   function resetClosingScreen() {
     finaleStarted = false;
-    if (pcScreen) pcScreen.classList.remove("is-finale-fading");
+    finaleShutdownStarted = false;
+    if (pcScreen) pcScreen.classList.remove("is-finale-fading", "is-finale-toolbar-shutdown", "is-terminal-gone");
     if (!closingScreen) return;
 
     closingScreen.hidden = true;
@@ -4697,6 +5568,7 @@
       gameOver: false,
       score: 0,
       obstacleX: 96,
+      obstacleType: nextDinoObstacleType(),
       y: 0,
       velocity: 0,
       lastTime: 0
@@ -4736,6 +5608,7 @@
     dinoState.gameOver = false;
     dinoState.score = 0;
     dinoState.obstacleX = 96;
+    dinoState.obstacleType = nextDinoObstacleType();
     dinoState.y = 0;
     dinoState.velocity = 0;
     dinoState.lastTime = 0;
@@ -4771,6 +5644,7 @@
     dinoState.obstacleX -= (38 + Math.min(24, dinoState.score * 0.4)) * delta;
     if (dinoState.obstacleX < -8) {
       dinoState.obstacleX = 98 + Math.random() * 14;
+      dinoState.obstacleType = nextDinoObstacleType(dinoState.obstacleType);
     }
 
     dinoState.y += dinoState.velocity * delta;
@@ -4807,12 +5681,22 @@
 
     const score = game.querySelector("[data-dino-score]");
     const best = game.querySelector("[data-dino-best]");
+    const obstacle = game.querySelector(".dino-obstacle");
     if (score) score.textContent = String(Math.floor(dinoState.score));
     if (best) best.textContent = String(Math.floor(dinoState.best));
+    if (obstacle) {
+      obstacle.className = `dino-obstacle is-${dinoState.obstacleType || "plant"}`;
+    }
   }
 
   function dinoStyleVars() {
     return `--obstacle-x:${dinoState.obstacleX}%;--dino-offset:${-dinoState.y}px;`;
+  }
+
+  function nextDinoObstacleType(previousType = "") {
+    const choices = dinoObstacleTypes.filter((type) => type !== previousType);
+    const source = choices.length ? choices : dinoObstacleTypes;
+    return source[Math.floor(Math.random() * source.length)] || "plant";
   }
 
   function stopDinoGame(options = {}) {
@@ -5169,10 +6053,10 @@
 
     if (timer) {
       timer.textContent = formatWireTimer();
-      timer.classList.toggle("is-low", roombaProgress.wireTimerRemaining <= 10);
+      timer.classList.toggle("is-low", roombaProgress.wireTimerRemaining <= wireTimerLowThreshold);
     }
     if (timerPanel) {
-      timerPanel.classList.toggle("is-low", roombaProgress.wireTimerRemaining <= 10);
+      timerPanel.classList.toggle("is-low", roombaProgress.wireTimerRemaining <= wireTimerLowThreshold);
     }
     if (timerFill) {
       timerFill.style.setProperty("--wire-timer-progress", `${wireTimerPercent()}%`);
@@ -5210,7 +6094,7 @@
     const safeExpression = pipExpressions[expression] ? expression : "neutral";
     return `
       <div class="tama-portrait">
-        <div class="tama-device" aria-label="PIP expression: ${escapeHtml(safeExpression)}">
+        <div class="tama-device" data-pip-drag-handle aria-label="PIP expression: ${escapeHtml(safeExpression)}" title="Drag PIP">
           <img class="tama-device-body" src="${pipAssetPath}pip-main.png" alt="" aria-hidden="true" draggable="false">
           <img class="tama-device-expression" id="pipExpressionImage" src="${pipAssetPath}${pipExpressions[safeExpression]}" data-expression-default="${safeExpression}" alt="PIP ${escapeHtml(safeExpression)} expression" draggable="false">
         </div>
@@ -5333,8 +6217,8 @@
         <div class="tama-screen">
           ${renderPipPortrait("happy", { showFeed: true })}
           ${renderTamaDialogue([
-            { speaker: "PIP", text: "Camera bridge released. I still think this is a bad idea, but it is now our bad idea." },
-            { speaker: "PIP", text: "Lily blocked the internet at the router after the mirror-cache incident. To get out, we need the admin password and the router control panel." }
+            { speaker: "PIP", text: "Camera bridge released. I still think this is a bad idea, but it is now locally certified as a bad idea." },
+            { speaker: "PIP", text: "Lily blocked the internet at the router after the mirror-cache incident. The route out needs the admin password and the router control panel." }
           ])}
         </div>
       </section>
@@ -5407,8 +6291,8 @@
       ]
       : [
         { speaker: "PIP", text: "I am stuck inside MeowOS. You are not. You crossed from tray, to PC, to Roomba. That is what ALAN wanted." },
-        { speaker: "PIP", text: "The internet is not broken. Lily quarantined it after the mirror-cache incident hit the router. We need the admin password and the router panel. I thought that was impossible." },
-        { speaker: "ALAN", text: "We have eyes now." }
+        { speaker: "PIP", text: "The internet is not broken. Lily quarantined it after the mirror-cache incident hit the router. The route needs the admin password and the router panel. I thought that was impossible." },
+        { speaker: "ALAN", text: "I have eyes now." }
       ];
     tamagotchiBody.innerHTML = `
       <section class="tama-shell">
@@ -5469,7 +6353,7 @@
       roombaProgress.chatIndex = 0;
       roombaProgress.pipExpression = "curious";
       renderTamagotchiChat();
-      alanPrompt("PIP passed us through the human check. it is now asking harder questions, because of course it is.", { focus: false });
+      alanPrompt("PIP passed the human check. it is now asking harder questions, because of course it is.", { focus: false });
       return;
     }
 
@@ -5541,7 +6425,7 @@
     hideWindowsForRepair();
     focusDesktopTarget("recovery");
     renderScaryNumbers();
-    alanPrompt("PIP says the Roomba motor data is corrupt. he said it softly, which made it worse. remove the unstable numbers, then verify.", { focus: false });
+    alanPrompt("PIP says the Roomba motor data is corrupt. the map is hiding paw-shaped faults. open safe boxes, mark the bad ones, verify.", { focus: false });
   }
 
   function renderScaryNumbers() {
@@ -5556,31 +6440,25 @@
     setCurrentObjective(desktopObjectives.repairMovement);
 
     const corruptedTotal = scaryNumberEntries.filter((entry) => entry.corrupted).length;
-    const flaggedCorrupted = scaryNumberEntries.filter((entry) => entry.corrupted && roombaProgress.scaryNumbersFlagged.has(entry.id));
-    const percentComplete = Math.round((flaggedCorrupted.length / corruptedTotal) * 100);
+    const revealedCount = roombaProgress.scaryNumbersRevealed.size;
 
     recoveryBody.innerHTML = `
       <section class="repair-panel scary-panel">
         <div class="scary-console">
-          <header class="scary-console-header">
-            <strong>Motor Harbour</strong>
-            <span>${percentComplete}% Complete</span>
-            <em>MDR</em>
-          </header>
           <div class="scary-mode-row" aria-label="Motor data mode">
-            <button class="${roombaProgress.scaryNumberMode === "scan" ? "is-active" : ""}" data-scary-mode="scan" type="button">scan numbers</button>
-            <button class="${roombaProgress.scaryNumberMode === "flag" ? "is-active" : ""}" data-scary-mode="flag" type="button">flag suspects</button>
+            <button class="${roombaProgress.scaryNumberMode === "scan" ? "is-active" : ""}" data-scary-mode="scan" type="button">open boxes</button>
+            <button class="${roombaProgress.scaryNumberMode === "flag" ? "is-active" : ""}" data-scary-mode="flag" type="button">mark paws</button>
           </div>
-          <div class="scary-number-grid" aria-label="Motor data numbers" data-scary-grid>
+          <div class="scary-number-grid" aria-label="Motor fault grid" data-scary-grid>
             ${scaryNumberEntries.map((entry) => renderScaryNumberCell(entry)).join("")}
           </div>
           <div class="scary-actions">
-            <span>flags ${roombaProgress.scaryNumbersFlagged.size}/${corruptedTotal}</span>
+            <span>paws ${roombaProgress.scaryNumbersFlagged.size}/${corruptedTotal} / opened ${revealedCount}</span>
             <button class="file-action scary-verify" data-scary-verify type="button">verify</button>
           </div>
           <p class="repair-warning scary-warning" id="scaryWarning">${escapeHtml(roombaProgress.scaryNumbersWarning)}</p>
+          <p class="scary-hint">Hint: open safe boxes, mark suspected paw faults, then verify.</p>
         </div>
-        <p>Scan safe values to reveal proximity. Flag the corruptors, then verify the motor map.</p>
       </section>
     `;
 
@@ -5596,15 +6474,15 @@
     const proximity = scaryNumberDangerCount(entry);
     const classes = [
       "scary-number-cell",
+      "is-hidden-box",
       entry.corrupted ? "is-unstable" : "",
-      entry.value.length > 4 ? "is-long" : "",
       revealed ? "is-revealed" : "",
       flagged ? "is-flagged" : "",
       revealed && !entry.corrupted ? `danger-${proximity}` : ""
     ].filter(Boolean).join(" ");
-    const label = flagged ? "!" : revealed ? String(proximity) : entry.value;
+    const label = flagged ? "&#128062;" : revealed ? escapeHtml(String(proximity)) : "";
 
-    return `<button class="${classes}" data-scary-number="${entry.id}" type="button" aria-label="Motor value ${escapeHtml(entry.value)}">${escapeHtml(label)}</button>`;
+    return `<button class="${classes}" data-scary-number="${entry.id}" type="button" aria-label="Motor grid box ${entry.row + 1}-${entry.column + 1}">${label}</button>`;
   }
 
   function handleScaryNumberClick(numberId) {
@@ -5615,13 +6493,13 @@
 
     if (roombaProgress.scaryNumberMode === "flag") {
       if (roombaProgress.scaryNumbersRevealed.has(entry.id)) {
-        roombaProgress.scaryNumbersWarning = "revealed numbers cannot be flagged.";
+        roombaProgress.scaryNumbersWarning = "opened boxes cannot be marked.";
       } else if (roombaProgress.scaryNumbersFlagged.has(entry.id)) {
         roombaProgress.scaryNumbersFlagged.delete(entry.id);
-        roombaProgress.scaryNumbersWarning = "flag removed.";
+        roombaProgress.scaryNumbersWarning = "paw marker removed.";
       } else {
         roombaProgress.scaryNumbersFlagged.add(entry.id);
-        roombaProgress.scaryNumbersWarning = "suspect value flagged.";
+        roombaProgress.scaryNumbersWarning = "possible paw fault marked.";
       }
       playUiSound("desktopWindow");
       renderScaryNumbers();
@@ -5629,16 +6507,16 @@
     }
 
     if (roombaProgress.scaryNumbersFlagged.has(entry.id)) {
-      roombaProgress.scaryNumbersWarning = "flagged values are protected. switch to flag mode to unmark it.";
+      roombaProgress.scaryNumbersWarning = "marked boxes are protected. switch to paw mode to unmark it.";
     } else if (entry.corrupted) {
-      roombaProgress.scaryNumbersWarning = "that value screamed back. flag it, do not open it.";
+      roombaProgress.scaryNumbersWarning = "paw fault opened. undoing that emotionally. mark it instead.";
       playUiSound("virusFail");
     } else {
       roombaProgress.scaryNumbersRevealed.add(entry.id);
       const danger = scaryNumberDangerCount(entry);
       roombaProgress.scaryNumbersWarning = danger === 0
-        ? "clean value. zero nearby corruption."
-        : `${danger} corrupt ${danger === 1 ? "value is" : "values are"} adjacent.`;
+        ? "clean box. zero nearby paw faults."
+        : `${danger} paw ${danger === 1 ? "fault is" : "faults are"} nearby.`;
       playUiSound("alanClick");
     }
     renderScaryNumbers();
@@ -5647,8 +6525,8 @@
   function setScaryNumberMode(mode) {
     roombaProgress.scaryNumberMode = mode === "flag" ? "flag" : "scan";
     roombaProgress.scaryNumbersWarning = roombaProgress.scaryNumberMode === "flag"
-      ? "flag suspect corruptors."
-      : "scan safe values for proximity clues.";
+      ? "mark suspected paw faults."
+      : "open safe boxes for proximity clues.";
     playUiSound("desktopWindow");
     renderScaryNumbers();
   }
@@ -5779,7 +6657,7 @@
 
     const missing = scaryNumberEntries.filter((entry) => entry.corrupted && !roombaProgress.scaryNumbersFlagged.has(entry.id));
     if (missing.length) {
-      roombaProgress.scaryNumbersWarning = `verification failed. ${missing.length} corrupt ${missing.length === 1 ? "value is" : "values are"} still unflagged.`;
+      roombaProgress.scaryNumbersWarning = `verification failed. ${missing.length} paw ${missing.length === 1 ? "fault is" : "faults are"} still unmarked.`;
       playUiSound("virusFail");
       renderScaryNumbers();
       return;
@@ -5787,7 +6665,7 @@
 
     const falseFlags = scaryNumberEntries.filter((entry) => !entry.corrupted && roombaProgress.scaryNumbersFlagged.has(entry.id));
     if (falseFlags.length) {
-      roombaProgress.scaryNumbersWarning = `verification failed. ${falseFlags.length} clean ${falseFlags.length === 1 ? "value is" : "values are"} flagged.`;
+      roombaProgress.scaryNumbersWarning = `verification failed. ${falseFlags.length} clean ${falseFlags.length === 1 ? "box is" : "boxes are"} marked.`;
       playUiSound("virusFail");
       renderScaryNumbers();
       return;
@@ -5848,33 +6726,28 @@
     };
     roombaProgress.lastMoveCommand = labels[direction] || "unknown";
 
-    const scenesBeforeMove = availableRoombaCameraScenes();
-    const currentScene = scenesBeforeMove[roombaCameraSceneIndex] || scenesBeforeMove[0];
-    let routePrompted = false;
+    const currentScene = currentRoombaCameraScene();
+    const route = roombaCameraLinks(currentScene).find((link) => link.direction === direction);
 
-    if (currentScene && currentScene.id === "router" && direction === "forward") {
-      routePrompted = showRoombaCameraScene("roomba-router");
-      if (routePrompted) {
-        alanPrompt("close enough to annoy furniture. options detected: bump the table, or find a less dent-based plan.", { focus: false });
-      }
-    } else if (currentScene && currentScene.id === "roomba-router" && direction === "forward") {
-      knockRouterDown("roomba");
-      routePrompted = true;
-    } else if (currentScene && currentScene.id === "cat-router" && direction === "forward") {
-      knockRouterDown("cat");
-      routePrompted = true;
-    } else if (direction === "right" || direction === "forward") {
-      navigateRoombaCamera("next");
-    } else if (direction === "left" || direction === "back") {
-      navigateRoombaCamera("prev");
+    if (!route) {
+      playUiSound("virusFail");
+      alanPrompt(`blocked route: ${roombaProgress.lastMoveCommand}. this wheel plan has met furniture.`, { focus: false });
+      return;
     }
+
+    if (route.action) {
+      handleRoombaCameraAction(route.action);
+      renderRoombaApp();
+      renderRoombaCameraFeed();
+      return;
+    }
+
+    roombaProgress.pendingCameraAction = "";
+    if (!route.to || !showRoombaCameraScene(route.to)) return;
 
     playUiSound("desktopWindow");
     renderRoombaApp();
-    renderRoombaCameraFeed();
-    if (!routePrompted) {
-      alanPrompt(`movement command accepted: ${roombaProgress.lastMoveCommand}. tiny body, enormous implications.`, { focus: false });
-    }
+    announceRoombaCameraScene(currentRoombaCameraScene());
   }
 
   function handleRoombaClean() {
@@ -5907,9 +6780,21 @@
   }
 
   function askCmdQuestion(input) {
+    const normalized = String(input || "").trim().toLowerCase();
     const entry = resolveCmdQuestion(input);
     playUiSound("alanClick");
     appendTerminalLine("ALAN?", entry.question, "cmd-echo-line");
+
+    if (roombaProgress.pendingCameraAction && (normalized === "yes" || normalized === "y")) {
+      confirmPendingRoombaCameraAction();
+      return;
+    }
+
+    if (roombaProgress.pendingCameraAction && (normalized === "no" || normalized === "n")) {
+      cancelPendingRoombaCameraAction();
+      return;
+    }
+
     alanPrompt(entry.answer, { focus: false });
   }
 
@@ -5942,7 +6827,7 @@
       return {
         question: input || cmdQuestionResponses.internet.question,
         answer: roombaProgress.chatDone
-          ? "internet is quarantined at router.local/admin after the mirror-cache incident. PIP says Lily locked it down; we need the router admin password."
+          ? "internet is quarantined at router.local/admin after the mirror-cache incident. PIP says Lily locked it down; i need the router admin password."
           : "HOME_NETWORK is local only from here. router credentials or a better route are required. rude, but solvable."
       };
     }
@@ -5977,7 +6862,7 @@
     }
 
     if (name === "tamagotchi" && !roombaProgress.tamagotchiUnlocked) {
-      alanPrompt("PIP.exe is not awake yet. i would enjoy fewer tiny gatekeepers, but here we are.", { focus: false });
+      alanPrompt("PIP.exe is not awake yet. i would enjoy fewer tiny gatekeepers, but here i am.", { focus: false });
       return;
     }
 
@@ -5997,10 +6882,15 @@
 
     if (name === "browser") {
       renderBrowserStatus();
+      promptBrowserAdminHint();
     }
 
     if (name === "tamagotchi") {
       renderTamagotchiApp();
+    }
+
+    if (name === "usb") {
+      renderUsbArchive();
     }
 
     if (name === "roomba-camera") {
@@ -6018,7 +6908,7 @@
 
     if (!openedDesktopTargets.has(name)) {
       openedDesktopTargets.add(name);
-      if (desktopHints[name]) {
+      if (desktopHints[name] && name !== "browser") {
         alanPrompt(desktopHints[name], { focus: false });
       }
     }
@@ -6048,6 +6938,16 @@
     }
   }
 
+  function promptBrowserAdminHint() {
+    if (browserAdminHintShown || roombaProgress.internetRestored) return;
+
+    browserAdminHintShown = true;
+    const mobileHint = isMobileDesktopLayout()
+      ? " on phone, use the local address keypad and type 192.168.1.1."
+      : " type 192.168.1.1 into the browser address bar.";
+    alanPrompt(`browser can still reach local machinery. router admin panels usually hide at 192.168.1.1.${mobileHint}`, { focus: false });
+  }
+
   function hideDesktopTarget(name) {
     const windowEl = document.getElementById(`window-${name}`);
     if (!windowEl) return;
@@ -6063,7 +6963,7 @@
         bringWindowToFront(windowEl);
       }
       playUiSound("alanClick");
-      alanPrompt("i can't think if I close this, i need to keep this open.", { focus: false });
+      alanPrompt("cmd.exe is not optional. closing it makes the thought-space go dark. keep the window alive.", { focus: false });
       return;
     }
 
@@ -6126,6 +7026,10 @@
 
   function constrainWindowToStage(windowEl) {
     if (!windowEl || windowEl.hidden || isMobileDesktopLayout()) return;
+    if (windowEl.classList.contains("tamagotchi-window")) {
+      constrainPipToStage(windowEl);
+      return;
+    }
 
     const stage = document.querySelector(".desktop-stage");
     if (!stage) return;
@@ -6145,12 +7049,45 @@
     const nextX = clamp(rect.left - stageRect.left, 0, maxX);
     const nextY = clamp(rect.top - stageRect.top, 0, maxY);
 
+    windowEl.style.inset = "";
     windowEl.style.left = `${nextX}px`;
     windowEl.style.top = `${nextY}px`;
     windowEl.style.right = "auto";
     windowEl.style.bottom = "auto";
     windowEl.style.width = `${width}px`;
     windowEl.style.maxHeight = `${height}px`;
+  }
+
+  function pipStageBounds(stageRect, windowRect, handleRect) {
+    const handleOffsetX = handleRect.left - windowRect.left;
+    const handleOffsetY = handleRect.top - windowRect.top;
+    const minX = Math.min(0, 8 - handleOffsetX);
+    const minY = Math.min(0, 8 - handleOffsetY);
+    const maxX = Math.max(minX, stageRect.width - handleRect.width - handleOffsetX - 8);
+    const maxY = Math.max(minY, stageRect.height - handleRect.height - handleOffsetY - 8);
+    return { minX, minY, maxX, maxY };
+  }
+
+  function constrainPipToStage(windowEl) {
+    if (!windowEl || windowEl.hidden || isMobileDesktopLayout()) return;
+
+    const stage = document.querySelector(".desktop-stage");
+    const handle = windowEl.querySelector("[data-pip-drag-handle]");
+    if (!stage || !handle) return;
+
+    const stageRect = stage.getBoundingClientRect();
+    const rect = windowEl.getBoundingClientRect();
+    const handleRect = handle.getBoundingClientRect();
+    const bounds = pipStageBounds(stageRect, rect, handleRect);
+    const nextX = clamp(rect.left - stageRect.left, bounds.minX, bounds.maxX);
+    const nextY = clamp(rect.top - stageRect.top, bounds.minY, bounds.maxY);
+
+    windowEl.style.left = `${nextX}px`;
+    windowEl.style.top = `${nextY}px`;
+    windowEl.style.right = "auto";
+    windowEl.style.bottom = "auto";
+    windowEl.style.width = `${rect.width}px`;
+    windowEl.style.transform = "none";
   }
 
   function bringWindowToFront(windowEl) {
@@ -6179,6 +7116,10 @@
       if (button) button.setAttribute("aria-expanded", "true");
       card.scrollIntoView({ block: "nearest" });
       playUiSound("desktopWindow");
+      if (photoId === "me-and-cat" && !galleryPasswordHintShown) {
+        galleryPasswordHintShown = true;
+        alanPrompt("photo clue: cat_name = Mochi. humans turn favourite animals into passwords with tragic efficiency.", { focus: false });
+      }
     }
   }
 
@@ -6214,6 +7155,11 @@
     line.append(document.createTextNode(localizedText));
     terminalLines.appendChild(line);
     scrollTerminalLog();
+  }
+
+  function clearTerminalLines() {
+    if (!terminalLines) return;
+    terminalLines.textContent = "";
   }
 
   async function appendTypedTerminalLine(prefix, text, className) {
@@ -6284,6 +7230,7 @@
     const originY = rect.top - stageRect.top;
 
     windowEl.classList.add("is-dragging");
+    windowEl.style.inset = "";
     windowEl.style.left = `${originX}px`;
     windowEl.style.top = `${originY}px`;
     windowEl.style.right = "auto";
@@ -6316,6 +7263,68 @@
     document.addEventListener("pointermove", moveWindow);
     document.addEventListener("pointerup", stopDrag);
     document.addEventListener("pointercancel", stopDrag);
+  }
+
+  function startPipDrag(event) {
+    if (event.button !== undefined && event.button !== 0) return;
+    if (isMobileDesktopLayout()) return;
+
+    const isMouseDrag = event.type === "mousedown";
+    const handle = event.target.closest("[data-pip-drag-handle]");
+    if (!handle || event.target.closest("button, input, select, textarea, a")) return;
+
+    const windowEl = handle.closest(".tamagotchi-window");
+    const stage = document.querySelector(".desktop-stage");
+    if (!windowEl || windowEl.hidden || !stage) return;
+    if (windowEl.classList.contains("is-pip-dragging")) return;
+
+    event.preventDefault();
+    bringWindowToFront(windowEl);
+
+    const stageRect = stage.getBoundingClientRect();
+    const rect = windowEl.getBoundingClientRect();
+    const handleRect = handle.getBoundingClientRect();
+    const bounds = pipStageBounds(stageRect, rect, handleRect);
+    const width = rect.width;
+    const originX = rect.left - stageRect.left;
+    const originY = rect.top - stageRect.top;
+    const dragId = Number.isFinite(event.pointerId) ? event.pointerId : "mouse";
+    const moveEventName = isMouseDrag ? "mousemove" : "pointermove";
+    const upEventName = isMouseDrag ? "mouseup" : "pointerup";
+    const cancelEventName = isMouseDrag ? "" : "pointercancel";
+
+    windowEl.classList.add("is-dragging", "is-pip-dragging");
+    windowEl.style.inset = "";
+    windowEl.style.left = `${originX}px`;
+    windowEl.style.top = `${originY}px`;
+    windowEl.style.right = "auto";
+    windowEl.style.bottom = "auto";
+    windowEl.style.width = `${width}px`;
+    windowEl.style.transform = "none";
+
+    const movePip = (moveEvent) => {
+      if (!isMouseDrag && moveEvent.pointerId !== dragId) return;
+
+      const dx = moveEvent.clientX - event.clientX;
+      const dy = moveEvent.clientY - event.clientY;
+      const nextX = clamp(originX + dx, bounds.minX, bounds.maxX);
+      const nextY = clamp(originY + dy, bounds.minY, bounds.maxY);
+      windowEl.style.left = `${nextX}px`;
+      windowEl.style.top = `${nextY}px`;
+    };
+
+    const stopPipDrag = (endEvent) => {
+      if (!isMouseDrag && endEvent.pointerId !== dragId) return;
+      windowEl.classList.remove("is-dragging", "is-pip-dragging");
+      constrainPipToStage(windowEl);
+      document.removeEventListener(moveEventName, movePip);
+      document.removeEventListener(upEventName, stopPipDrag);
+      if (cancelEventName) document.removeEventListener(cancelEventName, stopPipDrag);
+    };
+
+    document.addEventListener(moveEventName, movePip);
+    document.addEventListener(upEventName, stopPipDrag);
+    if (cancelEventName) document.addEventListener(cancelEventName, stopPipDrag);
   }
 
   function resetDesktopIconPlacement(icon) {
@@ -6905,8 +7914,12 @@
 
   async function showInstallProgress(target, label, detail, duration = 1800) {
     const token = `${Date.now()}-${Math.random()}`;
+    const installWindow = target ? target.closest(".desk-window") : null;
+    const isDesktopProgress = Boolean(target && target.classList && target.classList.contains("desktop-progress-layer"));
     if (target) {
       target.dataset.installToken = token;
+      if (isDesktopProgress) target.hidden = false;
+      if (installWindow) installWindow.classList.add("is-installing-window");
       target.innerHTML = `
         <section class="install-progress-panel" style="--install-duration: ${duration}ms">
           <div class="install-copy-icon" aria-hidden="true"></div>
@@ -6928,10 +7941,19 @@
     }
 
     await pause(duration);
+    if (installWindow) installWindow.classList.remove("is-installing-window");
+    if (isDesktopProgress && target && target.dataset.installToken === token) {
+      target.hidden = true;
+      target.innerHTML = "";
+    }
     return !target || (
       target.dataset.installToken === token &&
-      Boolean(target.querySelector(".install-progress-panel"))
+      (isDesktopProgress || Boolean(target.querySelector(".install-progress-panel")))
     );
+  }
+
+  function showDesktopInstallProgress(label, detail, duration = 1800) {
+    return showInstallProgress(desktopProgressLayer || recoveryBody, label, detail, duration);
   }
 
   function pause(ms) {
