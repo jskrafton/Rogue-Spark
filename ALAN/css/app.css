@@ -450,7 +450,7 @@ button {
   text-transform: uppercase;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 760px), (orientation: landscape) and (max-height: 760px) and (pointer: coarse) {
   .dev-panel {
     top: 70px;
     left: 10px;
@@ -3709,6 +3709,8 @@ button {
   font-size: clamp(0.62rem, 1vw, 0.82rem);
   font-variant-numeric: tabular-nums;
   cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
   text-shadow: 0 0 9px rgba(126, 252, 255, 0.46);
   box-shadow: inset 0 0 8px rgba(126, 252, 255, 0.04);
 }
@@ -3924,12 +3926,14 @@ button {
 
 .signal-sequence {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  justify-self: center;
+  width: min(100%, 360px);
 }
 
 .simon-pad {
-  min-height: 72px;
+  min-height: 86px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   color: rgba(255, 242, 216, 0.72);
   cursor: pointer;
@@ -5481,11 +5485,21 @@ button {
 }
 
 .roomba-movement-button:hover,
-.roomba-movement-button:focus-visible {
+.roomba-movement-button:focus-visible,
+.roomba-movement-button.is-confirming {
   border-color: var(--desktop-cyan);
   color: var(--desktop-cyan);
   outline: 0;
   box-shadow: 0 0 14px rgba(114, 222, 255, 0.2);
+}
+
+.roomba-movement-button.is-confirming {
+  background:
+    linear-gradient(180deg, rgba(255, 211, 107, 0.18), rgba(157, 255, 118, 0.08)),
+    rgba(1, 12, 10, 0.88);
+  color: var(--desktop-amber);
+  font-size: 0.66rem;
+  font-weight: 800;
 }
 
 .roomba-interest-layer {
@@ -7117,7 +7131,7 @@ button {
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 760px), (orientation: landscape) and (max-height: 760px) and (pointer: coarse) {
   .boot-language-control {
     bottom: 104px;
     left: 50%;
@@ -8225,7 +8239,7 @@ button {
 
   .os-dock {
     position: fixed;
-    z-index: 205;
+    z-index: 320;
     left: var(--phone-edge);
     right: var(--phone-edge);
     bottom: var(--phone-safe-bottom);
@@ -8240,8 +8254,7 @@ button {
     border-radius: 22px;
     background: rgba(18, 9, 32, 0.78);
     box-shadow: 0 18px 36px rgba(0, 0, 0, 0.42);
-    overflow-x: hidden;
-    overflow-y: hidden;
+    overflow: visible;
     scrollbar-width: none;
     backdrop-filter: blur(16px);
   }
@@ -8277,11 +8290,12 @@ button {
 
   .dock-system-controls {
     position: static;
+    z-index: 330;
     display: flex;
-    flex: 0 0 166px;
-    width: 166px;
-    min-width: 166px;
-    max-width: 166px;
+    flex: 0 0 174px;
+    width: 174px;
+    min-width: 174px;
+    max-width: 174px;
     gap: 4px;
     margin-left: auto;
     transform: translateX(-4px);
@@ -8290,9 +8304,14 @@ button {
 
   .dock-system-controls .dock-tray-menu {
     position: relative;
+    z-index: 331;
     flex: 0 0 54px;
     width: 54px;
     height: auto;
+  }
+
+  .dock-system-controls .dock-tray-menu.is-open {
+    z-index: 350;
   }
 
   .os-dock .dock-tray-trigger {
@@ -8333,8 +8352,11 @@ button {
     right: var(--phone-edge);
     bottom: calc(var(--phone-dock-h) + var(--phone-safe-bottom) + 10px);
     left: var(--phone-edge);
+    z-index: 360;
     width: auto;
     min-width: 0;
+    max-height: calc(100dvh - var(--phone-topbar-h) - var(--phone-dock-h) - 20px);
+    overflow: auto;
     transform-origin: center bottom;
   }
 
@@ -8392,6 +8414,7 @@ button {
     width: min(100%, 390px);
   }
 
+  .desktop-stage .tamagotchi-window:not(.terminal-window),
   .tamagotchi-window,
   .tamagotchi-window.desk-window.is-focused {
     overflow: visible;
@@ -8493,7 +8516,7 @@ button {
       max(4px, env(safe-area-inset-left)) !important;
     z-index: 165;
     display: grid !important;
-    grid-template-rows: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     width: auto !important;
     height: auto !important;
     max-width: none;
@@ -8509,16 +8532,17 @@ button {
   }
 
   body.is-roomba-camera-open .roomba-camera-window .window-titlebar {
-    position: absolute;
-    top: 6px;
-    left: 6px;
-    right: 6px;
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
     z-index: 188;
     display: flex;
-    min-height: 34px;
+    min-height: 30px;
     padding: 0 6px 0 10px;
-    border: 1px solid rgba(114, 222, 255, 0.24);
-    border-radius: 9px;
+    border: 0;
+    border-bottom: 1px solid rgba(114, 222, 255, 0.24);
+    border-radius: 0;
     background: rgba(4, 8, 17, 0.58);
     backdrop-filter: blur(8px);
   }
@@ -8547,6 +8571,7 @@ button {
 
   body.is-roomba-camera-open .roomba-camera-copy {
     height: 100%;
+    min-height: 0;
     padding: 0;
     overflow: hidden;
     background: #000;
@@ -8572,7 +8597,7 @@ button {
 
   body.is-roomba-camera-open .roomba-cmd-overlay {
     display: block;
-    top: 46px;
+    top: 38px;
     width: min(74dvw, 480px);
     min-height: 24px;
     padding: 5px 9px;
@@ -8607,7 +8632,7 @@ button {
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 760px), (orientation: landscape) and (max-height: 760px) and (pointer: coarse) {
   .recovery-window:has(.scary-console) {
     top: calc(var(--phone-cmd-h) + var(--phone-gap) + 10px) !important;
     left: 50% !important;
@@ -8631,6 +8656,635 @@ button {
     flex: 1 1 auto;
     min-height: 32px;
     font-size: 0.62rem;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 760px) and (pointer: coarse) {
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .boot-screen {
+    overflow: hidden;
+  }
+
+  .boot-speed-control {
+    bottom: 6px;
+    font-size: clamp(0.58rem, 1.45dvw, 0.72rem);
+  }
+
+  .boot-language-control {
+    bottom: 6px;
+    left: 8px;
+    font-size: clamp(0.56rem, 1.35dvw, 0.68rem);
+    transform: none;
+  }
+
+  .language-control select {
+    max-width: 112px;
+    min-height: 22px;
+    font-size: 0.58rem;
+  }
+
+  .boot-volume-control {
+    right: 8px;
+    bottom: 6px;
+    left: auto;
+    max-width: 40dvw;
+    font-size: clamp(0.52rem, 1.25dvw, 0.64rem);
+    transform: none;
+  }
+
+  .audio-volume-control input[type="range"] {
+    width: 58px;
+  }
+
+  .boot-visual {
+    width: min(34dvw, 300px);
+    height: min(30dvh, 118px);
+    opacity: 0.76;
+  }
+
+  .boot-visual-primary {
+    top: 6px;
+    right: 8px;
+    left: auto;
+    transform: none;
+  }
+
+  .boot-visual-art {
+    padding: 0;
+  }
+
+  .boot-log,
+  .boot-log.has-boot-visual,
+  .boot-screen.has-visuals .boot-log {
+    top: 50%;
+    left: 50% !important;
+    width: calc(100dvw - 18px) !important;
+    min-width: 0 !important;
+    max-height: calc(100dvh - 58px);
+    padding: 8px 10px;
+    font-size: clamp(0.62rem, 1.65dvw, 0.76rem);
+    line-height: 1.38;
+    transform: translate(-50%, -50%) !important;
+  }
+
+  .boot-screen.has-visuals .boot-log {
+    max-height: calc(100dvh - 74px);
+  }
+
+  .prompt-line {
+    min-height: 1.45em;
+    gap: 0.72ch;
+  }
+
+  .code-choice {
+    min-height: 28px;
+    padding: 0 2px;
+  }
+
+  .title-art {
+    font-size: clamp(0.36rem, 1.65dvw, 0.58rem);
+  }
+
+  .pc-screen {
+    --phone-edge: max(5px, env(safe-area-inset-left));
+    --phone-topbar-h: 36px;
+    --phone-gap: 5px;
+    --phone-cmd-w: clamp(212px, 31dvw, 280px);
+    --phone-cmd-h: 100%;
+    --phone-dock-h: 44px;
+    --phone-safe-bottom: max(3px, env(safe-area-inset-bottom));
+  }
+
+  .os-topbar {
+    grid-template-columns: minmax(96px, 0.8fr) minmax(0, 1fr) minmax(88px, 0.8fr);
+    grid-template-areas: "brand net status";
+    height: var(--phone-topbar-h);
+    min-height: var(--phone-topbar-h);
+    padding: 4px 7px;
+  }
+
+  .os-brand,
+  .network-copy,
+  .os-status {
+    min-width: 0;
+    justify-content: center;
+    font-size: clamp(0.52rem, 1.35dvw, 0.66rem);
+    white-space: nowrap;
+  }
+
+  .os-brand strong,
+  .network-copy {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .desktop-icons {
+    display: none;
+  }
+
+  .desktop-stage {
+    top: calc(var(--phone-topbar-h) + var(--phone-gap));
+    bottom: calc(var(--phone-dock-h) + var(--phone-safe-bottom) + var(--phone-gap));
+    width: calc(100dvw - (var(--phone-edge) * 2));
+    max-width: none;
+  }
+
+  .terminal-window,
+  .terminal-window[hidden],
+  .pc-screen.is-shell-booting .terminal-window {
+    top: 0;
+    left: 0;
+    right: auto;
+    bottom: 0;
+    width: var(--phone-cmd-w);
+    height: 100%;
+  }
+
+  .terminal-window .window-titlebar {
+    min-height: 26px;
+    padding: 0 8px;
+  }
+
+  .terminal-window .window-body {
+    padding: 6px 8px;
+    font-size: clamp(0.54rem, 1.25dvw, 0.64rem);
+    line-height: 1.28;
+  }
+
+  .terminal-window .window-body p {
+    margin-bottom: 0.22rem;
+  }
+
+  .terminal-controls {
+    margin-top: 3px;
+    padding-top: 3px;
+  }
+
+  .cmd-question-panel button {
+    max-width: 118px;
+    min-height: 26px;
+    font-size: 0.52rem;
+  }
+
+  .desktop-stage .desk-window:not(.terminal-window) {
+    top: 0;
+    left: calc(var(--phone-cmd-w) + var(--phone-gap));
+    right: 0;
+    bottom: 0;
+    width: calc(100% - var(--phone-cmd-w) - var(--phone-gap));
+    height: 100%;
+  }
+
+  .desk-window.is-installing-window {
+    top: 50% !important;
+    left: calc(var(--phone-cmd-w) + var(--phone-gap) + 8px) !important;
+    right: 8px !important;
+    width: auto !important;
+    height: auto !important;
+    transform: translateY(-50%) !important;
+  }
+
+  .window-titlebar {
+    min-height: 28px;
+    padding: 0 6px 0 10px;
+    border-radius: 11px 11px 0 0;
+  }
+
+  .window-action {
+    width: 24px;
+    height: 24px;
+  }
+
+  .window-body {
+    padding: 6px 8px;
+    font-size: clamp(0.52rem, 1.16dvw, 0.62rem);
+    line-height: 1.34;
+  }
+
+  .window-body p {
+    margin-bottom: 0.42rem;
+  }
+
+  .files-window .window-body,
+  .trash-window .window-body,
+  .browser-window .window-body,
+  .roomba-window .window-body,
+  .music-window .window-body,
+  .recovery-window .window-body,
+  .photo-window .window-body {
+    padding: 6px 7px;
+    font-size: clamp(0.49rem, 1.05dvw, 0.58rem);
+    line-height: 1.3;
+  }
+
+  .file-list {
+    gap: 5px;
+  }
+
+  .file-list button,
+  .trash-list button,
+  .roomba-actions button,
+  .music-controls button,
+  .music-genre-list button {
+    min-height: 28px;
+    padding: 4px 6px;
+    font-size: 0.52rem;
+  }
+
+  .repair-panel,
+  .signal-panel,
+  .wire-panel,
+  .scary-panel,
+  .router-override-panel {
+    gap: 5px;
+  }
+
+  .repair-header {
+    gap: 6px;
+    padding-bottom: 5px;
+  }
+
+  .browser-router-shortcut,
+  .router-login-form input,
+  .router-login-form button,
+  .router-config-form input,
+  .router-config-form select,
+  .router-config-form button,
+  .router-device button,
+  .router-reboot-button {
+    min-height: 28px;
+    padding: 4px 6px;
+    font-size: 0.52rem;
+  }
+
+  .os-dock {
+    left: var(--phone-edge);
+    right: var(--phone-edge);
+    z-index: 320;
+    height: var(--phone-dock-h);
+    min-height: var(--phone-dock-h);
+    padding: 3px 5px;
+    border-radius: 13px;
+    overflow: visible;
+  }
+
+  .os-dock button,
+  .os-dock .dock-tray-trigger {
+    flex-basis: 44px;
+    width: 44px;
+    min-width: 44px;
+    min-height: 34px;
+    font-size: 0.44rem;
+  }
+
+  .os-dock button span,
+  .os-dock .dock-tray-trigger .dock-tray-icon {
+    width: 20px;
+    height: 18px;
+    font-size: 0.4rem;
+  }
+
+  .dock-system-controls {
+    position: relative;
+    z-index: 330;
+    flex-basis: 160px;
+    width: 160px;
+    min-width: 160px;
+    max-width: 160px;
+    transform: none;
+  }
+
+  .dock-system-controls .dock-tray-menu {
+    flex: 0 0 50px;
+    width: 50px;
+    z-index: 331;
+  }
+
+  .dock-system-controls .dock-tray-menu.is-open {
+    z-index: 350;
+  }
+
+  .dock-tray-panel {
+    z-index: 360;
+    max-height: calc(100dvh - var(--phone-topbar-h) - var(--phone-dock-h) - 18px);
+    overflow: auto;
+  }
+
+  .app-tray {
+    bottom: calc(var(--phone-dock-h) + var(--phone-safe-bottom) + 6px);
+    max-height: min(250px, calc(100dvh - var(--phone-topbar-h) - var(--phone-dock-h) - 24px));
+  }
+
+  .app-tray-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .app-tray-grid button {
+    min-height: 50px;
+    font-size: 0.5rem;
+  }
+
+  .desktop-progress-layer {
+    inset:
+      calc(var(--phone-topbar-h) + var(--phone-gap))
+      var(--phone-edge)
+      calc(var(--phone-dock-h) + var(--phone-safe-bottom) + var(--phone-gap))
+      calc(var(--phone-edge) + var(--phone-cmd-w) + var(--phone-gap));
+  }
+
+  .network-hud {
+    top: calc(var(--phone-topbar-h) + 6px);
+    right: var(--phone-edge);
+    left: auto;
+    width: min(360px, calc(100dvw - (var(--phone-edge) * 2)));
+    max-height: calc(100dvh - var(--phone-topbar-h) - var(--phone-dock-h) - 18px);
+    overflow: auto;
+  }
+
+  .browser-page {
+    min-height: 0;
+  }
+
+  .browser-offline,
+  .browser-online,
+  .router-admin {
+    padding: 8px;
+  }
+
+  .browser-mobile-tools {
+    gap: 6px;
+    padding: 7px;
+  }
+
+  .browser-ip-keypad {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .dino-track {
+    height: 62px;
+  }
+
+  .router-section-nav {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .router-section-nav button {
+    min-height: 42px;
+    padding: 5px 4px;
+  }
+
+  .router-status-grid,
+  .router-config-form label,
+  .router-device {
+    font-size: 0.62rem;
+  }
+
+  .album-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .photo-window .window-body,
+  .files-window .window-body,
+  .browser-window .window-body,
+  .recovery-window .window-body {
+    overflow: auto;
+  }
+
+  .recovery-window:has(.scary-console) {
+    top: 0 !important;
+    left: calc(var(--phone-cmd-w) + var(--phone-gap)) !important;
+    right: 0 !important;
+    width: calc(100% - var(--phone-cmd-w) - var(--phone-gap)) !important;
+    height: 100% !important;
+    max-height: none;
+    transform: none !important;
+  }
+
+  .repair-panel {
+    gap: 7px;
+  }
+
+  .repair-header {
+    gap: 8px;
+    padding-bottom: 6px;
+  }
+
+  .signal-sequence {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    width: min(100%, 220px);
+  }
+
+  .simon-pad {
+    min-height: 42px;
+  }
+
+  .wire-puzzle {
+    min-height: 170px;
+    gap: clamp(42px, 11dvw, 76px);
+    padding: 8px 0;
+  }
+
+  .wire-column {
+    gap: 8px;
+    padding: 6px;
+  }
+
+  .cache-transfer-console {
+    gap: 7px;
+    padding: 7px;
+  }
+
+  .cache-transfer-field {
+    grid-template-columns: 190px minmax(150px, 1fr);
+    min-height: 174px;
+    padding: 24px 8px 8px;
+  }
+
+  .cache-files {
+    grid-template-columns: minmax(0, 180px);
+    width: min(180px, 100%);
+    gap: 6px;
+  }
+
+  .cache-file {
+    width: min(180px, 100%);
+    min-width: 0;
+    min-height: 34px;
+    font-size: 0.58rem;
+  }
+
+  .cache-dropzone {
+    min-height: 86px;
+  }
+
+  .scary-console {
+    gap: 5px;
+    padding: 6px;
+  }
+
+  .scary-console-header {
+    padding: 3px 5px;
+  }
+
+  .scary-number-grid,
+  .router-lock-grid {
+    width: min(100%, 186px);
+    gap: 2px;
+    padding: 3px;
+  }
+
+  .scary-mode-row,
+  .scary-actions {
+    gap: 5px;
+  }
+
+  .scary-mode-row button,
+  .scary-actions button {
+    min-height: 26px;
+    padding: 3px 7px;
+    font-size: 0.58rem;
+  }
+
+  .tamagotchi-window,
+  .tamagotchi-window.desk-window.is-focused {
+    top: 4px;
+    left: auto;
+    right: 4px;
+    bottom: auto;
+    width: min(360px, calc(100% - var(--phone-cmd-w) - 12px));
+    height: auto;
+    max-height: calc(100% - 8px);
+    overflow: visible;
+    transform: none;
+  }
+
+  .tamagotchi-window:not([hidden]) {
+    z-index: 245 !important;
+    display: grid !important;
+    pointer-events: auto;
+  }
+
+  .tamagotchi-window .window-body {
+    padding: 0;
+    overflow: visible;
+  }
+
+  .tama-screen {
+    grid-template-columns: minmax(54px, 64px) minmax(0, 1fr);
+    gap: 8px;
+    min-height: 0;
+    align-items: start;
+  }
+
+  .tama-device {
+    max-width: 64px;
+  }
+
+  .tama-actions {
+    gap: 4px;
+  }
+
+  .tama-pet,
+  .tama-feed {
+    min-height: 24px;
+    padding: 2px 6px;
+    font-size: 0.52rem;
+  }
+
+  .tama-mood {
+    display: none;
+  }
+
+  .tama-dialogue {
+    gap: 6px;
+    max-height: calc(100dvh - var(--phone-topbar-h) - var(--phone-dock-h) - 28px);
+    overflow: auto;
+    font-size: 0.52rem;
+    line-height: 1.34;
+    scrollbar-width: none;
+  }
+
+  .tama-dialogue::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tama-message {
+    padding: 5px 7px;
+  }
+
+  .tama-message p {
+    line-height: 1.34;
+  }
+
+  .tama-message strong {
+    font-size: 0.5rem;
+  }
+
+  .tama-screen.is-reveal {
+    grid-template-columns: minmax(48px, 58px) minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .tama-screen.is-reveal .tama-device {
+    max-width: 58px;
+  }
+
+  .tama-screen.is-reveal .tama-dialogue {
+    font-size: 0.5rem;
+  }
+
+  .tama-screen.is-reveal .tama-message p {
+    line-height: 1.32;
+  }
+
+  .tama-choices {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .tama-choices button {
+    min-height: 26px;
+    padding: 4px 6px;
+    font-size: 0.5rem;
+  }
+
+  .closing-console {
+    gap: 9px;
+    max-height: calc(100dvh - 12px);
+    padding: 8px;
+  }
+
+  .closing-lines {
+    min-height: 3em;
+    font-size: 0.62rem;
+  }
+
+  .closing-title-logo {
+    width: min(46dvw, 360px);
+    max-height: 110px;
+  }
+
+  .closing-actions {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .closing-actions button {
+    min-height: 34px;
+    padding: 5px 7px;
+    font-size: 0.58rem;
+  }
+
+  .spam-popup {
+    width: min(176px, 32dvw);
+    min-height: 112px;
   }
 }
 

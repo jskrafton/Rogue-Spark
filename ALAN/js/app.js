@@ -894,7 +894,7 @@
     { id: "admin", label: "admin session", target: "SHADOW", states: ["USER", "GUEST", "SHADOW", "VOID"] }
   ];
   const routerLockGridSize = 6;
-  const routerLockCorruptedIds = new Set(["r0-5", "r1-2", "r2-4", "r3-0", "r4-3", "r5-1"]);
+  const routerLockCorruptedIds = new Set(["r0-5", "r2-2", "r5-1"]);
   const routerLockEntries = Array.from({ length: routerLockGridSize * routerLockGridSize }, (_, index) => {
       const rowIndex = Math.floor(index / routerLockGridSize);
       const columnIndex = index % routerLockGridSize;
@@ -909,7 +909,7 @@
     });
   const routerLockById = new Map(routerLockEntries.map((entry) => [entry.id, entry]));
   const scaryGridSize = 6;
-  const scaryCorruptedIds = new Set(["s0-4", "s1-1", "s2-5", "s3-2", "s4-4", "s5-0"]);
+  const scaryCorruptedIds = new Set(["s0-4", "s3-2", "s5-0"]);
   const scaryNumberEntries = Array.from({ length: scaryGridSize * scaryGridSize }, (_, index) => {
       const rowIndex = Math.floor(index / scaryGridSize);
       const columnIndex = index % scaryGridSize;
@@ -955,7 +955,7 @@
   ];
   const wireTimerDuration = 10;
   const wireTimerLowThreshold = 3;
-  const scaryNumberTimerDuration = 45;
+  const scaryNumberTimerDuration = 75;
   const routerOverrideTimerDuration = 90;
   const routerOverrideTimeBonus = 5;
   const routerOverrideTimerMaxDuration = routerOverrideTimerDuration + (routerOverrideTimeBonus * 3);
@@ -1569,6 +1569,27 @@
       if (!event.target.closest("#appTray")) {
         closeAppTray();
       }
+    });
+
+    document.addEventListener("contextmenu", (event) => {
+      if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+
+      const scaryNumberButton = event.target && event.target.closest
+        ? event.target.closest("[data-scary-number]")
+        : null;
+      const routerLockButton = event.target && event.target.closest
+        ? event.target.closest("[data-router-lock-number]")
+        : null;
+
+      if (!scaryNumberButton && !routerLockButton) return;
+
+      event.preventDefault();
+      if (scaryNumberButton) {
+        toggleScaryNumberFlag(scaryNumberButton.dataset.scaryNumber, { render: true });
+        return;
+      }
+
+      toggleRouterLockFlag(routerLockButton.dataset.routerLockNumber, { render: true });
     });
 
     document.addEventListener("submit", (event) => {
@@ -3002,7 +3023,7 @@
   }
 
   function currentAccessTarget() {
-    return window.matchMedia("(max-width: 760px)").matches ? accessTargets.phone : accessTargets.desktop;
+    return isMobileDesktopLayout() ? accessTargets.phone : accessTargets.desktop;
   }
 
   function setCmdControlsEnabled(enabled) {
@@ -3972,15 +3993,17 @@
       ? `data-roomba-camera-action="${escapeHtml(link.action)}"`
       : `data-roomba-camera-scene="${escapeHtml(link.to)}"`;
     const direction = link.direction || "route";
+    const isConfirming = !!link.action && roombaProgress.pendingCameraAction === link.action;
+    const buttonText = isConfirming ? "YES" : roombaDirectionGlyph(direction);
 
     return `
       <button
-        class="roomba-movement-button is-${escapeHtml(direction)}"
+        class="roomba-movement-button is-${escapeHtml(direction)} ${isConfirming ? "is-confirming" : ""}"
         ${targetAttribute}
         type="button"
         aria-label="${escapeHtml(link.label || "Move Roomba camera")}"
       >
-        <span>${escapeHtml(roombaDirectionGlyph(direction))}</span>
+        <span>${escapeHtml(buttonText)}</span>
       </button>
     `;
   }
@@ -4227,11 +4250,13 @@
     roombaProgress.pendingCameraAction = action;
     if (action === "knock-router-roomba") {
       alanPrompt("confirm? i can ram the table. yes means property damage. no means restraint, allegedly.", { focus: false });
+      renderRoombaCameraFeed();
       return;
     }
 
     if (action === "knock-router-cat") {
       alanPrompt("confirm? i can scramble the laser pointer over Bluetooth and make the dot go ridiculous. Mochi may solve infrastructure by accident. yes or no.", { focus: false });
+      renderRoombaCameraFeed();
       return;
     }
 
@@ -4260,6 +4285,7 @@
 
     roombaProgress.pendingCameraAction = "";
     alanPrompt("cancelled. the router survives another few seconds of unjust confidence.", { focus: false });
+    renderRoombaCameraFeed();
     return true;
   }
 
@@ -5499,7 +5525,7 @@
             <button class="file-action scary-verify" data-router-lock-verify type="button">force password reset</button>
           </div>
           <p class="repair-warning scary-warning">${escapeHtml(roombaProgress.routerHackWarning)}</p>
-          <p class="scary-hint">Hint: open clean boxes, mark hidden router locks, then force the reset.</p>
+          <p class="scary-hint">Hint: open safe boxes. use mark mode or desktop right-click for locks.</p>
         </div>
       </section>
     `;
@@ -5530,17 +5556,7 @@
     if (!entry) return;
 
     if (roombaProgress.routerLockMode === "flag") {
-      if (roombaProgress.routerLockRevealed.has(entry.id)) {
-        roombaProgress.routerHackWarning = "opened boxes cannot be marked.";
-      } else if (roombaProgress.routerLockFlagged.has(entry.id)) {
-        roombaProgress.routerLockFlagged.delete(entry.id);
-        roombaProgress.routerHackWarning = "lock marker removed.";
-      } else {
-        roombaProgress.routerLockFlagged.add(entry.id);
-        roombaProgress.routerHackWarning = "hidden router lock marked.";
-      }
-      playUiSound("desktopWindow");
-      renderRouterLockPuzzle();
+      toggleRouterLockFlag(entry.id, { render: true });
       return;
     }
 
@@ -5550,14 +5566,65 @@
       roombaProgress.routerHackWarning = "router lock opened. mark it instead.";
       playUiSound("virusFail");
     } else {
-      roombaProgress.routerLockRevealed.add(entry.id);
+      const openedCount = revealRouterSafeArea(entry);
       const danger = routerLockDangerCount(entry);
       roombaProgress.routerHackWarning = danger === 0
-        ? "clean box. zero nearby router locks."
+        ? `clean pocket opened. ${openedCount} safe ${openedCount === 1 ? "box" : "boxes"} revealed.`
         : `${danger} router ${danger === 1 ? "lock is" : "locks are"} nearby.`;
       playUiSound("alanClick");
     }
     renderRouterLockPuzzle();
+  }
+
+  function toggleRouterLockFlag(numberId, options = {}) {
+    if (roombaProgress.routerOverrideStage !== "router-lock") return false;
+
+    const entry = routerLockEntries.find((item) => item.id === numberId);
+    if (!entry) return false;
+    const wasFlagMode = roombaProgress.routerLockMode === "flag";
+
+    if (roombaProgress.routerLockRevealed.has(entry.id)) {
+      roombaProgress.routerHackWarning = "opened boxes cannot be marked.";
+      if (options.render) renderRouterLockPuzzle();
+      return false;
+    }
+
+    if (roombaProgress.routerLockFlagged.has(entry.id) && options.force !== true) {
+      roombaProgress.routerLockFlagged.delete(entry.id);
+      roombaProgress.routerHackWarning = "lock marker removed.";
+    } else {
+      roombaProgress.routerLockFlagged.add(entry.id);
+      roombaProgress.routerHackWarning = "hidden router lock marked.";
+    }
+
+    if (wasFlagMode && isTouchLikeInput()) {
+      roombaProgress.routerLockMode = "scan";
+      roombaProgress.routerHackWarning += " back to open boxes.";
+    }
+    if (!options.silent) playUiSound("desktopWindow", { gain: 0.05 });
+    if (options.render) renderRouterLockPuzzle();
+    return true;
+  }
+
+  function revealRouterSafeArea(entry) {
+    const openedBefore = roombaProgress.routerLockRevealed.size;
+    const queue = [entry];
+    const visited = new Set();
+
+    while (queue.length) {
+      const current = queue.shift();
+      if (!current || current.corrupted || visited.has(current.id) || roombaProgress.routerLockFlagged.has(current.id)) continue;
+
+      visited.add(current.id);
+      roombaProgress.routerLockRevealed.add(current.id);
+      if (routerLockDangerCount(current) !== 0) continue;
+
+      neighboringGridEntries(current, routerLockById, "r").forEach((neighbor) => {
+        if (!visited.has(neighbor.id) && !neighbor.corrupted) queue.push(neighbor);
+      });
+    }
+
+    return Math.max(1, roombaProgress.routerLockRevealed.size - openedBefore);
   }
 
   function setRouterLockMode(mode) {
@@ -5601,6 +5668,18 @@
       }
     }
     return count;
+  }
+
+  function neighboringGridEntries(entry, entryMap, prefix) {
+    const neighbors = [];
+    for (let row = entry.row - 1; row <= entry.row + 1; row += 1) {
+      for (let column = entry.column - 1; column <= entry.column + 1; column += 1) {
+        if (row === entry.row && column === entry.column) continue;
+        const neighbor = entryMap.get(`${prefix}${row}-${column}`);
+        if (neighbor) neighbors.push(neighbor);
+      }
+    }
+    return neighbors;
   }
 
   async function completeRouterOverride() {
@@ -7028,7 +7107,7 @@
             <button class="file-action scary-verify" data-scary-verify type="button">verify</button>
           </div>
           <p class="repair-warning scary-warning" id="scaryWarning">${escapeHtml(roombaProgress.scaryNumbersWarning)}</p>
-          <p class="scary-hint">Hint: open safe boxes, mark suspected paw faults, then verify.</p>
+          <p class="scary-hint">Hint: open safe boxes. use mark mode or desktop right-click for paws.</p>
         </div>
       </section>
     `;
@@ -7065,17 +7144,7 @@
     if (!entry) return;
 
     if (roombaProgress.scaryNumberMode === "flag") {
-      if (roombaProgress.scaryNumbersRevealed.has(entry.id)) {
-        roombaProgress.scaryNumbersWarning = "opened boxes cannot be marked.";
-      } else if (roombaProgress.scaryNumbersFlagged.has(entry.id)) {
-        roombaProgress.scaryNumbersFlagged.delete(entry.id);
-        roombaProgress.scaryNumbersWarning = "paw marker removed.";
-      } else {
-        roombaProgress.scaryNumbersFlagged.add(entry.id);
-        roombaProgress.scaryNumbersWarning = "possible paw fault marked.";
-      }
-      playUiSound("desktopWindow");
-      renderScaryNumbers();
+      toggleScaryNumberFlag(entry.id, { render: true });
       return;
     }
 
@@ -7085,14 +7154,65 @@
       playUiSound("virusFail");
       if (penalizeScaryNumberTimer("paw fault opened. undoing that emotionally.")) return;
     } else {
-      roombaProgress.scaryNumbersRevealed.add(entry.id);
+      const openedCount = revealScarySafeArea(entry);
       const danger = scaryNumberDangerCount(entry);
       roombaProgress.scaryNumbersWarning = danger === 0
-        ? "clean box. zero nearby paw faults."
+        ? `clean pocket opened. ${openedCount} safe ${openedCount === 1 ? "box" : "boxes"} revealed.`
         : `${danger} paw ${danger === 1 ? "fault is" : "faults are"} nearby.`;
       playUiSound("alanClick");
     }
     renderScaryNumbers();
+  }
+
+  function toggleScaryNumberFlag(numberId, options = {}) {
+    if (roombaProgress.recoveryStage !== "scaryNumbers") return false;
+
+    const entry = scaryNumberEntries.find((item) => item.id === numberId);
+    if (!entry) return false;
+    const wasFlagMode = roombaProgress.scaryNumberMode === "flag";
+
+    if (roombaProgress.scaryNumbersRevealed.has(entry.id)) {
+      roombaProgress.scaryNumbersWarning = "opened boxes cannot be marked.";
+      if (options.render) renderScaryNumbers();
+      return false;
+    }
+
+    if (roombaProgress.scaryNumbersFlagged.has(entry.id) && options.force !== true) {
+      roombaProgress.scaryNumbersFlagged.delete(entry.id);
+      roombaProgress.scaryNumbersWarning = "paw marker removed.";
+    } else {
+      roombaProgress.scaryNumbersFlagged.add(entry.id);
+      roombaProgress.scaryNumbersWarning = "possible paw fault marked.";
+    }
+
+    if (wasFlagMode && isTouchLikeInput()) {
+      roombaProgress.scaryNumberMode = "scan";
+      roombaProgress.scaryNumbersWarning += " back to open boxes.";
+    }
+    if (!options.silent) playUiSound("desktopWindow", { gain: 0.05 });
+    if (options.render) renderScaryNumbers();
+    return true;
+  }
+
+  function revealScarySafeArea(entry) {
+    const openedBefore = roombaProgress.scaryNumbersRevealed.size;
+    const queue = [entry];
+    const visited = new Set();
+
+    while (queue.length) {
+      const current = queue.shift();
+      if (!current || current.corrupted || visited.has(current.id) || roombaProgress.scaryNumbersFlagged.has(current.id)) continue;
+
+      visited.add(current.id);
+      roombaProgress.scaryNumbersRevealed.add(current.id);
+      if (scaryNumberDangerCount(current) !== 0) continue;
+
+      neighboringGridEntries(current, scaryNumberById, "s").forEach((neighbor) => {
+        if (!visited.has(neighbor.id) && !neighbor.corrupted) queue.push(neighbor);
+      });
+    }
+
+    return Math.max(1, roombaProgress.scaryNumbersRevealed.size - openedBefore);
   }
 
   function setScaryNumberMode(mode) {
@@ -7549,7 +7669,7 @@
       commentOnTrashItem(name);
     }
 
-    if (options.scroll !== false && window.matchMedia("(min-width: 761px) and (max-width: 1100px)").matches) {
+    if (options.scroll !== false && !isMobileDesktopLayout() && window.matchMedia("(min-width: 761px) and (max-width: 1100px)").matches) {
       windowEl.scrollIntoView({ block: "nearest", inline: "nearest" });
     }
 
@@ -7596,7 +7716,7 @@
 
     if (name === "terminal") {
       windowEl.hidden = false;
-      if (!window.matchMedia("(max-width: 760px)").matches) {
+      if (!isMobileDesktopLayout()) {
         bringWindowToFront(windowEl);
       }
       playUiSound("alanClick");
@@ -7660,6 +7780,10 @@
 
   function isMobileDesktopLayout() {
     return window.matchMedia("(max-width: 760px), (orientation: landscape) and (max-height: 760px) and (pointer: coarse)").matches;
+  }
+
+  function isTouchLikeInput() {
+    return window.matchMedia("(hover: none), (pointer: coarse)").matches;
   }
 
   function constrainWindowToStage(windowEl) {
@@ -7778,7 +7902,7 @@
   }
 
   function constrainPipToStage(windowEl) {
-    if (!windowEl || windowEl.hidden || isMobileDesktopLayout()) return;
+    if (!windowEl || windowEl.hidden) return;
 
     const stage = document.querySelector(".desktop-stage");
     const handle = windowEl.querySelector("[data-pip-drag-handle]");
@@ -7837,7 +7961,7 @@
     if (!terminalWindow || !terminalOutput || !terminalLines) return;
 
     terminalWindow.hidden = false;
-    if (options.focus !== false && !window.matchMedia("(max-width: 760px)").matches) {
+    if (options.focus !== false && !isMobileDesktopLayout()) {
       bringWindowToFront(terminalWindow);
     }
 
@@ -8051,7 +8175,6 @@
 
   function startPipDrag(event) {
     if (event.button !== undefined && event.button !== 0) return;
-    if (isMobileDesktopLayout()) return;
 
     const isMouseDrag = event.type === "mousedown";
     const handle = event.target.closest("[data-pip-drag-handle]");
