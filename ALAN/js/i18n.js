@@ -13,6 +13,7 @@
 
   const SHARED_FALLBACK_STRINGS = [
     "HOME_NETWORK is local only from here. external sites fail, but local IP addresses still answer. the router address is findable without me blurting the keys into my own thoughts.",
+    "Start in Trash. Deleted items may still hold something useful.",
     "PIP is a desktop pet with too much Lily context and not enough emotional containment. useful. suspicious. needy.",
     "what is PIP?",
     "what is in trash?",

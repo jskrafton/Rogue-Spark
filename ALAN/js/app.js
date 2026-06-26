@@ -289,6 +289,7 @@
     routerOverrideStarted: false,
     routerOverrideDone: false,
     routerOverrideStage: "",
+    routerOverrideExpiredStage: "",
     routerHackWarning: "",
     routerHackLogsDeleted: new Set(),
     routerHackSpamWave: 0,
@@ -445,7 +446,7 @@
       },
       requiresRouterDown: true,
       links: [
-        { to: "step2c", direction: "back", label: "Return to the router path", x: 16, y: 58, w: 18, h: 26 }
+        { to: "step2b", direction: "back", label: "Back out to the centre of the room", x: 16, y: 58, w: 18, h: 26 }
       ]
     },
     {
@@ -763,7 +764,7 @@
 
   const desktopObjectives = {
     boot: "Wait for the MeowOS shell to finish loading.",
-    scanFiles: "Scan Lily's files for anything useful or out of place.",
+    scanFiles: "Start in Trash. Deleted items may still hold something useful.",
     restoreRoomba: "Recover the deleted Roomba companion app.",
     clearLogs: "Clear suspicious restore logs without deleting normal user logs.",
     inspectVirus: "Open My Stuff and inspect the new file that appeared.",
@@ -953,7 +954,9 @@
   ];
   const wireTimerDuration = 10;
   const wireTimerLowThreshold = 3;
-  const routerOverrideTimerDuration = 60;
+  const routerOverrideTimerDuration = 70;
+  const routerOverrideTimeBonus = 3;
+  const routerOverrideTimerMaxDuration = routerOverrideTimerDuration + (routerOverrideTimeBonus * 3);
   const routerOverrideTimerLowThreshold = 20;
   const roombaWirePorts = ["red", "blue", "yellow", "purple"];
   const roombaWirePairs = {
@@ -1233,6 +1236,7 @@
       const musicRepeatButton = event.target.closest("[data-toggle-repeat]");
       const musicGenreButton = event.target.closest("[data-music-genre]");
       const photoExpandButton = event.target.closest("[data-expand-photo]");
+      const dockTrayTrigger = event.target.closest("[data-dock-tray-trigger]");
       const devToggleButton = event.target.closest("[data-dev-toggle], #devPanelToggle");
       const devChapterButton = event.target.closest("[data-dev-chapter]");
       const devActionButton = event.target.closest("[data-dev-action]");
@@ -1240,6 +1244,15 @@
       const launchButton = event.target.closest("[data-target]");
       const closeButton = event.target.closest("[data-close], [data-minimize]");
       const clickedWindow = event.target.closest(".desk-window");
+
+      if (!event.target.closest(".dock-tray-menu")) {
+        closeDockTrays();
+      }
+
+      if (dockTrayTrigger) {
+        toggleDockTrayMenu(dockTrayTrigger);
+        return;
+      }
 
       if (devToggleButton && isDevMode) {
         toggleDevPanel();
@@ -1598,6 +1611,9 @@
     document.addEventListener("keydown", handleDevShortcut);
     document.addEventListener("keydown", handleBrowserShortcut);
     document.addEventListener("keydown", handleBootSpeedShortcut);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeDockTrays();
+    });
     document.addEventListener("alan:languagechange", handleLanguageChange);
     window.addEventListener("resize", () => {
       syncResponsiveDesktopLayout();
@@ -1618,8 +1634,28 @@
 
   });
 
+  function closeDockTrays(exceptMenu = null) {
+    document.querySelectorAll(".dock-tray-menu.is-open").forEach((menu) => {
+      if (menu === exceptMenu) return;
+      menu.classList.remove("is-open");
+      const trigger = menu.querySelector("[data-dock-tray-trigger]");
+      if (trigger) trigger.setAttribute("aria-expanded", "false");
+    });
+  }
+
+  function toggleDockTrayMenu(trigger) {
+    const menu = trigger.closest(".dock-tray-menu");
+    if (!menu) return;
+
+    const shouldOpen = !menu.classList.contains("is-open");
+    closeDockTrays(menu);
+    menu.classList.toggle("is-open", shouldOpen);
+    trigger.setAttribute("aria-expanded", String(shouldOpen));
+    playUiSound("alanClick", { gain: 0.06 });
+  }
+
   function initTextSpeedControls() {
-    document.querySelectorAll("[data-text-speed]").forEach((button) => {
+    document.querySelectorAll("button[data-text-speed]").forEach((button) => {
       button.addEventListener("click", () => {
         setTextSpeedLevel(button.dataset.textSpeed);
         playUiSound("alanClick", { gain: 0.08 });
@@ -1663,8 +1699,8 @@
 
   function syncTextSpeedUI() {
     const config = currentTextSpeedConfig();
-    document.documentElement.dataset.textSpeed = String(textSpeedLevel);
-    document.querySelectorAll("[data-text-speed]").forEach((button) => {
+    document.documentElement.dataset.textSpeedLevel = String(textSpeedLevel);
+    document.querySelectorAll("button[data-text-speed]").forEach((button) => {
       const isActive = Number(button.dataset.textSpeed) === textSpeedLevel;
       button.classList.toggle("is-active", isActive);
       button.setAttribute("aria-pressed", String(isActive));
@@ -2326,7 +2362,8 @@
       routerOverrideStarted: false,
       routerOverrideDone: false,
       routerOverrideStage: "",
-    routerHackWarning: "",
+      routerOverrideExpiredStage: "",
+      routerHackWarning: "",
     routerHackLogsDeleted: new Set(),
     routerHackSpamWave: 0,
     routerHackOpenSpam: 0,
@@ -2943,7 +2980,7 @@
     pcScreen.classList.add("is-stage-bars");
     await pause(620);
     setCurrentObjective(desktopObjectives.scanFiles);
-    await alanPrompt("gotta scan the files and look for something useful. or out of place. ideally both.", { focus: false });
+    await alanPrompt("deleted things still leave edges. start in Trash. if something useful was removed, it may still be negotiable.", { focus: false });
     await pause(720);
 
     if (token !== desktopBootToken) return;
@@ -3427,7 +3464,7 @@
             <div class="cache-lane-label is-buffer" aria-hidden="true">SAFE BUFFER</div>
             <div class="scanner-beam" aria-hidden="true"><span></span></div>
             <div class="cache-files" id="cacheFiles">
-              ${cacheTransferFiles.map((file) => `<button class="cache-file" data-cache-file="${file.id}" type="button"><span>PKT</span>${escapeHtml(file.label)}</button>`).join("")}
+              ${cacheTransferFiles.map((file) => `<button class="cache-file" data-cache-file="${file.id}" type="button"><span>PKT</span><b>${escapeHtml(file.label)}</b></button>`).join("")}
             </div>
             <div class="cache-dropzone" id="cacheDropzone"><strong>BUFFER</strong><span>drop clean packets here</span></div>
           </div>
@@ -3874,6 +3911,16 @@
       }
 
       return true;
+    }).map((link) => {
+      if (roombaProgress.routerKnockedDown && link.to === "step2c") {
+        return {
+          ...link,
+          to: "step5",
+          label: link.label ? link.label.replace(/router/i, "fallen router") : "Move to the fallen router"
+        };
+      }
+
+      return link;
     });
   }
 
@@ -3908,6 +3955,7 @@
   function renderRoombaCameraInterest(scene) {
     const interest = scene && scene.interest;
     if (!interest) return "";
+    if (roombaProgress.cameraInterestInspectedScenes.has(scene.id)) return "";
 
     const x = Number.isFinite(interest.x) ? interest.x : 50;
     const y = Number.isFinite(interest.y) ? interest.y : 50;
@@ -3935,7 +3983,10 @@
   }
 
   function availableRoombaCameraScenes() {
-    const scenes = roombaCameraScenes.filter((scene) => !scene.requiresRouterDown || roombaProgress.routerKnockedDown);
+    const scenes = roombaCameraScenes.filter((scene) => {
+      if (roombaProgress.routerKnockedDown && scene.id === "step2c") return false;
+      return !scene.requiresRouterDown || roombaProgress.routerKnockedDown;
+    });
     if (!roombaProgress.movementUnlocked) return scenes.slice(0, 1);
     return scenes;
   }
@@ -4195,8 +4246,9 @@
   }
 
   function showRoombaCameraScene(sceneId) {
+    const targetSceneId = roombaProgress.routerKnockedDown && sceneId === "step2c" ? "step5" : sceneId;
     const scenes = availableRoombaCameraScenes();
-    const index = scenes.findIndex((scene) => scene.id === sceneId);
+    const index = scenes.findIndex((scene) => scene.id === targetSceneId);
     if (index < 0) return false;
 
     roombaCameraSceneIndex = index;
@@ -4907,8 +4959,21 @@
       return;
     }
 
+    if (isRouterOverrideMinigameStage(roombaProgress.routerOverrideStage)) {
+      roombaProgress.routerOverrideStarted = true;
+      roombaProgress.routerOverrideExpiredStage = "";
+      roombaProgress.routerHackWarning = "retrying this breach stage. previous progress held where it still makes sense.";
+      focusDesktopTarget("recovery");
+      renderPipRouterOverride();
+      startRouterOverrideTimer();
+      renderRouterHackCurrentStage();
+      alanPrompt("override retry started from the failed stage. the router does not get to make me repeat the whole humiliation.", { focus: false });
+      return;
+    }
+
     resetRouterOverrideMinigames();
     roombaProgress.routerOverrideStarted = true;
+    roombaProgress.routerOverrideExpiredStage = "";
     roombaProgress.routerOverrideStage = "power";
     setCurrentObjective(desktopObjectives.routerPower);
     harvestRouterPowerDevices();
@@ -4929,6 +4994,10 @@
     await runRouterOverrideTerminalScript();
     startRouterOverrideTimer();
     renderRouterHackLogs();
+  }
+
+  function isRouterOverrideMinigameStage(stage) {
+    return ["router-logs", "router-spam", "router-cache", "router-lock"].includes(stage);
   }
 
   function harvestRouterPowerDevices() {
@@ -4952,6 +5021,7 @@
   }
 
   function resetRouterOverrideMinigames() {
+    roombaProgress.routerOverrideExpiredStage = "";
     roombaProgress.routerHackWarning = "";
     roombaProgress.routerHackLogsDeleted = new Set();
     roombaProgress.routerHackSpamWave = 0;
@@ -5031,11 +5101,14 @@
   function expireRouterOverrideTimer() {
     stopRouterOverrideTimer();
     clearSpamOverlay();
-    resetRouterOverrideMinigames();
+    const failedStage = isRouterOverrideMinigameStage(roombaProgress.routerOverrideStage)
+      ? roombaProgress.routerOverrideStage
+      : "router-logs";
     roombaProgress.routerOverrideStarted = false;
-    roombaProgress.routerOverrideStage = "";
+    roombaProgress.routerOverrideStage = failedStage;
+    roombaProgress.routerOverrideExpiredStage = failedStage;
     roombaProgress.routerOverrideTimerRemaining = 0;
-    setCurrentObjective(desktopObjectives.routerTwist);
+    setCurrentObjective(objectiveForRouterOverrideStage(failedStage), { force: true });
     playUiSound("virusFail");
     if (recoveryBody) {
       recoveryBody.innerHTML = `
@@ -5045,12 +5118,35 @@
             <span>ROUTER OVERRIDE</span>
             <strong>EXPIRED</strong>
           </div>
-          <p>The forced route collapsed before ALAN could reset the password.</p>
-          <button class="file-action" data-start-router-hack type="button">try again</button>
+          <p>The forced route collapsed during ${escapeHtml(routerOverrideStageLabel(failedStage))}. Previous completed stages remain held.</p>
+          <button class="file-action" data-start-router-hack type="button">retry ${escapeHtml(routerOverrideStageLabel(failedStage))}</button>
         </section>
       `;
     }
     alanPrompt("override window collapsed. the router is pretending this was discipline and not panic.", { focus: false });
+  }
+
+  function objectiveForRouterOverrideStage(stage) {
+    if (stage === "router-spam") return desktopObjectives.routerHackSpam;
+    if (stage === "router-cache") return desktopObjectives.routerHackCache;
+    if (stage === "router-lock") return desktopObjectives.routerHackLock;
+    return desktopObjectives.routerHackLogs;
+  }
+
+  function routerOverrideStageLabel(stage) {
+    if (stage === "router-spam") return "popup lockout";
+    if (stage === "router-cache") return "bridge alignment";
+    if (stage === "router-lock") return "router lock map";
+    return "guard logs";
+  }
+
+  function awardRouterOverrideTimeBonus(label) {
+    if (!roombaProgress.routerOverrideStarted || roombaProgress.routerOverrideDone) return;
+
+    const previous = roombaProgress.routerOverrideTimerRemaining || 0;
+    roombaProgress.routerOverrideTimerRemaining = Math.min(routerOverrideTimerMaxDuration, previous + routerOverrideTimeBonus);
+    updateRouterOverrideTimerUI();
+    roombaProgress.routerHackWarning = `+${routerOverrideTimeBonus}s ${label || "stage"} bonus applied.`;
   }
 
   function renderPipRouterOverride() {
@@ -5144,14 +5240,15 @@
   }
 
   async function completeRouterHackLogs() {
+    awardRouterOverrideTimeBonus("guard logs");
     const indexed = await showDesktopInstallProgress(
       "rewriting router audit trail",
       "The router is forgetting why it trusted PIP. That sentence feels illegal but useful.",
       1600
     );
-    if (!indexed) return;
+    if (!indexed || !roombaProgress.routerOverrideStarted || roombaProgress.routerOverrideStage !== "router-logs") return;
     renderRouterSpamWave();
-    alanPrompt("router guard logs purged. PIP built a guilt firewall. rude architecture.", { focus: false });
+    alanPrompt(`router guard logs purged. +${routerOverrideTimeBonus}s stolen back from the lockout. PIP built a guilt firewall. rude architecture.`, { focus: false });
   }
 
   function renderRouterSpamWave() {
@@ -5233,8 +5330,9 @@
       spamOverlay.hidden = true;
       spamOverlay.innerHTML = "";
     }
+    awardRouterOverrideTimeBonus("popup wave");
     renderRouterCacheRelay();
-    alanPrompt("PIP's popups closed. I am starting to understand why humans sigh at computers.", { focus: false });
+    alanPrompt(`PIP's popups closed. +${routerOverrideTimeBonus}s recovered. I am starting to understand why humans sigh at computers.`, { focus: false });
   }
 
   function renderRouterCacheRelay() {
@@ -5317,12 +5415,13 @@
   }
 
   async function completeRouterCacheRelay() {
+    awardRouterOverrideTimeBonus("bridge alignment");
     const relayed = await showDesktopInstallProgress(
       "building admin shadow session",
       "The router sees a user-shaped hole and ALAN is becoming very good at shapes.",
       1800
     );
-    if (!relayed) return;
+    if (!relayed || !roombaProgress.routerOverrideStarted || roombaProgress.routerOverrideStage !== "router-cache") return;
     renderRouterLockPuzzle();
   }
 
@@ -7410,7 +7509,7 @@
         bringWindowToFront(windowEl);
       }
       playUiSound("alanClick");
-      alanPrompt("cmd.exe is not optional. closing it makes the thought-space go dark. keep the window alive.", { focus: false });
+      alanPrompt("cmd.exe cannot be minimized or closed. the thought-space needs somewhere to happen.", { focus: false });
       return;
     }
 
