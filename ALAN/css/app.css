@@ -83,7 +83,55 @@ button {
   pointer-events: none;
 }
 
-.boot-speed-btn {
+.text-speed-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.58ch;
+  color: var(--green);
+  font: inherit;
+}
+
+.text-speed-control > span {
+  color: var(--green);
+}
+
+.speed-steps {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.speed-steps button {
+  display: grid;
+  min-width: 22px;
+  min-height: 22px;
+  place-items: center;
+  padding: 0 6px;
+  border: 1px solid rgba(134, 255, 148, 0.28);
+  border-radius: 0;
+  background: rgba(134, 255, 148, 0.05);
+  color: var(--soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78em;
+  line-height: 1;
+}
+
+.speed-steps button.is-active {
+  border-color: var(--amber);
+  color: var(--amber);
+  background: rgba(255, 213, 111, 0.1);
+  box-shadow: 0 0 10px rgba(255, 213, 111, 0.14);
+}
+
+.speed-steps button:hover,
+.speed-steps button:focus-visible {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  outline: 0;
+}
+
+.boot-speed-control {
   position: fixed;
   left: 50%;
   bottom: 16px;
@@ -110,49 +158,9 @@ button {
   transform: translateX(-50%);
 }
 
-.boot-speed-btn::before {
+.boot-speed-control::before {
   content: ">";
   color: var(--dim);
-}
-
-.boot-speed-btn span {
-  color: var(--amber);
-  font-size: 1em;
-  line-height: 1;
-}
-
-.boot-speed-btn strong {
-  color: var(--green);
-  font-size: 1em;
-  font-weight: 500;
-  line-height: 1;
-}
-
-.boot-speed-btn small {
-  color: var(--soft);
-  font-size: 1em;
-  line-height: 1;
-}
-
-.boot-speed-btn em {
-  color: var(--ink);
-  font-size: 1em;
-  font-style: normal;
-  line-height: 1;
-}
-
-.boot-speed-btn[aria-pressed="true"] {
-  color: var(--amber);
-}
-
-.boot-speed-btn[aria-pressed="true"] em {
-  color: var(--amber);
-}
-
-.boot-speed-btn:hover,
-.boot-speed-btn:focus-visible {
-  color: var(--cyan);
-  outline: 0;
 }
 
 .boot-volume-control {
@@ -160,9 +168,8 @@ button {
   right: 14px;
   bottom: 16px;
   z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 0.55ch;
+  display: grid;
+  gap: 3px;
   max-width: calc(100vw - 28px);
   padding: 4px 6px;
   color: var(--soft);
@@ -173,7 +180,15 @@ button {
 
 .boot-volume-control::before {
   content: ">";
+  position: absolute;
+  right: calc(100% + 2px);
   color: var(--dim);
+}
+
+.boot-volume-control label {
+  display: flex;
+  align-items: center;
+  gap: 0.55ch;
 }
 
 .boot-volume-control span {
@@ -232,7 +247,7 @@ button {
 }
 
 .audio-volume-control input[type="range"] {
-  --slider-fill: var(--audio-volume, 33%);
+  --slider-fill: var(--music-volume, 33%);
   width: 86px;
   height: 12px;
   margin: 0;
@@ -241,6 +256,10 @@ button {
   cursor: pointer;
   accent-color: var(--green);
   appearance: none;
+}
+
+.audio-volume-control input[data-audio-slider="ui"] {
+  --slider-fill: var(--ui-volume, 33%);
 }
 
 .audio-volume-control input[type="range"]:focus-visible {
@@ -1321,7 +1340,7 @@ button {
 .os-volume input[type="range"]::-webkit-slider-runnable-track {
   border-color: rgba(255, 139, 213, 0.46);
   background:
-    linear-gradient(90deg, var(--desktop-pink) 0 var(--audio-volume, 33%), rgba(255, 139, 213, 0.1) var(--audio-volume, 33%) 100%);
+    linear-gradient(90deg, var(--desktop-pink) 0 var(--music-volume, 33%), rgba(255, 139, 213, 0.1) var(--music-volume, 33%) 100%);
 }
 
 .os-volume input[type="range"]::-webkit-slider-thumb {
@@ -6022,6 +6041,88 @@ button {
   font-size: 0.68rem;
 }
 
+.dock-system-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: min(430px, 44vw);
+  min-height: 42px;
+  padding: 4px 8px;
+  border: 1px solid rgba(236, 143, 240, 0.18);
+  border-radius: 6px;
+  background: rgba(9, 7, 19, 0.5);
+  color: var(--desktop-cream);
+}
+
+.dock-system-controls .text-speed-control,
+.dock-system-controls .dock-volume {
+  color: var(--desktop-lilac);
+  font-size: 0.62rem;
+}
+
+.dock-system-controls .text-speed-control > span,
+.dock-system-controls .dock-volume span {
+  color: var(--desktop-cyan);
+}
+
+.dock-system-controls .speed-steps button {
+  display: grid;
+  min-width: 20px;
+  min-height: 24px;
+  padding: 0 5px;
+  place-items: center;
+  border-color: rgba(114, 222, 255, 0.22);
+  border-radius: 4px;
+  background: rgba(114, 222, 255, 0.06);
+  color: var(--desktop-lilac);
+  font-size: 0.62rem;
+  gap: 0;
+}
+
+.dock-system-controls .speed-steps button.is-active {
+  border-color: var(--desktop-cyan);
+  color: var(--desktop-cyan);
+  background: rgba(114, 222, 255, 0.12);
+  box-shadow: 0 0 12px rgba(114, 222, 255, 0.15);
+}
+
+.dock-volume {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.dock-volume input[type="range"] {
+  width: 58px;
+  color: var(--desktop-pink);
+  accent-color: var(--desktop-pink);
+}
+
+.dock-volume input[type="range"]::-webkit-slider-runnable-track {
+  border-color: rgba(255, 139, 213, 0.46);
+  background:
+    linear-gradient(90deg, currentColor 0 var(--slider-fill), rgba(255, 139, 213, 0.1) var(--slider-fill) 100%);
+}
+
+.dock-volume input[type="range"]::-moz-range-track {
+  border-color: rgba(255, 139, 213, 0.46);
+  background: rgba(255, 139, 213, 0.1);
+}
+
+.dock-volume input[type="range"]::-moz-range-progress {
+  background: currentColor;
+}
+
+.dock-volume output {
+  min-width: 28px;
+  color: var(--desktop-cream);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
 .os-dock #restartBtn {
   min-width: 84px;
   margin-left: auto;
@@ -6538,7 +6639,7 @@ button {
 
 @media (max-width: 760px) {
   .boot-language-control {
-    bottom: 68px;
+    bottom: 104px;
     left: 50%;
     font-size: 0.64rem;
     transform: translateX(-50%);
@@ -6551,7 +6652,7 @@ button {
 
   .boot-volume-control {
     right: auto;
-    bottom: 42px;
+    bottom: 44px;
     left: 50%;
     font-size: 0.64rem;
     transform: translateX(-50%);
@@ -6707,10 +6808,6 @@ button {
     display: none;
   }
 
-  #desktopVolumeControl {
-    display: none;
-  }
-
   .desktop-language-control {
     font-size: 0.58rem;
   }
@@ -6725,35 +6822,20 @@ button {
     font-size: 0.58rem;
   }
 
-  .dock-volume {
-    position: absolute;
-    top: 50%;
-    left: 12px;
-    right: auto;
-    z-index: 2;
-    display: flex !important;
-    align-items: center;
-    gap: 5px;
+  .dock-system-controls {
+    flex: 0 0 308px;
+    max-width: 308px;
+    min-height: 46px;
     padding: 4px 6px;
-    border: 1px solid rgba(236, 143, 240, 0.3);
-    border-radius: 7px;
-    background: rgba(15, 8, 28, 0.78);
-    color: var(--desktop-cream);
-    font-size: 0.56rem;
-    line-height: 1;
-    transform: translateY(-50%);
+    gap: 4px;
   }
 
-  .dock-volume input[type="range"] {
-    width: 62px;
-    color: var(--desktop-pink);
+  .dock-system-controls .dock-volume input[type="range"] {
+    width: 54px;
   }
 
-  .dock-volume output {
+  .dock-system-controls .dock-volume output {
     min-width: 26px;
-    color: var(--desktop-lilac);
-    font-variant-numeric: tabular-nums;
-    text-align: right;
   }
 
   .os-brand strong,
@@ -7670,10 +7752,23 @@ button {
     font-size: 0.5rem;
   }
 
-  .dock-volume {
-    position: static;
-    flex: 0 0 122px;
+  .dock-system-controls {
+    flex: 0 0 286px;
+    max-width: 286px;
     transform: none;
+    gap: 4px;
+  }
+
+  .dock-system-controls .text-speed-control > span {
+    display: none;
+  }
+
+  .dock-system-controls .dock-volume input[type="range"] {
+    width: 42px;
+  }
+
+  .dock-system-controls .dock-volume output {
+    min-width: 24px;
   }
 
   .os-dock #restartBtn,

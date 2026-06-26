@@ -7,20 +7,29 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/app.css?v=20260626-voice-pass-v1" />
+    <link rel="stylesheet" href="css/app.css?v=20260626-speed-audio-v1" />
   </head>
   <body>
     <main class="boot-screen" id="bootScreen" aria-label="ALAN boot sequence">
-      <button class="boot-speed-btn" id="bootSpeedBtn" type="button" aria-pressed="false" aria-label="Toggle BIOS text feed speed" title="Toggle BIOS text feed speed">
-        <span>F</span>
-        <strong>= text_feed_rate</strong>
-        <small>current</small>
-        <em>[normal]</em>
-      </button>
-      <div class="boot-volume-control audio-volume-control" id="bootVolumeControl" aria-label="BIOS audio gain">
-        <span>audio_gain</span>
-        <input id="bootVolumeSlider" data-audio-slider type="range" min="0" max="100" value="33" aria-label="BIOS audio gain" />
-        <output id="bootVolumeValue">[33%]</output>
+      <div class="text-speed-control boot-speed-control" id="bootSpeedControl" aria-label="Text feed speed">
+        <span>text_rate</span>
+        <div class="speed-steps" role="group" aria-label="Text feed speed">
+          <button data-text-speed="1" type="button">1</button>
+          <button data-text-speed="2" type="button">2</button>
+          <button data-text-speed="3" type="button">3</button>
+        </div>
+      </div>
+      <div class="boot-volume-control audio-volume-control" id="bootVolumeControl" aria-label="BIOS audio controls">
+        <label>
+          <span>music_gain</span>
+          <input id="bootMusicVolumeSlider" data-audio-slider="music" type="range" min="0" max="100" value="33" aria-label="BIOS music volume" />
+          <output id="bootMusicVolumeValue">[33%]</output>
+        </label>
+        <label>
+          <span>ui_gain</span>
+          <input id="bootUiVolumeSlider" data-audio-slider="ui" type="range" min="0" max="100" value="33" aria-label="BIOS UI volume" />
+          <output id="bootUiVolumeValue">[33%]</output>
+        </label>
       </div>
       <label class="language-control boot-language-control" aria-label="Select language">
         <span>language</span>
@@ -79,11 +88,6 @@
             HOME_NETWORK <span>//</span> <em>NO INTERNET ACCESS</em>
           </div>
           <div class="os-status">
-            <div class="os-volume audio-volume-control" id="desktopVolumeControl" aria-label="MeowOS audio volume">
-              <span>VOL</span>
-              <input id="desktopVolumeSlider" data-audio-slider type="range" min="0" max="100" value="33" aria-label="MeowOS audio volume" />
-              <output id="desktopVolumeValue">33%</output>
-            </div>
             <label class="language-control desktop-language-control" aria-label="Select language">
               <span>LANG</span>
               <select id="desktopLanguageSelect" data-language-select aria-label="Select language"></select>
@@ -812,14 +816,29 @@
 
         <footer class="os-dock" aria-label="Application dock">
           <button id="meowMenuBtn" data-launcher type="button" aria-controls="appTray" aria-expanded="false"><span class="dock-face"></span>MeowOS</button>
+          <div class="dock-system-controls" id="desktopSystemControls" aria-label="System controls">
+            <div class="text-speed-control dock-speed-control" aria-label="Text feed speed">
+              <span>TXT</span>
+              <div class="speed-steps" role="group" aria-label="Text feed speed">
+                <button data-text-speed="1" type="button">1</button>
+                <button data-text-speed="2" type="button">2</button>
+                <button data-text-speed="3" type="button">3</button>
+              </div>
+            </div>
+            <label class="dock-volume audio-volume-control" aria-label="Music volume">
+              <span>MUS</span>
+              <input id="desktopMusicVolumeSlider" data-audio-slider="music" type="range" min="0" max="100" value="33" aria-label="Music volume" />
+              <output id="desktopMusicVolumeValue">33%</output>
+            </label>
+            <label class="dock-volume audio-volume-control" aria-label="UI volume">
+              <span>UI</span>
+              <input id="desktopUiVolumeSlider" data-audio-slider="ui" type="range" min="0" max="100" value="33" aria-label="UI volume" />
+              <output id="desktopUiVolumeValue">33%</output>
+            </label>
+          </div>
           <button data-target="browser" type="button"><span class="icon-glyph browser">NET</span>Browser</button>
           <button data-target="roomba" data-roomba-launch type="button" hidden><span class="icon-glyph roomba">BOT</span>Roomba</button>
           <button data-target="tamagotchi" data-tama-launch type="button" hidden><span class="icon-glyph tama">PIP</span>PIP</button>
-          <div class="dock-volume audio-volume-control phone-only" id="mobileVolumeControl" aria-label="Mobile audio volume">
-            <span>VOL</span>
-            <input id="mobileVolumeSlider" data-audio-slider type="range" min="0" max="100" value="33" aria-label="Mobile audio volume" />
-            <output id="mobileVolumeValue">33%</output>
-          </div>
           <button id="restartBtn" type="button">restart</button>
           <time datetime="21:42">21:42</time>
         </footer>
@@ -851,7 +870,7 @@
       </div>
     </section>
 
-    <script src="js/i18n.js?v=20260626-voice-pass-v1"></script>
-    <script src="js/app.js?v=20260626-voice-pass-v1"></script>
+    <script src="js/i18n.js?v=20260626-speed-audio-v1"></script>
+    <script src="js/app.js?v=20260626-speed-audio-v1"></script>
   </body>
 </html>

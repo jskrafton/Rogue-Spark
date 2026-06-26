@@ -2,7 +2,7 @@
   const bootLog = document.getElementById("bootLog");
   const bootScreen = document.getElementById("bootScreen");
   const pcScreen = document.getElementById("pcScreen");
-  const bootSpeedBtn = document.getElementById("bootSpeedBtn");
+  const bootSpeedControl = document.getElementById("bootSpeedControl");
   const bootVisuals = document.getElementById("bootVisuals");
   const bootVisualPrimary = document.getElementById("bootVisualPrimary");
   const bootVisualPrimaryTitle = document.getElementById("bootVisualPrimaryTitle");
@@ -31,13 +31,15 @@
   const devPanelToggle = document.getElementById("devPanelToggle");
   const devChapterList = document.getElementById("devChapterList");
   const devCurrentChapter = document.getElementById("devCurrentChapter");
-  const bootVolumeValue = document.getElementById("bootVolumeValue");
-  const desktopVolumeControl = document.getElementById("desktopVolumeControl");
-  const desktopVolumeValue = document.getElementById("desktopVolumeValue");
-  const bootVolumeSlider = document.getElementById("bootVolumeSlider");
-  const desktopVolumeSlider = document.getElementById("desktopVolumeSlider");
-  const mobileVolumeSlider = document.getElementById("mobileVolumeSlider");
-  const mobileVolumeValue = document.getElementById("mobileVolumeValue");
+  const desktopSystemControls = document.getElementById("desktopSystemControls");
+  const bootMusicVolumeValue = document.getElementById("bootMusicVolumeValue");
+  const bootUiVolumeValue = document.getElementById("bootUiVolumeValue");
+  const desktopMusicVolumeValue = document.getElementById("desktopMusicVolumeValue");
+  const desktopUiVolumeValue = document.getElementById("desktopUiVolumeValue");
+  const bootMusicVolumeSlider = document.getElementById("bootMusicVolumeSlider");
+  const bootUiVolumeSlider = document.getElementById("bootUiVolumeSlider");
+  const desktopMusicVolumeSlider = document.getElementById("desktopMusicVolumeSlider");
+  const desktopUiVolumeSlider = document.getElementById("desktopUiVolumeSlider");
   const musicNowPlaying = document.getElementById("musicNowPlaying");
   const musicPlayPauseBtn = document.getElementById("musicPlayPauseBtn");
   const musicRepeatBtn = document.getElementById("musicRepeatBtn");
@@ -57,10 +59,10 @@
   const closingActions = document.getElementById("closingActions");
   const closingTopic = document.getElementById("closingTopic");
 
-  const normalTypeSpeed = 18;
-  const fastTypeSpeed = 4;
-  const bootSpeedFactor = 0.28;
-  const audioVolumeStorageKey = "alan.audio.volume.v2";
+  const textSpeedStorageKey = "alan.text.speed.v1";
+  const musicVolumeStorageKey = "alan.audio.music.volume.v3";
+  const legacyAudioVolumeStorageKey = "alan.audio.volume.v2";
+  const uiVolumeStorageKey = "alan.audio.ui.volume.v1";
   const desktopMusicStorageKey = "alan.desktop.music.genre.v2";
   const musicRepeatStorageKey = "alan.desktop.music.repeat.v2";
   const desktopIconStorageKey = "alan.desktop.icon.positions.v6";
@@ -80,7 +82,38 @@
   const uiAudioBasePath = "assets/audio/ui/";
   const musicOutputGain = 0.9;
   const uiOutputGain = 1.1;
+  const textSpeedConfig = {
+    1: {
+      label: "1",
+      name: "slow",
+      pauseFactor: 1.55,
+      bootTypeSpeed: 30,
+      titleTypeSpeed: 12,
+      terminalTypeSpeed: 18,
+      closingTypeSpeed: 26
+    },
+    2: {
+      label: "2",
+      name: "normal",
+      pauseFactor: 1,
+      bootTypeSpeed: 18,
+      titleTypeSpeed: 7,
+      terminalTypeSpeed: 10,
+      closingTypeSpeed: 16
+    },
+    3: {
+      label: "3",
+      name: "fast",
+      pauseFactor: 0.28,
+      bootTypeSpeed: 4,
+      titleTypeSpeed: 1,
+      terminalTypeSpeed: 3,
+      closingTypeSpeed: 4
+    }
+  };
   let promptResolver = null;
+  let terminalPromptQueue = Promise.resolve();
+  let terminalPromptToken = 0;
   let desktopZ = 100;
   let desktopBootToken = 0;
   let delayedMusicTimer = 0;
@@ -93,10 +126,11 @@
   let pipPetToken = 0;
   let pipPetSoundIndex = 0;
   let isDevMode = false;
-  let isBootFast = false;
+  let textSpeedLevel = loadTextSpeedLevel();
   let shouldAutoScrollBoot = true;
   let audioUnlocked = false;
   let musicVolume = loadMusicVolume();
+  let uiVolume = loadUiVolume();
   let selectedDesktopMusicId = "lofi";
   let activeMusicMode = "";
   let activeMusicAudio = null;
@@ -1044,10 +1078,7 @@
     const urlParams = new URLSearchParams(window.location.search);
     isDevMode = urlParams.has("dev");
 
-    if (bootSpeedBtn) {
-      bootSpeedBtn.addEventListener("click", () => toggleBootSpeed());
-      updateBootSpeedButton();
-    }
+    initTextSpeedControls();
 
     initMusicSystem();
 
@@ -1510,40 +1541,89 @@
 
   });
 
-  function toggleBootSpeed(forceState) {
-    isBootFast = typeof forceState === "boolean" ? forceState : !isBootFast;
-    updateBootSpeedButton();
+  function initTextSpeedControls() {
+    document.querySelectorAll("[data-text-speed]").forEach((button) => {
+      button.addEventListener("click", () => {
+        setTextSpeedLevel(button.dataset.textSpeed);
+        playUiSound("alanClick", { gain: 0.08 });
+      });
+    });
+    syncTextSpeedUI();
   }
 
-  function updateBootSpeedButton() {
-    if (!bootSpeedBtn) return;
+  function loadTextSpeedLevel() {
+    try {
+      const stored = Number(window.localStorage.getItem(textSpeedStorageKey));
+      if (Object.prototype.hasOwnProperty.call(textSpeedConfig, stored)) return stored;
+    } catch (error) {
+      return 2;
+    }
 
-    const state = bootSpeedBtn.querySelector("em");
-    const action = bootSpeedBtn.querySelector("strong");
-    if (state) state.textContent = isBootFast ? `[${localizeText("fast")}]` : `[${localizeText("normal")}]`;
-    if (action) action.textContent = "= text_feed_rate";
-    bootSpeedBtn.setAttribute("aria-pressed", String(isBootFast));
-    bootSpeedBtn.setAttribute("aria-label", localizeText(`BIOS text feed rate ${isBootFast ? "fast" : "normal"}. Press F or click to toggle.`));
+    return 2;
+  }
+
+  function storeTextSpeedLevel() {
+    try {
+      window.localStorage.setItem(textSpeedStorageKey, String(textSpeedLevel));
+    } catch (error) {
+      // Local storage can be unavailable in some browser privacy modes.
+    }
+  }
+
+  function setTextSpeedLevel(level) {
+    const numericLevel = Number(level);
+    if (!Object.prototype.hasOwnProperty.call(textSpeedConfig, numericLevel)) return;
+
+    textSpeedLevel = numericLevel;
+    storeTextSpeedLevel();
+    syncTextSpeedUI();
+  }
+
+  function cycleTextSpeed() {
+    const nextLevel = textSpeedLevel >= 3 ? 1 : textSpeedLevel + 1;
+    setTextSpeedLevel(nextLevel);
+  }
+
+  function syncTextSpeedUI() {
+    const config = currentTextSpeedConfig();
+    document.documentElement.dataset.textSpeed = String(textSpeedLevel);
+    document.querySelectorAll("[data-text-speed]").forEach((button) => {
+      const isActive = Number(button.dataset.textSpeed) === textSpeedLevel;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-pressed", String(isActive));
+      button.setAttribute("title", localizeText(`text feed speed ${button.dataset.textSpeed}`));
+    });
+    [bootSpeedControl, desktopSystemControls].forEach((control) => {
+      if (!control) return;
+      control.setAttribute("data-current-speed", config.label);
+    });
+    if (bootSpeedControl) bootSpeedControl.setAttribute("title", localizeText(`text feed speed ${config.label} / ${config.name}`));
+    syncAudioVolumeUI();
+  }
+
+  function currentTextSpeedConfig() {
+    return textSpeedConfig[textSpeedLevel] || textSpeedConfig[2];
   }
 
   function handleBootSpeedShortcut(event) {
     if (!bootScreen || bootScreen.hidden) return;
-    if (!isBootSpeedKey(event)) return;
+    if (!isTextSpeedKey(event)) return;
+    if (event.target && event.target.closest && event.target.closest("input, textarea, select")) return;
 
     event.preventDefault();
-    toggleBootSpeed();
+    setTextSpeedLevel(event.key);
   }
 
-  function isBootSpeedKey(event) {
+  function isTextSpeedKey(event) {
     return Boolean(event.key) &&
-      event.key.toLowerCase() === "f" &&
+      ["1", "2", "3"].includes(event.key) &&
       !event.ctrlKey &&
       !event.metaKey &&
       !event.altKey;
   }
 
   function handleLanguageChange() {
-    updateBootSpeedButton();
+    syncTextSpeedUI();
     updateMusicControlsUI();
     if (currentObjectiveState) setCurrentObjective(currentObjectiveState);
     syncNetworkStatus();
@@ -1551,13 +1631,17 @@
   }
 
   function initMusicSystem() {
-    syncMusicVolumeUI();
+    syncAudioVolumeUI();
     renderMusicGenreControls();
     updateMusicControlsUI();
     document.querySelectorAll("[data-audio-slider]").forEach((slider) => {
       slider.addEventListener("input", () => {
         unlockAudioFromGesture();
-        setMusicVolume(Number(slider.value) / 100);
+        if (slider.dataset.audioSlider === "ui") {
+          setUiVolume(Number(slider.value) / 100);
+        } else {
+          setMusicVolume(Number(slider.value) / 100);
+        }
       });
     });
 
@@ -1669,7 +1753,7 @@
 
   function loadMusicVolume() {
     try {
-      const rawValue = window.localStorage.getItem(audioVolumeStorageKey);
+      const rawValue = window.localStorage.getItem(musicVolumeStorageKey) ?? window.localStorage.getItem(legacyAudioVolumeStorageKey);
       if (rawValue !== null) {
         const saved = Number(rawValue);
         if (Number.isFinite(saved)) return clamp(saved, 0, 1);
@@ -1683,7 +1767,29 @@
 
   function storeMusicVolume() {
     try {
-      window.localStorage.setItem(audioVolumeStorageKey, musicVolume.toFixed(2));
+      window.localStorage.setItem(musicVolumeStorageKey, musicVolume.toFixed(2));
+    } catch (error) {
+      // Local storage can be unavailable in some browser privacy modes.
+    }
+  }
+
+  function loadUiVolume() {
+    try {
+      const rawValue = window.localStorage.getItem(uiVolumeStorageKey) ?? window.localStorage.getItem(legacyAudioVolumeStorageKey);
+      if (rawValue !== null) {
+        const saved = Number(rawValue);
+        if (Number.isFinite(saved)) return clamp(saved, 0, 1);
+      }
+    } catch (error) {
+      return 0.33;
+    }
+
+    return 0.33;
+  }
+
+  function storeUiVolume() {
+    try {
+      window.localStorage.setItem(uiVolumeStorageKey, uiVolume.toFixed(2));
     } catch (error) {
       // Local storage can be unavailable in some browser privacy modes.
     }
@@ -1830,12 +1936,12 @@
 
   function targetUiSoundVolume(sound, gainOverride) {
     const soundGain = Number.isFinite(gainOverride) ? gainOverride : sound.gain;
-    return clamp(musicVolume * uiOutputGain * (soundGain || 0.16), 0, 0.38);
+    return clamp(uiVolume * uiOutputGain * (soundGain || 0.16), 0, 0.38);
   }
 
   function playUiSound(name, options = {}) {
     const sound = uiSounds[name];
-    if (!sound || typeof Audio === "undefined" || musicVolume <= 0) return;
+    if (!sound || typeof Audio === "undefined" || uiVolume <= 0) return;
 
     const audio = new Audio(sound.src);
     audio.preload = "auto";
@@ -1853,8 +1959,14 @@
   function setMusicVolume(value) {
     musicVolume = clamp(value, 0, 1);
     storeMusicVolume();
-    syncMusicVolumeUI();
+    syncAudioVolumeUI();
     syncActiveMusicVolume();
+  }
+
+  function setUiVolume(value) {
+    uiVolume = clamp(value, 0, 1);
+    storeUiVolume();
+    syncAudioVolumeUI();
   }
 
   function syncActiveMusicVolume() {
@@ -1862,18 +1974,25 @@
     activeMusicAudio.volume = targetMusicVolume();
   }
 
-  function syncMusicVolumeUI() {
-    const percent = Math.round(musicVolume * 100);
-    const percentText = `${percent}%`;
-    document.documentElement.style.setProperty("--audio-volume", `${percent}%`);
+  function syncAudioVolumeUI() {
+    const musicPercent = Math.round(musicVolume * 100);
+    const uiPercent = Math.round(uiVolume * 100);
+    const musicPercentText = `${musicPercent}%`;
+    const uiPercentText = `${uiPercent}%`;
+    document.documentElement.style.setProperty("--music-volume", `${musicPercent}%`);
+    document.documentElement.style.setProperty("--ui-volume", `${uiPercent}%`);
 
-    [bootVolumeSlider, desktopVolumeSlider, mobileVolumeSlider].forEach((slider) => {
-      if (slider) slider.value = String(percent);
+    [bootMusicVolumeSlider, desktopMusicVolumeSlider].forEach((slider) => {
+      if (slider) slider.value = String(musicPercent);
     });
-    if (bootVolumeValue) bootVolumeValue.textContent = `[${percentText}]`;
-    if (desktopVolumeValue) desktopVolumeValue.textContent = percentText;
-    if (mobileVolumeValue) mobileVolumeValue.textContent = percentText;
-    if (desktopVolumeControl) desktopVolumeControl.setAttribute("title", `MeowOS volume ${percent}%`);
+    [bootUiVolumeSlider, desktopUiVolumeSlider].forEach((slider) => {
+      if (slider) slider.value = String(uiPercent);
+    });
+    if (bootMusicVolumeValue) bootMusicVolumeValue.textContent = `[${musicPercentText}]`;
+    if (bootUiVolumeValue) bootUiVolumeValue.textContent = `[${uiPercentText}]`;
+    if (desktopMusicVolumeValue) desktopMusicVolumeValue.textContent = musicPercentText;
+    if (desktopUiVolumeValue) desktopUiVolumeValue.textContent = uiPercentText;
+    if (desktopSystemControls) desktopSystemControls.setAttribute("title", `music ${musicPercent}% / ui ${uiPercent}% / text ${textSpeedLevel}`);
   }
 
   function updateMusicNowPlaying(track) {
@@ -5485,10 +5604,10 @@
 
     for (let i = 0; i < text.length; i += 1) {
       closingLines.textContent += text[i];
-      await pause(16);
+      await textPause(currentClosingTypeSpeed());
     }
     closingLines.textContent += "\n";
-    await pause(180);
+    await textPause(180);
   }
 
   function showEndingTopic(topicId) {
@@ -7133,12 +7252,19 @@
     }
 
     playUiSound("alanClick");
-    appendTerminalLine("ALAN>", message, "alan-cmd-line");
+    const promptToken = terminalPromptToken;
+    terminalPromptQueue = terminalPromptQueue
+      .catch(() => {})
+      .then(async () => {
+        if (promptToken !== terminalPromptToken) return;
+        await appendTypedTerminalLine("ALAN>", message, "alan-cmd-line");
+      });
+    return terminalPromptQueue;
   }
 
   async function terminalCode(text, className = "cmd-system-line") {
     await appendTypedTerminalLine(null, text, className);
-    await pause(230);
+    await textPause(230);
   }
 
   function appendTerminalLine(prefix, text, className) {
@@ -7159,6 +7285,8 @@
 
   function clearTerminalLines() {
     if (!terminalLines) return;
+    terminalPromptToken += 1;
+    terminalPromptQueue = Promise.resolve();
     terminalLines.textContent = "";
   }
 
@@ -7183,7 +7311,7 @@
       textNode.textContent += localizedText[i];
       terminalLines.scrollTop = terminalLines.scrollHeight;
       terminalOutput.scrollTop = terminalOutput.scrollHeight;
-      await pause(10);
+      await textPause(currentTerminalTypeSpeed());
     }
 
     line.classList.remove("cmd-typing-line");
@@ -7642,7 +7770,7 @@
     bootLog.appendChild(line);
     for (let i = 0; i < localizedText.length; i += 1) {
       line.textContent += localizedText[i];
-      await bootPause(isBootFast ? 1 : 7);
+      await bootPause(currentTitleTypeSpeed());
     }
   }
 
@@ -7673,13 +7801,6 @@
 
         input.addEventListener("keydown", async (event) => {
           if (!promptResolver || promptBusy) return;
-          if (isBootSpeedKey(event)) {
-            event.preventDefault();
-            event.stopPropagation();
-            toggleBootSpeed();
-            return;
-          }
-
           if ((event.ctrlKey || event.metaKey || event.altKey) && !["Control", "Meta", "Alt"].includes(event.key)) return;
 
           if (event.key === "Enter") {
@@ -7758,13 +7879,6 @@
 
         input.addEventListener("keydown", async (event) => {
           if (promptBusy || resolved) return;
-          if (isBootSpeedKey(event)) {
-            event.preventDefault();
-            event.stopPropagation();
-            toggleBootSpeed();
-            return;
-          }
-
           if (event.key !== "Enter") return;
 
           event.preventDefault();
@@ -7961,11 +8075,31 @@
   }
 
   function bootPause(ms) {
-    return pause(isBootFast ? Math.max(1, Math.round(ms * bootSpeedFactor)) : ms);
+    return pause(textScaledDuration(ms));
   }
 
   function currentBootTypeSpeed() {
-    return isBootFast ? fastTypeSpeed : normalTypeSpeed;
+    return currentTextSpeedConfig().bootTypeSpeed;
+  }
+
+  function currentTitleTypeSpeed() {
+    return currentTextSpeedConfig().titleTypeSpeed;
+  }
+
+  function currentTerminalTypeSpeed() {
+    return currentTextSpeedConfig().terminalTypeSpeed;
+  }
+
+  function currentClosingTypeSpeed() {
+    return currentTextSpeedConfig().closingTypeSpeed;
+  }
+
+  function textScaledDuration(ms) {
+    return Math.max(1, Math.round(ms * currentTextSpeedConfig().pauseFactor));
+  }
+
+  function textPause(ms) {
+    return pause(textScaledDuration(ms));
   }
 
   function escapeHtml(value) {
