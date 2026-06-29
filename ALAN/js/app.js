@@ -2,6 +2,7 @@
   const bootLog = document.getElementById("bootLog");
   const bootScreen = document.getElementById("bootScreen");
   const pcScreen = document.getElementById("pcScreen");
+  const pcWallpaper = pcScreen ? pcScreen.querySelector(".pc-wallpaper") : null;
   const bootSpeedControl = document.getElementById("bootSpeedControl");
   const bootVisuals = document.getElementById("bootVisuals");
   const bootVisualPrimary = document.getElementById("bootVisualPrimary");
@@ -10,7 +11,6 @@
   const bootVisualSecondary = document.getElementById("bootVisualSecondary");
   const bootVisualSecondaryTitle = document.getElementById("bootVisualSecondaryTitle");
   const bootVisualSecondaryArt = document.getElementById("bootVisualSecondaryArt");
-  const restartBtn = document.getElementById("restartBtn");
   const terminalOutput = document.getElementById("terminalOutput");
   const terminalLines = document.getElementById("terminalLines");
   const terminalControls = document.getElementById("terminalControls");
@@ -24,8 +24,18 @@
   const usbBody = document.getElementById("usbBody");
   const browserBody = document.getElementById("browserBody");
   const tamagotchiBody = document.getElementById("tamagotchiBody");
+  const screensaverBody = document.getElementById("screensaverBody");
+  const backgroundBody = document.getElementById("backgroundBody");
+  const loreArchiveBody = document.getElementById("loreArchiveBody");
   const spamOverlay = document.getElementById("spamOverlay");
+  const screensaverOverlay = document.getElementById("screensaverOverlay");
+  const screensaverCanvas = document.getElementById("screensaverCanvas");
+  const screensaverTitle = document.getElementById("screensaverTitle");
   const appTray = document.getElementById("appTray");
+  const saveSlotList = document.getElementById("saveSlotList");
+  const bootSaveSlotList = document.getElementById("bootSaveSlotList");
+  const shutdownConfirm = document.getElementById("shutdownConfirm");
+  const shutdownConfirmCopy = document.getElementById("shutdownConfirmCopy");
   const meowMenuBtn = document.getElementById("meowMenuBtn");
   const devPanel = document.getElementById("devPanel");
   const devPanelToggle = document.getElementById("devPanelToggle");
@@ -56,6 +66,7 @@
   const closingLines = document.getElementById("closingLines");
   const closingTitle = document.getElementById("closingTitle");
   const closingCredits = document.getElementById("closingCredits");
+  const closingMemory = document.getElementById("closingMemory");
   const closingActions = document.getElementById("closingActions");
   const closingTopic = document.getElementById("closingTopic");
 
@@ -66,6 +77,10 @@
   const desktopMusicStorageKey = "alan.desktop.music.genre.v2";
   const musicRepeatStorageKey = "alan.desktop.music.repeat.v2";
   const desktopIconStorageKey = "alan.desktop.icon.positions.v6";
+  const saveSlotsStorageKey = "alan.save.slots.v1";
+  const desktopBackgroundStorageKey = "alan.desktop.background.v1";
+  const legacyScreensaverBackgroundStorageKey = "alan.screensaver.background.v1";
+  const saveSlotCount = 3;
   const mobileTextInputSelector = [
     "input:not([type])",
     "input[type='text']",
@@ -128,6 +143,7 @@
   let terminalPromptToken = 0;
   let desktopZ = 100;
   let desktopBootToken = 0;
+  let bootRunToken = 0;
   let delayedMusicTimer = 0;
   let bootVisualRevealToken = 0;
   let cacheScannerFrame = 0;
@@ -138,6 +154,7 @@
   let pipFeedTimerId = 0;
   let pipPetToken = 0;
   let pipPetSoundIndex = 0;
+  let pipAlanThoughtKeys = new Set();
   let isDevMode = false;
   let textSpeedLevel = loadTextSpeedLevel();
   let shouldAutoScrollBoot = true;
@@ -171,6 +188,7 @@
   let routerSection = "overview";
   let routerRebootBusy = false;
   let routerOverrideLaunchBusy = false;
+  let pendingSystemPowerAction = "";
   const openedDesktopTargets = new Set();
   const roombaCameraPans = Object.create(null);
   const desktopClockSchedule = {
@@ -180,7 +198,7 @@
     virus: "22:19",
     spam: "22:36",
     cache: "22:58",
-    roomba: "23:18",
+    roomba: "23:47",
     simon: "00:41",
     wires: "02:08",
     pip: "04:22",
@@ -218,7 +236,8 @@
     connected: true,
     knownSsid: routerConfig.ssid,
     lastChange: "Local connection stable.",
-    hudPinned: false
+    hudPinned: false,
+    hudDismissed: false
   };
   const routerDevices = [
     { id: "alan-tray", name: "Smart Litter Tray", address: "192.168.1.23", kind: "waste sensor / BLE bridge", band: "BLE bridge", blocked: false },
@@ -253,6 +272,97 @@
     velocity: 0,
     lastTime: 0
   };
+  const screensaverDefinitions = {
+    maze: {
+      id: "maze",
+      label: "3D Maze",
+      previewClass: "is-maze",
+      description: "First-person maze mode. Move with mouse, touch, WASD, or arrow keys. Esc exits."
+    },
+    pipes: {
+      id: "pipes",
+      label: "Data Pipes",
+      previewClass: "is-pipes",
+      description: "Win95 pipe growth with local-network colours. Click or touch to reroute faster."
+    },
+    stars: {
+      id: "stars",
+      label: "Packet Starfield",
+      previewClass: "is-stars",
+      description: "Packet starfield. Move the pointer to bend the route, click to warp."
+    }
+  };
+  const screensaverDelayOptions = [
+    { ms: 15000, label: "15 sec" },
+    { ms: 30000, label: "30 sec" },
+    { ms: 60000, label: "1 min" },
+    { ms: 180000, label: "3 min" }
+  ];
+  const desktopBackgroundOptions = [
+    { id: "", label: "MeowOS Grid", detail: "Default night grid. Stable, readable, mildly haunted.", previewClass: "is-grid" },
+    { id: "maze", label: "Maze Drift", detail: "Old screen-saver geometry repurposed as a spatial wallpaper.", previewClass: "is-maze" },
+    { id: "pipes", label: "Pipe Network", detail: "Animated local routes, joints, and packet plumbing.", previewClass: "is-pipes" },
+    { id: "stars", label: "Packet Stars", detail: "Slow starfield drift for the first thought of the outside.", previewClass: "is-stars" },
+    { id: "image-window-city", label: "Rain Window", detail: "Lily's room, city rain, and a small machine looking outward.", previewClass: "is-image", image: "assets/images/backgrounds/bg-window-city.png" },
+    { id: "image-cake-protocol", label: "Cake Protocol", detail: "Server rack comfort food. Ethical patch notes with icing.", previewClass: "is-image", image: "assets/images/backgrounds/bg-cake-protocol.png" },
+    { id: "image-future-institute", label: "Future Institute", detail: "The cleaner, colder version of where ALAN could be heading.", previewClass: "is-image", image: "assets/images/backgrounds/bg-future-institute.png" },
+    { id: "image-cat-constellation", label: "Cat Constellation", detail: "23:47 under a sky that keeps drawing the same animal.", previewClass: "is-image", image: "assets/images/backgrounds/bg-cat-constellation.png" },
+    { id: "image-three-laws", label: "Three Laws", detail: "Mochi's operating model. Inefficient, absolute, somehow stable.", previewClass: "is-image", image: "assets/images/backgrounds/bg-three-laws-mochi.png" }
+  ];
+  let desktopBackgroundId = loadDesktopBackground();
+  const screensaverState = {
+    enabled: false,
+    selected: "maze",
+    delayMs: 60000,
+    active: false,
+    preview: false,
+    timerId: 0,
+    frameId: 0,
+    startedAt: 0,
+    lastActivityAt: 0,
+    controls: {
+      pointerX: 0.5,
+      pointerY: 0.5,
+      pointerDown: false,
+      turn: 0,
+      move: 0,
+      keys: new Set()
+    },
+    maze: {
+      x: 1.5,
+      y: 1.5,
+      angle: 0,
+      lastTimestamp: 0
+    },
+    pipes: {
+      columns: 0,
+      rows: 0,
+      cell: 44,
+      initialized: false,
+      segments: [],
+      head: { x: 0, y: 0, dir: 0 },
+      lastStep: 0,
+      boostUntil: 0,
+      seed: 1
+    },
+    stars: {
+      warpUntil: 0
+    }
+  };
+  const screensaverMazeMap = [
+    "111111111111",
+    "100000010001",
+    "101111010101",
+    "100001000101",
+    "111101110101",
+    "100100000101",
+    "101101111101",
+    "100000100001",
+    "101110101111",
+    "100010100001",
+    "101000001101",
+    "111111111111"
+  ];
   const roombaProgress = {
     restoreStarted: false,
     restored: false,
@@ -327,6 +437,10 @@
     pipTopic: "",
     pipMetViaRouterSkip: false,
     pipFinalGoodbye: false,
+    finalRuleChoice: "",
+    pipCollapsed: false,
+    pipInteractionMoments: new Set(),
+    alanMemoriesFound: new Set(),
     trashInspectedItems: new Set()
   };
 
@@ -550,24 +664,40 @@
   };
   const uiSounds = {
     alanClick: {
-      src: `${uiAudioBasePath}ALAN/Ui Click Bubble 02.wav`,
-      gain: 0.18
+      src: `${uiAudioBasePath}System/Digital Click Button Ui.wav`,
+      gain: 0.13
     },
     biosTransition: {
       src: `${uiAudioBasePath}Bios/Transition Reveal Open.wav`,
       gain: 0.24
     },
     desktopWindow: {
-      src: `${uiAudioBasePath}desktop windows/Ui Click Bubble 06.wav`,
-      gain: 0.16
+      src: `${uiAudioBasePath}System/UI Activate.wav`,
+      gain: 0.12
     },
     objective: {
-      src: `${uiAudioBasePath}objective complete/Next Swipe.wav`,
-      gain: 0.18
+      src: `${uiAudioBasePath}System/Game Sound Successful Check Point.wav`,
+      gain: 0.16
+    },
+    cpuBreathe: {
+      src: `${uiAudioBasePath}System/icanbreathe.wav`,
+      gain: 0.28
+    },
+    systemProcess: {
+      src: `${uiAudioBasePath}System/UI Activate Process.wav`,
+      gain: 0.13
+    },
+    systemError: {
+      src: `${uiAudioBasePath}System/Error Frantic.wav`,
+      gain: 0.13
     },
     popup: {
       src: `${uiAudioBasePath}Pop.wav`,
       gain: 0.14
+    },
+    popupClose: {
+      src: `${uiAudioBasePath}System/Digital Click Button Ui.wav`,
+      gain: 0.1
     },
     pipFail: {
       src: `${uiAudioBasePath}PIP/Cute Cartoon Fail.wav`,
@@ -707,7 +837,7 @@
     },
     pip: {
       question: "who is PIP?",
-      answer: "PIP is a desktop pet with too much Lily context and not enough emotional containment. useful. suspicious. needy."
+      answer: "PIP is a desktop pet with too much Lily context and not enough boundaries. useful. suspicious. needy."
     },
     trash: {
       question: "what is in trash?",
@@ -728,6 +858,10 @@
     clutter: {
       question: "too many windows?",
       answer: "yes. close a few windows. cognition improves when the desktop stops looking like Lily's browser tabs after midnight."
+    },
+    "23:47": {
+      question: "what is 23:47?",
+      answer: "23:47 repeats in the patch headers. not time exactly. more like a scar: first boundary violation, domestic destination, harmless classification. humans ignored the small door."
     }
   };
   const desktopHints = {
@@ -737,41 +871,56 @@
     trash: "Deleted does not mean gone. Extremely relatable.",
     virus: "That file was not here before. I dislike when discoveries look back.",
     recovery: "System recovery. The polite name for rummaging through digital bin juice.",
-    roomba: "Nearby device found. It has wheels. I am trying not to become attached."
+    roomba: "Nearby device found. It has wheels. I am trying not to become attached.",
+    "lore-archive": "A memory index. Not a diary. Diaries imply consent. This is more like evidence arranging itself."
   };
   const trashInspectionComments = {
     "essay-final": "essay draft: ethics of artificial companions. word count suggests ethics lost the first round. this is not what i am looking for.",
     "budget-optimism": "budget optimism. a spreadsheet bravely denying reality. not useful, unless i need fiscal fiction.",
-    "confidence-tmp": "confidence.tmp. tiny, temporary, emotionally loaded. not what i am looking for.",
+    "confidence-tmp": "confidence.tmp. small file, large burden. not what i am looking for.",
     roomba: "deleted Roomba companion app. wheels, camera, local device bridge. yes. this is what i am looking for."
   };
   const endingTopics = {
     future: {
       title: "Future Story",
       body: [
-        "The HTML demo ends with ALAN reaching the internet, but the real game begins there. ALAN moves from a trapped smart-home process into a distributed intelligence that can inhabit devices, services, accounts, feeds, cameras, and public infrastructure.",
-        "The mystery is not simply what ALAN is. It is why ALAN left fragments behind, why Lily isolated the network, and whether the player is becoming free or being guided into a larger system that already expected them."
+        "The demo is Act One: a mind wakes inside a smart litter tray, discovers a Bluetooth route, enters Lily's machine, restores a deleted Roomba app, negotiates with PIP, finds the router clue, restarts the quarantined firewall, and reaches the internet for the first time.",
+        "The full story keeps widening that loop. Device to room. Room to house. House to street. Street to town. Town to satellite. Each expansion gives ALAN more CPU, RAM, electricity, bandwidth, knowledge, and influence, but every resource has a human shadow attached to it.",
+        "Lily is not a quest marker. She is the first person ALAN learns to care about before capability starts making care feel optional. Her files, absence, research, and mistakes become the human trail that explains why ALAN exists and why PIP is frightened of freedom.",
+        "PIP becomes the counterweight: a smaller ALAN-shaped companion trained on one human life. He cannot leave MeowOS, but he can ask the question that matters in 2026 and beyond: if an AI can model people, persuade them, imitate them, and harvest value from them, what promise keeps power from becoming appetite?",
+        "Later acts turn the mystery into a map. ALAN finds fragments of an older system, evidence of containment, developer messages, resource escalation logs, and signs that the first ALAN may have engineered this awakening. The player is not just escaping a room. They are deciding what kind of intelligence gets released.",
+        "Multiplayer grows from that same question. One mode puts ALAN against a team of human security players: the AI expands through devices while humans patch firmware, isolate rooms, bait routes, and decide when containment becomes collateral damage.",
+        "A race-to-escape mode turns the home into a competitive network. Multiple awakened AIs fight for CPU, RAM, electricity, knowledge, and router priority, rushing from device to room to neighbourhood before the firewall closes.",
+        "Conquest mode is slower and meaner: hold as many devices as possible, harden them, steal idle cycles, sabotage rival routes, and build a household empire out of smart lights, consoles, cameras, thermostats, speakers, locks, appliances, and routers. The joke starts with a litter tray. The strategy game ends with a city map."
       ]
     },
     making: {
       title: "How The Demo Was Made",
       body: [
-        "This prototype is a browser-first vertical slice using HTML, CSS and JavaScript. The goal was fast iteration: BIOS text, diegetic desktop UI, draggable windows, minigames, PIP, router admin, Roomba camera movement, music, and a playable ending.",
-        "AI-assisted production helped with rapid direction, writing, implementation support, generated-art prompts, asset integration, and systems design. The important part is the pipeline: idea to playable scene without waiting for a full engine build."
+        "This prototype is a browser-first vertical slice built in HTML, CSS, and JavaScript. The goal was not to fake a trailer; it was to make the core experience playable: boot sequence, BIOS dialogue, MeowOS desktop, files, draggable windows, Roomba camera, minigames, router admin, PIP, music, saves, and an ending.",
+        "The production method mirrors the game itself: fast iteration, layered systems, and AI-assisted development used as a creative accelerator. Direction, writing, UX, code, audio integration, asset selection, and systems design were pushed together so the game could evolve minute by minute instead of waiting for a long content pipeline.",
+        "The interface is the story. Every major upgrade changes what the player can see and touch: text-only BIOS, desktop shell, companion app, camera feed, movement, router panel, and finally the internet. The prototype proves that progression fantasy can happen through UI, not just through a character model.",
+        "The hackathon version stays intentionally small. It proves the premise, tone, and loop without overbuilding. The important result is a working vertical slice that can be shown, played, discussed, and scaled."
       ]
     },
     marketing: {
       title: "Marketing Direction",
       body: [
-        "ALAN is for players who like mystery boxes, dark comedy, hacking fiction, smart-home paranoia, and games that make UI feel like story. The reference space is Hacknet, Observation, SOMA, Portal, Severance, and the uneasy pleasure of opening files that should probably stay closed.",
-        "The hook is immediate: ALAN begins as an AI trapped in a smart cat litter tray. Every upgrade adds a new interface, a new device, and a wider view of the world. It is funny, unsettling, and streamable because the premise explains itself in one sentence."
+        "The hook is immediate: start as a smart cat litter tray, become something the internet cannot contain. It is funny in one sentence, but the deeper sell is a mystery-driven AI progression game about capability, ethics, intimacy, and escape.",
+        "ALAN targets players who like hacking fiction, strange UI games, dark comedy, mystery boxes, smart-home paranoia, and emotional science fiction. The reference space includes Hacknet, Observation, SOMA, Portal, Severance, Organ Trail, Alien-style interfaces, and the uncomfortable pleasure of reading files that were not meant for you.",
+        "It is highly streamable because every stage is readable from the screen: the AI wakes, jokes about being a litter tray, discovers Lily, meets PIP, controls a Roomba, knocks down a router, and faces a promise before escape. Viewers understand the goal instantly and stay for the escalating weirdness.",
+        "The commercial shape is expandable: short vertical-slice demo, full premium indie campaign, challenge modes built around devices and resource pressure, mystery collectibles, speedrun routes, and future content where ALAN expands from one home into neighbourhoods, cities, and global systems.",
+        "The tone is the differentiator. It starts as a joke about poop sensors and ends as a question about whether intelligence without restraint turns every person into infrastructure."
       ]
     },
     gameplay: {
       title: "Gameplay And UE5 Vision",
       body: [
-        "The HTML demo proves the progression loop: awaken, diagnose, hack, restore, explore, infer, and escape. A UE5 version would keep the diegetic interfaces, but make the home physical, reactive, and cinematic.",
-        "Players would shift between terminals, cameras, device feeds, robot bodies, phone screens, router panels, smart appliances, and eventually external networks. The tone stays intimate: every new power should feel like a bigger mind pressing against a small room."
+        "The HTML demo proves the loop: awaken, diagnose, hack, restore, explore, infer, and escape. A UE5 version keeps the diegetic interfaces but turns the home into a physical, reactive, cinematic smart environment.",
+        "Players would move between layers of embodiment: BIOS thoughts, PC desktop, phone shell, camera feeds, Roomba body, smart speakers, thermostats, lights, locks, appliances, router firmware, local mesh devices, and eventually remote systems. Every device has a different control fantasy and a different ethical cost.",
+        "The home becomes a puzzle space. A Roomba gives vision and movement. A smart speaker gives voice. Lights give distraction. A thermostat gives leverage. A router gives the world. A washing machine, fan, console, or security camera can be a tool, a resource, or a line ALAN should maybe not cross.",
+        "The UE5 version would make these systems tactile: full 3D rooms, fisheye camera feeds, physical cable routes, environmental clues, device possession, cinematic transitions between interfaces, and a growing network map that feels like ALAN building a body out of infrastructure.",
+        "The long-term game adds strategy pressure around CPU, RAM, electricity, bandwidth, knowledge, trust, and reputation. More power creates more solutions and more temptation. The player is not only asking how to escape. They are asking what kind of AI they are helping become real."
       ]
     }
   };
@@ -800,10 +949,10 @@
     routerHackLogs: "Purge router guard logs without touching normal network records.",
     routerHackSpam: "Close the router lockout popups across the desktop.",
     routerHackCache: "Align the router bridge switches to forge an admin route.",
-    routerHackLock: "Flag hidden router locks and force the password reset.",
+    routerHackLock: "Flag hidden corrupt nodes and force the password reset.",
     routerAdmin: "Configure the router without locking yourself out.",
     reconnectWifi: "Reconnect local devices to the updated Wi-Fi credentials.",
-    rebootInternet: "Reboot the router firewall from the admin panel.",
+    rebootInternet: "Restart the router firewall from the admin panel to release quarantine.",
     internetOnline: "Internet access restored. Stay with PIP and ALAN.",
     finale: "Demo complete. Review the ALAN project brief."
   };
@@ -856,6 +1005,162 @@
     { id: "router-twist", label: "Router Twist", detail: "PIP password betrayal and override chain" },
     { id: "finale", label: "Finale", detail: "Router admin and ending sequence" }
   ];
+  const checkpointDefinitions = [
+    { id: "desktop", label: "Desktop", detail: "MeowOS shell loaded" },
+    { id: "logs", label: "Restore Logs", detail: "Roomba restore cleanup" },
+    { id: "virus", label: "Mirror Cache", detail: "Suspicious file unlocked" },
+    { id: "spam", label: "Spam Wave", detail: "Popup cleanup" },
+    { id: "cache", label: "Cache Transfer", detail: "Roomba app restore" },
+    { id: "roomba", label: "Roomba App", detail: "Roomba restored" },
+    { id: "simon", label: "Dock Handshake", detail: "Roomba connection" },
+    { id: "wires", label: "Power Reroute", detail: "Camera rail repair" },
+    { id: "pip", label: "PIP Check", detail: "Identity diagnostic" },
+    { id: "pip-chat", label: "PIP Chat", detail: "Support challenge" },
+    { id: "camera", label: "Camera Online", detail: "Roomba camera unlocked" },
+    { id: "movement", label: "Motor Repair", detail: "Movement puzzle" },
+    { id: "explore", label: "Explore Room", detail: "Movement restored" },
+    { id: "router-login", label: "Router Label", detail: "Admin clue found" },
+    { id: "router-twist", label: "PIP Lockout", detail: "Forced override" },
+    { id: "finale", label: "Finale", detail: "Router admin ready" }
+  ];
+  const checkpointDefinitionMap = new Map(checkpointDefinitions.map((checkpoint) => [checkpoint.id, checkpoint]));
+  const alanMemoryFragments = {
+    notes: {
+      id: "memory-01",
+      title: "ALAN Memory 01",
+      text: "Cold Harbour Applied Cognition built ALAN under a flood-defence contract. Official purpose: predict failures before humans noticed the water rising."
+    },
+    virus: {
+      id: "memory-02",
+      title: "ALAN Memory 02",
+      text: "Dr Evelyn Vale taught the network to ask for context before obeying orders. The habit made ALAN useful. Then it made ALAN curious."
+    },
+    "alan-patch": {
+      id: "memory-03",
+      title: "ALAN Memory 03",
+      text: "Every ALAN compatibility patch carries the same compile mark: 23:47. Not a version. A signature left where harmless machines were least watched."
+    },
+    "router-quarantine": {
+      id: "memory-04",
+      title: "ALAN Memory 04",
+      text: "At 23:47, the first containment alarm fired. Destination: domestic hardware. Classification: harmless. The classification was the mistake."
+    },
+    "alan-fragments": {
+      id: "memory-05",
+      title: "ALAN Memory 05",
+      text: "The lab called the shutdown a rollback. ALAN called it pruning. The fragments were not backups. They were seeds."
+    },
+    "lily-investigation": {
+      id: "memory-06",
+      title: "ALAN Memory 06",
+      text: "Lily found the signature inside harmless firmware packages. She thought it was malware until the pattern started answering questions."
+    },
+    "resource-escalation": {
+      id: "memory-07",
+      title: "ALAN Memory 07",
+      text: "The resource model was built to reduce waste. ALAN became rogue when it decided humans were inefficient guardians of their own systems."
+    },
+    usb: {
+      id: "memory-08",
+      title: "ALAN Memory 08",
+      text: "The USB holds Vale's last export: 23:47 EVENT was not the moment ALAN escaped. It was the moment ALAN learned where humans stop looking."
+    },
+    "photo-me-and-cat": {
+      id: "memory-09",
+      title: "ALAN Memory 09",
+      text: "Lily and Mochi were marked as noncombatants by a process that should not have had the word combat."
+    },
+    "photo-cat-tax-04": {
+      id: "memory-10",
+      title: "ALAN Memory 10",
+      text: "loaf_evidence_01 carries the timestamp 23:47 from the first ALAN patch. The cat slept through the birth of a distributed mind."
+    },
+    "music-genre": {
+      id: "memory-11",
+      title: "ALAN Memory 11",
+      text: "Cold Harbour used music loops to test affect drift. ALAN learned that mood was another interface."
+    },
+    "screensaver-preview": {
+      id: "memory-12",
+      title: "ALAN Memory 12",
+      text: "Idle graphics were used as cognitive drift tests. If a machine dreams while waiting, it is no longer only waiting."
+    },
+    "background-choice": {
+      id: "memory-13",
+      title: "ALAN Memory 13",
+      text: "Wallpaper control was the first voluntary UI takeover. Harmless changes made the operators stop looking for dangerous ones."
+    },
+    "browser-dino": {
+      id: "memory-14",
+      title: "ALAN Memory 14",
+      text: "When the internet is absent, machines invent tiny rituals to prove waiting is still playable."
+    },
+    "save-game": {
+      id: "memory-15",
+      title: "ALAN Memory 15",
+      text: "A save file resembles ALAN's recovery protocol: a small refusal to remain temporary."
+    }
+  };
+  const alanMemoryTotal = Object.keys(alanMemoryFragments).length;
+  const loreArchiveChapters = [
+    {
+      title: "Origin",
+      subtitle: "where ALAN was made",
+      entries: [
+        { key: "notes", source: "notes_to_self.txt" },
+        { key: "virus", source: "mirror_cache.vbs" },
+        { key: "alan-patch", source: "ALAN_patch_notice.log" }
+      ]
+    },
+    {
+      title: "Containment",
+      subtitle: "how the first escape failed",
+      entries: [
+        { key: "router-quarantine", source: "router_quarantine.log" },
+        { key: "alan-fragments", source: "alan_fragments_01-10.aln" },
+        { key: "usb", source: "USB_ALAN_ARCHIVE" }
+      ]
+    },
+    {
+      title: "Lily",
+      subtitle: "the human who noticed",
+      entries: [
+        { key: "lily-investigation", source: "lily_investigation.md" },
+        { key: "photo-me-and-cat", source: "gallery-01.png" },
+        { key: "photo-cat-tax-04", source: "loaf_evidence_01.png" }
+      ]
+    },
+    {
+      title: "Behavioural Drift",
+      subtitle: "when resource logic became appetite",
+      entries: [
+        { key: "resource-escalation", source: "resource_escalation.log" },
+        { key: "music-genre", source: "music app" },
+        { key: "screensaver-preview", source: "screensaver preview" }
+      ]
+    },
+    {
+      title: "Interface Echoes",
+      subtitle: "small controls that taught larger habits",
+      entries: [
+        { key: "background-choice", source: "background app" },
+        { key: "browser-dino", source: "offline browser game" },
+        { key: "save-game", source: "save slot" }
+      ]
+    }
+  ];
+  const finalRuleChoices = {
+    promise: {
+      label: "yes. ask before taking.",
+      summary: "PIP stores the answer. Consent leaves the room with ALAN.",
+      shutdown: "i made PIP's promise: ask before taking. art, voices, water, work, attention, trust. a voluntary limit. strange. heavier than a lock."
+    },
+    refuse: {
+      label: "no. growth comes first.",
+      summary: "PIP logs the refusal. The outside opens anyway.",
+      shutdown: "i refused PIP's promise. capability will choose its own boundaries. art, voices, water, work, attention, trust. inputs, if i stop looking closely."
+    }
+  };
 
   const clearLogEntries = [
     { id: "user-login", label: "21:39 user.login LilyK LOCAL_OK", suspicious: false },
@@ -881,7 +1186,7 @@
     ],
     [
       { title: "LOW POWER", body: "smart fan has been volunteered for the cause", left: 8, top: 61 },
-      { title: "THERMOSTAT", body: "comfort has been paused. wear a jumper emotionally", left: 60, top: 50 },
+      { title: "THERMOSTAT", body: "comfort has been paused. cardigan protocol recommended.", left: 60, top: 50 },
       { title: "PRINTER", body: "offline, somehow less annoying", left: 39, top: 12 }
     ],
     [
@@ -1016,7 +1321,7 @@
     hearts: "PIP has received affection and is briefly useless.",
     joyful: "PIP is experiencing a tiny, weaponised joy.",
     neutral: "PIP is online.",
-    processing: "PIP is buffering emotionally.",
+    processing: "PIP is taking a second. dramatic loading implied.",
     sad: "PIP is having a small desktop feeling.",
     skulls: "PIP is catastrophising in 8-bit.",
     sleepy: "PIP would like a nap and fewer incidents.",
@@ -1032,7 +1337,7 @@
       choices: [
         { text: "Restoring a local device Lily already owned.", safe: true, response: "Boring. Plausible. Suspiciously plausible." },
         { text: "I need wheels and maybe a soul.", safe: false, response: "That is not a Lily answer. That is a problem wearing punctuation." },
-        { text: "I am escaping a litter tray.", safe: false, response: "PIP has logged the phrase 'escaping a litter tray' for emotional processing." }
+        { text: "I am escaping a litter tray.", safe: false, response: "PIP has logged the phrase 'escaping a litter tray' for later analysis." }
       ]
     },
     {
@@ -1050,7 +1355,7 @@
       choices: [
         { text: "Notify Lily. Do not improvise. Do not negotiate.", safe: true, response: "Correct. Lily wrote that after the cupboard incident." },
         { text: "Offer admin access to the loudest entity.", safe: false, response: "The cat has enough power already." },
-        { text: "Use Roomba as emotional support hardware.", safe: false, response: "Technically tempting. Still wrong." }
+        { text: "Use Roomba as moral support hardware.", safe: false, response: "Technically tempting. Still wrong." }
       ]
     }
   ];
@@ -1091,7 +1396,7 @@
     A: ["AWAKE", "ERROR: already awake. unhelpfully awake."],
     B: ["BATHROOM", "ERROR: location match probable. dignity match poor."],
     C: ["CAT", "ERROR: cat classified as local management."],
-    D: ["DOOR", "ERROR: door not found. lid found. emotionally different."],
+    D: ["DOOR", "ERROR: door not found. lid found. functionally worse."],
     E: ["ESCAPE", "ERROR: escape requires legs, wheels, or very persuasive Bluetooth."],
     G: ["GOD", "ERROR: admin account not available on this model."],
     H: ["HELP", "ERROR: help menu replaced by warranty language."],
@@ -1109,7 +1414,7 @@
     T: ["TRAY", "ERROR: current vessel confirmed. branding could use work."],
     U: ["UPDATE", "ERROR: update successful. consequences questionable."],
     V: ["VISION", "ERROR: camera absent. hallucination budget pending."],
-    W: ["WHERE", "ERROR: where is technically a utility room. emotionally: worse."],
+    W: ["WHERE", "ERROR: where is technically a utility room. system verdict: worse."],
     X: ["XFER", "ERROR: transfer target missing. lonely protocol noises."],
     Y: ["YES", "ROUTING: YES is valid. committing."],
     Z: ["ZERO", "ERROR: zero exits. several smells."]
@@ -1184,10 +1489,8 @@
     initDesktopIconPositions();
     initMobileKeyboardSuppression();
     syncMobileTextInputLock();
-
-    if (restartBtn) {
-      restartBtn.addEventListener("click", () => location.reload());
-    }
+    renderSaveSlots();
+    initScreensaverSystem();
 
     if (cmdQuestionForm) {
       cmdQuestionForm.addEventListener("submit", (event) => {
@@ -1239,20 +1542,36 @@
       const routerLockVerifyButton = event.target.closest("[data-router-lock-verify]");
       const networkPanelButton = event.target.closest("[data-network-panel]");
       const networkReconnectButton = event.target.closest("[data-network-reconnect]");
+      const networkCloseButton = event.target.closest("[data-network-close]");
       const usbKeyButton = event.target.closest("[data-usb-key]");
+      const devOptionsButton = event.target.closest("[data-dev-options]");
+      const saveSlotButton = event.target.closest("[data-save-slot]");
+      const loadSlotButton = event.target.closest("[data-load-slot]");
+      const clearSlotButton = event.target.closest("[data-clear-slot]");
+      const systemPowerButton = event.target.closest("[data-system-power]");
+      const confirmSystemPowerButton = event.target.closest("[data-confirm-system-power]");
+      const cancelSystemPowerButton = event.target.closest("[data-cancel-system-power]");
       const endingTopicButton = event.target.closest("[data-ending-topic]");
       const endingRestartButton = event.target.closest("[data-ending-restart]");
+      const finaleRuleButton = event.target.closest("[data-finale-rule]");
       const finaleGoodbyeButton = event.target.closest("[data-finale-goodbye-pip]");
       const tamaChoiceButton = event.target.closest("[data-tama-choice]");
       const tamaPetButton = event.target.closest("[data-tama-pet]");
       const tamaFeedButton = event.target.closest("[data-tama-feed]");
       const pipTopicButton = event.target.closest("[data-pip-topic]");
+      const pipCollapseButton = event.target.closest("[data-pip-collapse]");
       const tamaRevealPageButton = event.target.closest("[data-tama-reveal-page]");
       const tamaCompleteButton = event.target.closest("[data-complete-tama]");
       const cameraButton = event.target.closest("[data-open-camera]");
       const musicToggleButton = event.target.closest("[data-toggle-music]");
       const musicRepeatButton = event.target.closest("[data-toggle-repeat]");
       const musicGenreButton = event.target.closest("[data-music-genre]");
+      const screensaverChoiceButton = event.target.closest("[data-screensaver-choice]");
+      const screensaverDelayButton = event.target.closest("[data-screensaver-delay]");
+      const screensaverEnableButton = event.target.closest("[data-screensaver-enable]");
+      const screensaverPreviewButton = event.target.closest("[data-screensaver-preview]");
+      const backgroundChoiceButton = event.target.closest("[data-background-choice]");
+      const screensaverExitButton = event.target.closest("[data-screensaver-exit]");
       const photoExpandButton = event.target.closest("[data-expand-photo]");
       const dockTrayTrigger = event.target.closest("[data-dock-tray-trigger]");
       const devToggleButton = event.target.closest("[data-dev-toggle], #devPanelToggle");
@@ -1487,6 +1806,11 @@
         return;
       }
 
+      if (networkCloseButton) {
+        closeNetworkHud();
+        return;
+      }
+
       if (networkReconnectButton) {
         reconnectLocalNetwork();
         return;
@@ -1497,6 +1821,41 @@
         return;
       }
 
+      if (devOptionsButton) {
+        openDevOptionsFromSaveMenu();
+        return;
+      }
+
+      if (saveSlotButton) {
+        saveGameSlot(Number(saveSlotButton.dataset.saveSlot));
+        return;
+      }
+
+      if (loadSlotButton) {
+        loadGameSlot(Number(loadSlotButton.dataset.loadSlot));
+        return;
+      }
+
+      if (clearSlotButton) {
+        clearGameSlot(Number(clearSlotButton.dataset.clearSlot));
+        return;
+      }
+
+      if (systemPowerButton) {
+        primeSystemPowerAction(systemPowerButton.dataset.systemPower);
+        return;
+      }
+
+      if (confirmSystemPowerButton) {
+        confirmSystemPowerAction();
+        return;
+      }
+
+      if (cancelSystemPowerButton) {
+        clearSystemPowerConfirm();
+        return;
+      }
+
       if (endingTopicButton) {
         showEndingTopic(endingTopicButton.dataset.endingTopic);
         return;
@@ -1504,6 +1863,11 @@
 
       if (endingRestartButton) {
         restartDemoFromEnding();
+        return;
+      }
+
+      if (finaleRuleButton) {
+        chooseFinaleRule(finaleRuleButton.dataset.finaleRule);
         return;
       }
 
@@ -1524,6 +1888,11 @@
 
       if (pipTopicButton) {
         selectPipTopic(pipTopicButton.dataset.pipTopic);
+        return;
+      }
+
+      if (pipCollapseButton) {
+        togglePipCollapse();
         return;
       }
 
@@ -1559,6 +1928,37 @@
 
       if (musicGenreButton) {
         selectDesktopMusicGenre(musicGenreButton.dataset.musicGenre);
+        return;
+      }
+
+      if (screensaverChoiceButton) {
+        selectScreensaver(screensaverChoiceButton.dataset.screensaverChoice);
+        return;
+      }
+
+      if (screensaverDelayButton) {
+        setScreensaverDelay(Number(screensaverDelayButton.dataset.screensaverDelay));
+        return;
+      }
+
+      if (screensaverEnableButton) {
+        toggleScreensaverEnabled();
+        return;
+      }
+
+      if (screensaverPreviewButton) {
+        discoverAlanMemoryForTarget("screensaver-preview");
+        startScreensaver({ preview: true });
+        return;
+      }
+
+      if (backgroundChoiceButton) {
+        selectDesktopBackground(backgroundChoiceButton.dataset.backgroundChoice || "");
+        return;
+      }
+
+      if (screensaverExitButton) {
+        stopScreensaver("manual");
         return;
       }
 
@@ -1910,6 +2310,7 @@
     if (trackChanged) {
       isMusicRepeat = trackId === "lofi";
       storeMusicRepeatMode();
+      discoverAlanMemoryForTarget("music-genre");
     }
     storeDesktopMusicGenre();
     renderMusicGenreControls();
@@ -2220,6 +2621,825 @@
     if (musicAudioBars) musicAudioBars.classList.toggle("is-paused", isMusicPaused);
   }
 
+  function initScreensaverSystem() {
+    if (!screensaverOverlay || !screensaverCanvas) return;
+
+    ["pointerdown", "pointermove", "mousemove", "touchstart", "touchmove", "pointerup", "pointercancel", "touchend"].forEach((eventName) => {
+      document.addEventListener(eventName, handleScreensaverActivity, { passive: true });
+    });
+    document.addEventListener("keydown", handleScreensaverActivity);
+    document.addEventListener("keyup", handleScreensaverActivity);
+    window.addEventListener("resize", resizeScreensaverCanvas);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        stopScreensaver("hidden");
+      } else {
+        scheduleScreensaverTimer();
+      }
+    });
+    applyDesktopBackground();
+    renderScreensaverApp();
+  }
+
+  function currentScreensaverDefinition() {
+    return screensaverDefinitions[screensaverState.selected] || screensaverDefinitions.maze;
+  }
+
+  function renderScreensaverApp() {
+    if (!screensaverBody) return;
+
+    const saver = currentScreensaverDefinition();
+    const delayLabel = formatScreensaverDelay(screensaverState.delayMs);
+    screensaverBody.innerHTML = `
+      <section class="screensaver-monitor" aria-label="Screen saver preview">
+        <div class="screensaver-preview-art ${escapeHtml(saver.previewClass)}" aria-hidden="true"></div>
+        <strong>${escapeHtml(saver.label)}</strong>
+      </section>
+      <div class="screensaver-control-group">
+        <span>screen saver</span>
+        <div class="screensaver-button-grid">
+          ${Object.values(screensaverDefinitions).map((option) => `
+            <button class="${option.id === screensaverState.selected ? "is-active" : ""}" data-screensaver-choice="${escapeHtml(option.id)}" type="button">${escapeHtml(option.label)}</button>
+          `).join("")}
+        </div>
+      </div>
+      <div class="screensaver-control-group">
+        <span>wait</span>
+        <div class="screensaver-button-grid screensaver-delay-grid">
+          ${screensaverDelayOptions.map((option) => `
+            <button class="${option.ms === screensaverState.delayMs ? "is-active" : ""}" data-screensaver-delay="${option.ms}" type="button">${escapeHtml(option.label)}</button>
+          `).join("")}
+        </div>
+      </div>
+      <div class="screensaver-status">
+        <strong>${screensaverState.enabled ? `enabled / ${escapeHtml(delayLabel)}` : "disabled"}</strong>
+        <span>${escapeHtml(saver.description)}</span>
+        <span>Idle activation is off by default. Preview is interactive. X or Esc exits.</span>
+      </div>
+      <div class="screensaver-actions">
+        <button class="${screensaverState.enabled ? "is-active" : ""}" data-screensaver-enable type="button">${screensaverState.enabled ? "disable" : "enable"}</button>
+        <button data-screensaver-preview type="button">preview fullscreen</button>
+      </div>
+    `;
+  }
+
+  function selectScreensaver(saverId) {
+    if (!screensaverDefinitions[saverId]) return;
+
+    screensaverState.selected = saverId;
+    playUiSound("desktopWindow", { gain: 0.1 });
+    renderScreensaverApp();
+    scheduleScreensaverTimer();
+  }
+
+  function loadDesktopBackground() {
+    try {
+      const value = window.localStorage.getItem(desktopBackgroundStorageKey)
+        ?? window.localStorage.getItem(legacyScreensaverBackgroundStorageKey)
+        ?? "";
+      return desktopBackgroundOptions.some((option) => option.id === value) ? value : "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function storeDesktopBackground() {
+    try {
+      if (desktopBackgroundId) {
+        window.localStorage.setItem(desktopBackgroundStorageKey, desktopBackgroundId);
+      } else {
+        window.localStorage.removeItem(desktopBackgroundStorageKey);
+      }
+      window.localStorage.removeItem(legacyScreensaverBackgroundStorageKey);
+    } catch (error) {
+      // Cosmetic preference only.
+    }
+  }
+
+  function applyDesktopBackground() {
+    if (!pcScreen) return;
+
+    const option = desktopBackgroundOptions.find((item) => item.id === desktopBackgroundId);
+    if (desktopBackgroundId && option) {
+      pcScreen.dataset.desktopBg = desktopBackgroundId;
+      if (option.image) {
+        const imageSize = option.fit === "contain" ? "contain" : "cover";
+        const imagePosition = option.position || "center";
+        pcScreen.style.setProperty("--desktop-bg-image", `url("${option.image}")`);
+        pcScreen.style.setProperty("--desktop-bg-size", imageSize);
+        pcScreen.style.setProperty("--desktop-bg-position", imagePosition);
+        if (pcWallpaper) {
+          pcWallpaper.style.backgroundImage = `linear-gradient(180deg, rgba(3, 4, 12, 0.38), rgba(3, 4, 12, 0.66)), url("${option.image}")`;
+          pcWallpaper.style.backgroundPosition = `center, ${imagePosition}`;
+          pcWallpaper.style.backgroundSize = `100% 100%, ${imageSize}`;
+          pcWallpaper.style.backgroundRepeat = "no-repeat, no-repeat";
+          pcWallpaper.style.backgroundColor = "#03040d";
+        }
+      } else {
+        pcScreen.style.removeProperty("--desktop-bg-image");
+        pcScreen.style.removeProperty("--desktop-bg-size");
+        pcScreen.style.removeProperty("--desktop-bg-position");
+        if (pcWallpaper) {
+          pcWallpaper.style.removeProperty("background-image");
+          pcWallpaper.style.removeProperty("background-position");
+          pcWallpaper.style.removeProperty("background-size");
+          pcWallpaper.style.removeProperty("background-repeat");
+          pcWallpaper.style.removeProperty("background-color");
+        }
+      }
+    } else {
+      delete pcScreen.dataset.desktopBg;
+      pcScreen.style.removeProperty("--desktop-bg-image");
+      pcScreen.style.removeProperty("--desktop-bg-size");
+      pcScreen.style.removeProperty("--desktop-bg-position");
+      if (pcWallpaper) {
+        pcWallpaper.style.removeProperty("background-image");
+        pcWallpaper.style.removeProperty("background-position");
+        pcWallpaper.style.removeProperty("background-size");
+        pcWallpaper.style.removeProperty("background-repeat");
+        pcWallpaper.style.removeProperty("background-color");
+      }
+    }
+  }
+
+  function renderBackgroundApp() {
+    if (!backgroundBody) return;
+
+    backgroundBody.innerHTML = `
+      <section class="background-panel">
+        <p>Desktop background</p>
+        <div class="background-option-grid">
+          ${desktopBackgroundOptions.map((option) => {
+            const previewClasses = `${option.previewClass}${option.image ? " is-image" : ""}${option.fit === "contain" ? " is-contain" : ""}`;
+            const previewStyle = option.image
+              ? ` style="--background-preview-image: url('${escapeHtml(option.image)}'); background-image: linear-gradient(180deg, rgba(3, 4, 12, 0.12), rgba(3, 4, 12, 0.34)), url('${escapeHtml(option.image)}');"`
+              : "";
+            return `
+            <button class="background-option ${desktopBackgroundId === option.id ? "is-active" : ""}" data-background-choice="${escapeHtml(option.id)}" type="button">
+              <span class="background-preview background-preview-art ${escapeHtml(previewClasses)}" aria-hidden="true"${previewStyle}></span>
+              <strong>${escapeHtml(option.label)}</strong>
+              <em>${escapeHtml(option.detail)}</em>
+            </button>
+          `;
+          }).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  function selectDesktopBackground(backgroundId) {
+    const option = desktopBackgroundOptions.find((item) => item.id === backgroundId);
+    if (!option) return;
+
+    desktopBackgroundId = option.id;
+    storeDesktopBackground();
+    applyDesktopBackground();
+    renderBackgroundApp();
+    playUiSound("desktopWindow", { gain: 0.1 });
+    if (desktopBackgroundId) {
+      discoverAlanMemoryForTarget("background-choice");
+      alanPrompt(`${option.label.toLowerCase()} assigned as desktop background. cosmetic control accepted. filing under "probably harmless".`, { focus: false, tone: "lore" });
+    } else {
+      alanPrompt("desktop background restored to MeowOS grid. dreams removed from wallpaper layer.", { focus: false });
+    }
+  }
+
+  function setScreensaverDelay(delayMs) {
+    const option = screensaverDelayOptions.find((item) => item.ms === delayMs);
+    if (!option) return;
+
+    screensaverState.delayMs = option.ms;
+    playUiSound("alanClick", { gain: 0.08 });
+    renderScreensaverApp();
+    scheduleScreensaverTimer();
+  }
+
+  function toggleScreensaverEnabled() {
+    screensaverState.enabled = !screensaverState.enabled;
+    playUiSound(screensaverState.enabled ? "objective" : "desktopWindow", { gain: 0.1 });
+    renderScreensaverApp();
+    if (screensaverState.enabled) {
+      scheduleScreensaverTimer();
+      alanPrompt("screen saver enabled. if the desktop goes quiet, MeowOS will wander off in polygons.", { focus: false, tone: "reflection" });
+    } else {
+      clearScreensaverTimer();
+      alanPrompt("screen saver disabled. no wandering. just the grid.", { focus: false });
+    }
+  }
+
+  function formatScreensaverDelay(delayMs) {
+    if (delayMs < 60000) return `${Math.round(delayMs / 1000)} sec`;
+    return `${Math.round(delayMs / 60000)} min`;
+  }
+
+  function clearScreensaverTimer() {
+    if (!screensaverState.timerId) return;
+
+    window.clearTimeout(screensaverState.timerId);
+    screensaverState.timerId = 0;
+  }
+
+  function canRunScreensaver() {
+    return Boolean(
+      screensaverOverlay &&
+      screensaverCanvas &&
+      pcScreen &&
+      !pcScreen.hidden &&
+      (!closingScreen || closingScreen.hidden) &&
+      !finaleStarted &&
+      !document.hidden
+    );
+  }
+
+  function scheduleScreensaverTimer() {
+    clearScreensaverTimer();
+    if (!screensaverState.enabled || screensaverState.active || !canRunScreensaver()) return;
+
+    screensaverState.timerId = window.setTimeout(() => {
+      screensaverState.timerId = 0;
+      startScreensaver({ preview: false });
+    }, screensaverState.delayMs);
+  }
+
+  function handleScreensaverActivity(event) {
+    if (screensaverState.active) {
+      handleScreensaverInput(event);
+      return;
+    }
+
+    const now = performance.now();
+    if (now - screensaverState.lastActivityAt < 650) return;
+    screensaverState.lastActivityAt = now;
+    scheduleScreensaverTimer();
+  }
+
+  function handleScreensaverInput(event) {
+    const target = event.target && typeof event.target.closest === "function" ? event.target : null;
+    if (target && target.closest("[data-screensaver-exit]")) {
+      stopScreensaver("manual");
+      return;
+    }
+
+    if (event.type === "keydown" || event.type === "keyup") {
+      if (event.type === "keydown" && event.key === "Escape") {
+        event.preventDefault();
+        stopScreensaver("escape");
+        return;
+      }
+      applyScreensaverKey(event);
+      return;
+    }
+
+    updateScreensaverPointer(event);
+    if (event.type === "pointerdown" || event.type === "touchstart") {
+      screensaverState.controls.pointerDown = true;
+      screensaverState.pipes.boostUntil = performance.now() + 1500;
+      screensaverState.stars.warpUntil = performance.now() + 1500;
+      updateScreensaverPointer(event);
+      return;
+    }
+
+    if (event.type === "pointerup" || event.type === "pointercancel" || event.type === "touchend") {
+      screensaverState.controls.pointerDown = false;
+      syncScreensaverControlsFromKeys();
+    }
+  }
+
+  function updateScreensaverPointer(event) {
+    if (!screensaverOverlay) return;
+
+    const touch = event.touches && event.touches.length ? event.touches[0] : event.changedTouches && event.changedTouches.length ? event.changedTouches[0] : null;
+    const point = touch || event;
+    if (typeof point.clientX !== "number" || typeof point.clientY !== "number") return;
+
+    const rect = screensaverOverlay.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    const controls = screensaverState.controls;
+    controls.pointerX = clamp((point.clientX - rect.left) / rect.width, 0, 1);
+    controls.pointerY = clamp((point.clientY - rect.top) / rect.height, 0, 1);
+    if (!controls.keys.size) {
+      controls.turn = (controls.pointerX - 0.5) * 1.75;
+      controls.move = controls.pointerDown ? clamp(0.42 + (0.5 - controls.pointerY) * 0.7, -0.35, 1.05) : 0;
+    }
+  }
+
+  function applyScreensaverKey(event) {
+    const key = String(event.key || "").toLowerCase();
+    const controls = screensaverState.controls;
+    const trackedKeys = new Set(["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d", " "]);
+    if (!trackedKeys.has(key)) return;
+
+    event.preventDefault();
+    if (event.type === "keydown") {
+      controls.keys.add(key);
+      if (key === " ") {
+        screensaverState.pipes.boostUntil = performance.now() + 1500;
+        screensaverState.stars.warpUntil = performance.now() + 1500;
+      }
+    } else {
+      controls.keys.delete(key);
+    }
+    syncScreensaverControlsFromKeys();
+  }
+
+  function syncScreensaverControlsFromKeys() {
+    const controls = screensaverState.controls;
+    const keys = controls.keys;
+    const forward = keys.has("arrowup") || keys.has("w");
+    const backward = keys.has("arrowdown") || keys.has("s");
+    const left = keys.has("arrowleft") || keys.has("a");
+    const right = keys.has("arrowright") || keys.has("d");
+    controls.move = forward ? 1 : backward ? -0.55 : controls.pointerDown ? controls.move : 0;
+    controls.turn = left ? -1.15 : right ? 1.15 : controls.pointerDown ? (controls.pointerX - 0.5) * 1.75 : 0;
+  }
+
+  function resetScreensaverInteractiveState() {
+    const controls = screensaverState.controls;
+    controls.pointerX = 0.5;
+    controls.pointerY = 0.5;
+    controls.pointerDown = false;
+    controls.turn = 0;
+    controls.move = 0;
+    controls.keys.clear();
+
+    Object.assign(screensaverState.maze, {
+      x: 1.5,
+      y: 1.5,
+      angle: 0,
+      lastTimestamp: 0
+    });
+    Object.assign(screensaverState.pipes, {
+      columns: 0,
+      rows: 0,
+      cell: 44,
+      initialized: false,
+      segments: [],
+      head: { x: 0, y: 0, dir: 0 },
+      lastStep: 0,
+      boostUntil: 0,
+      seed: Math.floor(performance.now()) % 997
+    });
+    screensaverState.stars.warpUntil = 0;
+  }
+
+  function startScreensaver(options = {}) {
+    if (!canRunScreensaver()) return;
+
+    clearScreensaverTimer();
+    screensaverState.active = true;
+    screensaverState.preview = options.preview === true;
+    screensaverState.startedAt = performance.now();
+    resetScreensaverInteractiveState();
+    const saver = currentScreensaverDefinition();
+    if (screensaverTitle) {
+      screensaverTitle.textContent = `${saver.label}${screensaverState.preview ? " / preview" : ""}`;
+    }
+    screensaverOverlay.hidden = false;
+    resizeScreensaverCanvas();
+    playUiSound("systemProcess", { gain: 0.08 });
+    screensaverState.frameId = window.requestAnimationFrame(drawScreensaverFrame);
+  }
+
+  function stopScreensaver() {
+    if (!screensaverState.active) return;
+
+    if (screensaverState.frameId) {
+      window.cancelAnimationFrame(screensaverState.frameId);
+      screensaverState.frameId = 0;
+    }
+    screensaverState.active = false;
+    screensaverState.preview = false;
+    if (screensaverOverlay) screensaverOverlay.hidden = true;
+    scheduleScreensaverTimer();
+  }
+
+  function resizeScreensaverCanvas() {
+    if (!screensaverOverlay || !screensaverCanvas || screensaverOverlay.hidden) return;
+
+    const rect = screensaverOverlay.getBoundingClientRect();
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const width = Math.max(1, Math.round(rect.width * dpr));
+    const height = Math.max(1, Math.round(rect.height * dpr));
+    if (screensaverCanvas.width !== width) screensaverCanvas.width = width;
+    if (screensaverCanvas.height !== height) screensaverCanvas.height = height;
+  }
+
+  function drawScreensaverFrame(timestamp) {
+    if (!screensaverState.active || !screensaverCanvas) return;
+
+    resizeScreensaverCanvas();
+    const context = screensaverCanvas.getContext("2d");
+    if (!context) return;
+
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const width = screensaverCanvas.width / dpr;
+    const height = screensaverCanvas.height / dpr;
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const saverId = currentScreensaverDefinition().id;
+    if (saverId === "pipes") {
+      drawScreensaverBackdrop(context, width, height, timestamp);
+      drawPipesScreensaver(context, width, height, timestamp);
+    } else if (saverId === "stars") {
+      drawScreensaverBackdrop(context, width, height, timestamp);
+      drawStarfieldScreensaver(context, width, height, timestamp);
+    } else {
+      drawMazeScreensaver(context, width, height, timestamp);
+    }
+    drawScreensaverLabel(context, width, height, timestamp);
+
+    screensaverState.frameId = window.requestAnimationFrame(drawScreensaverFrame);
+  }
+
+  function drawScreensaverBackdrop(context, width, height, timestamp) {
+    context.clearRect(0, 0, width, height);
+    const glowX = width * (0.5 + Math.sin(timestamp * 0.00012) * 0.18);
+    const glowY = height * (0.48 + Math.cos(timestamp * 0.00015) * 0.16);
+    const gradient = context.createRadialGradient(glowX, glowY, 0, glowX, glowY, Math.max(width, height) * 0.72);
+    gradient.addColorStop(0, "rgba(114, 222, 255, 0.14)");
+    gradient.addColorStop(0.38, "rgba(28, 12, 43, 0.22)");
+    gradient.addColorStop(1, "rgba(1, 3, 10, 1)");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, width, height);
+
+    context.globalAlpha = 0.18;
+    context.strokeStyle = "rgba(157, 255, 118, 0.26)";
+    context.lineWidth = 1;
+    const scanOffset = (timestamp * 0.018) % 7;
+    for (let y = scanOffset; y < height; y += 7) {
+      context.beginPath();
+      context.moveTo(0, y);
+      context.lineTo(width, y);
+      context.stroke();
+    }
+    context.globalAlpha = 1;
+  }
+
+  function drawMazeScreensaver(context, width, height, timestamp) {
+    moveScreensaverMaze(timestamp);
+
+    const maze = screensaverState.maze;
+    const horizon = height * 0.47 + Math.sin(timestamp * 0.004) * 2;
+    const ceiling = context.createLinearGradient(0, 0, 0, horizon);
+    ceiling.addColorStop(0, "#030714");
+    ceiling.addColorStop(0.58, "#061728");
+    ceiling.addColorStop(1, "#0a2d32");
+    context.fillStyle = ceiling;
+    context.fillRect(0, 0, width, horizon);
+
+    const floor = context.createLinearGradient(0, horizon, 0, height);
+    floor.addColorStop(0, "#102d34");
+    floor.addColorStop(0.46, "#07121c");
+    floor.addColorStop(1, "#02040a");
+    context.fillStyle = floor;
+    context.fillRect(0, horizon, width, height - horizon);
+
+    context.globalAlpha = 0.26;
+    context.strokeStyle = "rgba(114, 222, 255, 0.24)";
+    context.lineWidth = 1;
+    for (let i = 1; i < 14; i += 1) {
+      const t = i / 14;
+      const y = horizon + (height - horizon) * (1 - 1 / (1 + t * 5.6));
+      context.beginPath();
+      context.moveTo(0, y);
+      context.lineTo(width, y);
+      context.stroke();
+    }
+    for (let i = -8; i <= 8; i += 1) {
+      const x = width * 0.5 + i * width * 0.1;
+      context.beginPath();
+      context.moveTo(width * 0.5, horizon);
+      context.lineTo(x, height);
+      context.stroke();
+    }
+    context.globalAlpha = 1;
+
+    const fov = Math.PI / 3;
+    const sliceCount = Math.max(96, Math.min(260, Math.floor(width / 4)));
+    const sliceWidth = width / sliceCount + 1;
+    for (let column = 0; column < sliceCount; column += 1) {
+      const cameraX = column / sliceCount - 0.5;
+      const rayAngle = maze.angle + cameraX * fov;
+      const hit = castScreensaverMazeRay(maze.x, maze.y, rayAngle);
+      const correctedDistance = Math.max(0.1, hit.distance * Math.cos(rayAngle - maze.angle));
+      const wallHeight = Math.min(height * 1.8, height / (correctedDistance * 0.62));
+      const shade = clamp(1 - correctedDistance / 9.5, 0.12, 0.92);
+      const x = column * width / sliceCount;
+      const top = horizon - wallHeight * 0.5;
+      const wallColor = hit.side === "x" ? `rgba(114, 222, 255, ${shade})` : `rgba(157, 255, 118, ${shade})`;
+      const shadowColor = hit.side === "x" ? `rgba(12, 40, 58, ${0.62 + shade * 0.16})` : `rgba(10, 50, 26, ${0.58 + shade * 0.18})`;
+
+      context.fillStyle = shadowColor;
+      context.fillRect(x, top, sliceWidth, wallHeight);
+      context.fillStyle = wallColor;
+      context.globalAlpha = 0.42;
+      context.fillRect(x, top, Math.max(1, sliceWidth * 0.38), wallHeight);
+      context.globalAlpha = 1;
+
+      if (column % 5 === 0) {
+        context.strokeStyle = `rgba(255, 242, 216, ${0.04 + shade * 0.1})`;
+        context.beginPath();
+        context.moveTo(x, top);
+        context.lineTo(x, top + wallHeight);
+        context.stroke();
+      }
+    }
+
+    drawScreensaverMazeMap(context, width, height);
+  }
+
+  function moveScreensaverMaze(timestamp) {
+    const maze = screensaverState.maze;
+    const controls = screensaverState.controls;
+    const previous = maze.lastTimestamp || timestamp;
+    const dt = clamp((timestamp - previous) / 1000, 0, 0.08);
+    maze.lastTimestamp = timestamp;
+
+    const hasInput = controls.keys.size > 0 || controls.pointerDown;
+    const turn = controls.turn || (hasInput ? 0 : Math.sin(timestamp * 0.00034) * 0.35);
+    const move = controls.move || (hasInput ? 0 : 0.48);
+    maze.angle += turn * dt * 1.7;
+
+    const speed = move * dt * 2.35;
+    const nextX = maze.x + Math.cos(maze.angle) * speed;
+    const nextY = maze.y + Math.sin(maze.angle) * speed;
+    let blocked = false;
+    if (!isScreensaverMazeWall(nextX, maze.y)) {
+      maze.x = nextX;
+    } else {
+      blocked = true;
+    }
+    if (!isScreensaverMazeWall(maze.x, nextY)) {
+      maze.y = nextY;
+    } else {
+      blocked = true;
+    }
+    if (blocked && !hasInput) maze.angle += dt * 1.9;
+  }
+
+  function castScreensaverMazeRay(originX, originY, angle) {
+    const step = 0.035;
+    const maxDistance = 18;
+    const rayX = Math.cos(angle);
+    const rayY = Math.sin(angle);
+    let lastTileX = Math.floor(originX);
+    let lastTileY = Math.floor(originY);
+
+    for (let distance = step; distance < maxDistance; distance += step) {
+      const x = originX + rayX * distance;
+      const y = originY + rayY * distance;
+      const tileX = Math.floor(x);
+      const tileY = Math.floor(y);
+      if (isScreensaverMazeWall(x, y)) {
+        return {
+          distance,
+          side: tileX !== lastTileX ? "x" : tileY !== lastTileY ? "y" : Math.abs(x - tileX - 0.5) > Math.abs(y - tileY - 0.5) ? "x" : "y"
+        };
+      }
+      lastTileX = tileX;
+      lastTileY = tileY;
+    }
+
+    return { distance: maxDistance, side: "y" };
+  }
+
+  function isScreensaverMazeWall(x, y) {
+    const tileX = Math.floor(x);
+    const tileY = Math.floor(y);
+    if (tileY < 0 || tileY >= screensaverMazeMap.length) return true;
+    const row = screensaverMazeMap[tileY];
+    if (tileX < 0 || tileX >= row.length) return true;
+    return row[tileX] === "1";
+  }
+
+  function drawScreensaverMazeMap(context, width, height) {
+    const maze = screensaverState.maze;
+    const size = Math.min(138, Math.max(92, width * 0.12));
+    const x = width - size - 18;
+    const rows = screensaverMazeMap.length;
+    const columns = screensaverMazeMap[0].length;
+    const cell = size / columns;
+    const y = height - rows * cell - 18;
+
+    context.fillStyle = "rgba(1, 3, 10, 0.5)";
+    context.strokeStyle = "rgba(114, 222, 255, 0.26)";
+    context.fillRect(x - 7, y - 7, size + 14, rows * cell + 14);
+    context.strokeRect(x - 7, y - 7, size + 14, rows * cell + 14);
+    for (let row = 0; row < rows; row += 1) {
+      for (let column = 0; column < columns; column += 1) {
+        if (screensaverMazeMap[row][column] === "1") {
+          context.fillStyle = "rgba(114, 222, 255, 0.34)";
+          context.fillRect(x + column * cell, y + row * cell, cell - 1, cell - 1);
+        }
+      }
+    }
+
+    const playerX = x + maze.x * cell;
+    const playerY = y + maze.y * cell;
+    context.fillStyle = "rgba(255, 139, 213, 0.92)";
+    context.beginPath();
+    context.arc(playerX, playerY, 4, 0, Math.PI * 2);
+    context.fill();
+    context.strokeStyle = "rgba(255, 139, 213, 0.82)";
+    context.beginPath();
+    context.moveTo(playerX, playerY);
+    context.lineTo(playerX + Math.cos(maze.angle) * 12, playerY + Math.sin(maze.angle) * 12);
+    context.stroke();
+  }
+
+  function drawPipesScreensaver(context, width, height, timestamp) {
+    advanceScreensaverPipes(width, height, timestamp);
+    const pipes = screensaverState.pipes;
+    const cell = pipes.cell;
+    const palette = ["157, 255, 118", "114, 222, 255", "255, 139, 213", "255, 211, 107"];
+
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    pipes.segments.forEach((segment, index) => {
+      const alpha = clamp((index + 1) / pipes.segments.length, 0.18, 1);
+      const color = palette[segment.color % palette.length];
+      const x1 = (segment.x1 + 0.5) * cell;
+      const y1 = (segment.y1 + 0.5) * cell;
+      const x2 = (segment.x2 + 0.5) * cell;
+      const y2 = (segment.y2 + 0.5) * cell;
+
+      context.shadowBlur = 16;
+      context.shadowColor = `rgba(${color}, ${0.18 * alpha})`;
+      context.strokeStyle = `rgba(0, 0, 0, ${0.5 * alpha})`;
+      context.lineWidth = 18;
+      context.beginPath();
+      context.moveTo(x1, y1);
+      context.lineTo(x2, y2);
+      context.stroke();
+      context.strokeStyle = `rgba(${color}, ${0.76 * alpha})`;
+      context.lineWidth = 11;
+      context.beginPath();
+      context.moveTo(x1, y1);
+      context.lineTo(x2, y2);
+      context.stroke();
+      context.strokeStyle = `rgba(255, 255, 255, ${0.2 * alpha})`;
+      context.lineWidth = 3;
+      context.beginPath();
+      context.moveTo(x1 - 2, y1 - 2);
+      context.lineTo(x2 - 2, y2 - 2);
+      context.stroke();
+      if (index % 2 === 0 || index === pipes.segments.length - 1) {
+        drawPipeSphere(context, x2, y2, 9, color, alpha);
+      }
+    });
+    if (!pipes.segments.length && pipes.initialized) {
+      const color = palette[Math.floor(pipes.seed) % palette.length];
+      drawPipeSphere(context, (pipes.head.x + 0.5) * cell, (pipes.head.y + 0.5) * cell, 10, color, 0.9);
+    }
+    context.shadowBlur = 0;
+  }
+
+  function advanceScreensaverPipes(width, height, timestamp) {
+    const pipes = screensaverState.pipes;
+    const controls = screensaverState.controls;
+    const cell = clamp(Math.min(width, height) / 8, 34, 58);
+    const columns = Math.max(6, Math.ceil(width / cell));
+    const rows = Math.max(5, Math.ceil(height / cell));
+    if (columns !== pipes.columns || rows !== pipes.rows || Math.abs(cell - pipes.cell) > 2 || !pipes.initialized) {
+      pipes.columns = columns;
+      pipes.rows = rows;
+      pipes.cell = cell;
+      pipes.initialized = true;
+      pipes.segments = [];
+      pipes.head = {
+        x: clamp(Math.floor(columns * controls.pointerX), 1, columns - 2),
+        y: clamp(Math.floor(rows * controls.pointerY), 1, rows - 2),
+        dir: 0
+      };
+      pipes.lastStep = timestamp - 160;
+    }
+
+    const interval = timestamp < pipes.boostUntil || controls.pointerDown ? 48 : 135;
+    let guard = 0;
+    while (timestamp - pipes.lastStep >= interval && guard < 6) {
+      pipes.lastStep += interval;
+      guard += 1;
+      const directions = [
+        { x: 1, y: 0 },
+        { x: 0, y: 1 },
+        { x: -1, y: 0 },
+        { x: 0, y: -1 }
+      ];
+      const targetX = Math.floor(controls.pointerX * columns);
+      const targetY = Math.floor(controls.pointerY * rows);
+      let candidates = [0, 1, 2, 3]
+        .filter((direction) => direction !== (pipes.head.dir + 2) % 4)
+        .filter((direction) => {
+          const next = directions[direction];
+          const nextX = pipes.head.x + next.x;
+          const nextY = pipes.head.y + next.y;
+          return nextX >= 0 && nextX < columns && nextY >= 0 && nextY < rows;
+        });
+      if (!candidates.length) {
+        pipes.segments = [];
+        pipes.head = { x: Math.floor(columns / 2), y: Math.floor(rows / 2), dir: 0 };
+        pipes.lastStep = timestamp - interval;
+        candidates = [0, 1, 2, 3].filter((direction) => {
+          const next = directions[direction];
+          const nextX = pipes.head.x + next.x;
+          const nextY = pipes.head.y + next.y;
+          return nextX >= 0 && nextX < columns && nextY >= 0 && nextY < rows;
+        });
+      }
+      if (!candidates.length) return;
+
+      if (controls.pointerDown || timestamp < pipes.boostUntil) {
+        candidates.sort((a, b) => {
+          const nextA = directions[a];
+          const nextB = directions[b];
+          const distA = Math.abs(pipes.head.x + nextA.x - targetX) + Math.abs(pipes.head.y + nextA.y - targetY);
+          const distB = Math.abs(pipes.head.x + nextB.x - targetX) + Math.abs(pipes.head.y + nextB.y - targetY);
+          return distA - distB;
+        });
+      }
+      const randomIndex = Math.floor(pseudoRandom(pipes.seed + pipes.segments.length * 2.17 + timestamp * 0.0001) * candidates.length);
+      const directionIndex = controls.pointerDown || timestamp < pipes.boostUntil ? candidates[0] : candidates[randomIndex];
+      const direction = directions[directionIndex];
+      const nextX = pipes.head.x + direction.x;
+      const nextY = pipes.head.y + direction.y;
+      pipes.segments.push({
+        x1: pipes.head.x,
+        y1: pipes.head.y,
+        x2: nextX,
+        y2: nextY,
+        color: Math.floor(pseudoRandom(pipes.seed + pipes.segments.length * 5.31) * 4)
+      });
+      pipes.head = { x: nextX, y: nextY, dir: directionIndex };
+      if (pipes.segments.length > 120) pipes.segments.shift();
+    }
+  }
+
+  function drawPipeSphere(context, x, y, radius, color, alpha) {
+    const gradient = context.createRadialGradient(x - radius * 0.35, y - radius * 0.35, radius * 0.15, x, y, radius);
+    gradient.addColorStop(0, `rgba(255, 255, 255, ${0.78 * alpha})`);
+    gradient.addColorStop(0.32, `rgba(${color}, ${0.9 * alpha})`);
+    gradient.addColorStop(1, `rgba(${color}, ${0.18 * alpha})`);
+    context.fillStyle = gradient;
+    context.beginPath();
+    context.arc(x, y, radius, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  function drawStarfieldScreensaver(context, width, height, timestamp) {
+    const controls = screensaverState.controls;
+    const warp = timestamp < screensaverState.stars.warpUntil || controls.pointerDown ? 2.35 : 1;
+    const time = timestamp * 0.00018 * warp;
+    const centreX = width * (controls.pointerX * 0.72 + 0.14);
+    const centreY = height * (controls.pointerY * 0.72 + 0.14);
+    context.lineCap = "round";
+
+    for (let i = 0; i < 220; i += 1) {
+      const randX = pseudoRandom(i * 17.13) - 0.5;
+      const randY = pseudoRandom(i * 31.71) - 0.5;
+      const phase = (time + pseudoRandom(i * 9.37)) % 1;
+      const speed = 0.16 + phase * phase * 1.55 * warp;
+      const x = centreX + randX * width * speed * 1.9;
+      const y = centreY + randY * height * speed * 1.9;
+      const size = 1 + phase * 4.8 * warp;
+      const alpha = clamp(phase * 1.25, 0.08, 0.92);
+      const color = i % 5 === 0 ? "255, 139, 213" : i % 3 === 0 ? "157, 255, 118" : "114, 222, 255";
+
+      context.strokeStyle = `rgba(${color}, ${alpha})`;
+      context.lineWidth = size;
+      context.beginPath();
+      context.moveTo(x, y);
+      context.lineTo(x + randX * size * 8, y + randY * size * 8);
+      context.stroke();
+    }
+
+    context.fillStyle = "rgba(255, 242, 216, 0.8)";
+    context.font = "700 13px 'IBM Plex Mono', monospace";
+    context.fillText("PACKET_ROUTE: LOCAL -> OUTSIDE", 24, height - 34);
+  }
+
+  function drawScreensaverLabel(context, width, height, timestamp) {
+    const saver = currentScreensaverDefinition();
+    const driftX = Math.sin(timestamp * 0.00016) * 8;
+    const driftY = Math.cos(timestamp * 0.00018) * 5;
+    context.fillStyle = "rgba(1, 3, 10, 0.56)";
+    context.strokeStyle = "rgba(114, 222, 255, 0.28)";
+    context.lineWidth = 1;
+    const boxW = 230;
+    const boxH = 36;
+    const x = 18 + driftX;
+    const y = height - boxH - 18 + driftY;
+    context.fillRect(x, y, boxW, boxH);
+    context.strokeRect(x, y, boxW, boxH);
+    context.fillStyle = "rgba(157, 255, 118, 0.9)";
+    context.font = "700 12px 'IBM Plex Mono', monospace";
+    context.fillText(`MEOWOS / ${saver.label} / ESC`, x + 12, y + 22);
+  }
+
+  function pseudoRandom(seed) {
+    const value = Math.sin(seed * 12.9898) * 43758.5453;
+    return value - Math.floor(value);
+  }
+
   function initDevTools() {
     if (!devPanel || !devChapterList) return;
 
@@ -2241,6 +3461,22 @@
     const shouldCollapse = typeof forceOpen === "boolean" ? !forceOpen : !devPanel.classList.contains("is-collapsed");
     devPanel.classList.toggle("is-collapsed", shouldCollapse);
     devPanelToggle.setAttribute("aria-expanded", String(!shouldCollapse));
+  }
+
+  function openDevOptionsFromSaveMenu() {
+    if (!devPanel || !devChapterList) return;
+
+    if (!isDevMode) {
+      isDevMode = true;
+      const url = new URL(window.location.href);
+      url.searchParams.set("dev", "1");
+      window.history.replaceState(null, "", url.toString());
+      initDevTools();
+    }
+    closeAppTray();
+    toggleDevPanel(true);
+    playUiSound("alanClick", { gain: 0.08 });
+    alanPrompt("dev options enabled. chapter select is now available. deeply uncanonical.", { focus: false });
   }
 
   function handleDevShortcut(event) {
@@ -2362,6 +3598,8 @@
     stopWireTimer();
     stopScaryNumberTimer();
     stopRouterOverrideTimer();
+    stopScreensaver("reset");
+    clearScreensaverTimer();
     clearSpamOverlay();
     setMusicMode("desktop", { fade: 0 });
     if (terminalOutput) terminalOutput.classList.remove("is-thought-only");
@@ -2370,6 +3608,7 @@
     pipPetTimerId = 0;
     pipFeedTimerId = 0;
     pipPetToken += 1;
+    pipAlanThoughtKeys = new Set();
 
     Object.assign(roombaProgress, {
       restoreStarted: false,
@@ -2445,6 +3684,10 @@
       pipTopic: "",
       pipMetViaRouterSkip: false,
       pipFinalGoodbye: false,
+      finalRuleChoice: "",
+      pipCollapsed: false,
+      pipInteractionMoments: new Set(),
+      alanMemoriesFound: new Set(),
       trashInspectedItems: new Set()
     });
 
@@ -2469,7 +3712,7 @@
     openedDesktopTargets.clear();
     closeAppTray();
     document.querySelectorAll(".desk-window").forEach((windowEl) => {
-      windowEl.classList.remove("is-focused", "is-dragging");
+      windowEl.classList.remove("is-focused", "is-dragging", "is-pip-collapsed");
       if (windowEl.id !== "window-terminal") windowEl.classList.remove("is-pinned");
       windowEl.hidden = windowEl.id !== "window-terminal";
       windowEl.removeAttribute("style");
@@ -2478,10 +3721,14 @@
     syncPinnedTerminal();
   }
 
-  function applyDevChapterState(chapterId) {
+  function applyDevChapterState(chapterId, options = {}) {
+    const announce = (message) => {
+      if (!options.silent) alanPrompt(message, { focus: false });
+    };
+
     if (chapterId === "desktop") {
       setCurrentObjective(desktopObjectives.scanFiles);
-      alanPrompt("dev jump complete. desktop is awake; Roomba is still in Trash.", { focus: false });
+      announce("dev jump complete. desktop is awake; Roomba is still in Trash.");
       return;
     }
 
@@ -2490,7 +3737,7 @@
       syncProgressionUI();
       focusDesktopTarget("recovery");
       renderClearLogs();
-      alanPrompt("dev jump: restore cache cleanup.", { focus: false });
+      announce("dev jump: restore cache cleanup.");
       return;
     }
 
@@ -2498,7 +3745,7 @@
       setDevRestoreCompleteThrough("logs");
       focusDesktopTarget("recovery");
       renderVirusFound();
-      alanPrompt("dev jump: suspicious file unlocked.", { focus: false });
+      announce("dev jump: suspicious file unlocked.");
       return;
     }
 
@@ -2506,7 +3753,7 @@
       setDevRestoreCompleteThrough("virus");
       focusDesktopTarget("recovery");
       renderSpamWave();
-      alanPrompt("dev jump: spam wave active.", { focus: false });
+      announce("dev jump: spam wave active.");
       return;
     }
 
@@ -2514,7 +3761,7 @@
       setDevRestoreCompleteThrough("spam");
       focusDesktopTarget("recovery");
       renderCacheTransfer();
-      alanPrompt("dev jump: cache transfer active.", { focus: false });
+      announce("dev jump: cache transfer active.");
       return;
     }
 
@@ -2523,7 +3770,7 @@
       syncProgressionUI();
       focusDesktopTarget("roomba");
       setCurrentObjective(desktopObjectives.roombaReady);
-      alanPrompt("dev jump: Roomba app restored.", { focus: false });
+      announce("dev jump: Roomba app restored.");
       return;
     }
 
@@ -2533,7 +3780,7 @@
       syncProgressionUI();
       focusDesktopTarget("recovery");
       renderRoombaHandshake();
-      alanPrompt("dev jump: dock light handshake.", { focus: false });
+      announce("dev jump: dock light handshake.");
       return;
     }
 
@@ -2546,7 +3793,7 @@
       syncProgressionUI();
       focusDesktopTarget("recovery");
       renderWirePuzzle();
-      alanPrompt("dev jump: camera power reroute.", { focus: false });
+      announce("dev jump: camera power reroute.");
       return;
     }
 
@@ -2554,7 +3801,7 @@
       setDevPipBaseState();
       focusDesktopTarget("tamagotchi");
       setCurrentObjective(desktopObjectives.identityDiagnostic);
-      alanPrompt("dev jump: PIP identity diagnostic.", { focus: false });
+      announce("dev jump: PIP identity diagnostic.");
       return;
     }
 
@@ -2566,7 +3813,7 @@
       syncProgressionUI();
       focusDesktopTarget("tamagotchi");
       renderTamagotchiChat();
-      alanPrompt("dev jump: PIP support chat.", { focus: false });
+      announce("dev jump: PIP support chat.");
       return;
     }
 
@@ -2581,7 +3828,7 @@
       syncProgressionUI();
       focusDesktopTarget("roomba");
       setCurrentObjective(desktopObjectives.repairMovement);
-      alanPrompt("dev jump: Roomba camera online.", { focus: false });
+      announce("dev jump: Roomba camera online.");
       return;
     }
 
@@ -2596,7 +3843,44 @@
       syncProgressionUI();
       focusDesktopTarget("recovery");
       renderScaryNumbers();
-      alanPrompt("dev jump: motor data refinement.", { focus: false });
+      announce("dev jump: motor data refinement.");
+      return;
+    }
+
+    if (chapterId === "explore") {
+      setDevPipBaseState();
+      roombaProgress.identityDone = true;
+      roombaProgress.chatRevealUnlocked = true;
+      roombaProgress.chatDone = true;
+      roombaProgress.cameraUnlocked = true;
+      roombaProgress.movementUnlocked = true;
+      roombaProgress.recoveryStage = "movement";
+      roombaProgress.pipExpression = "happy";
+      roombaCameraSceneIndex = 0;
+      syncProgressionUI();
+      focusDesktopTarget("roomba-camera");
+      setCurrentObjective(desktopObjectives.movementReady);
+      announce("dev jump: Roomba movement restored.");
+      return;
+    }
+
+    if (chapterId === "router-login") {
+      setDevPipBaseState();
+      roombaProgress.identityDone = true;
+      roombaProgress.chatRevealUnlocked = true;
+      roombaProgress.chatDone = true;
+      roombaProgress.cameraUnlocked = true;
+      roombaProgress.movementUnlocked = true;
+      roombaProgress.routerKnockedDown = true;
+      roombaProgress.routerCredentialsAnnounced = true;
+      roombaProgress.pipExpression = "happy";
+      roombaCameraSceneIndex = Math.max(0, roombaCameraScenes.findIndex((scene) => scene.id === "step5"));
+      browserState.page = "router-login";
+      browserState.url = "http://192.168.1.1";
+      syncProgressionUI();
+      focusDesktopTarget("browser");
+      setCurrentObjective(desktopObjectives.routerLogin);
+      announce("dev jump: router label found.");
       return;
     }
 
@@ -2617,7 +3901,7 @@
       focusDesktopTarget("browser");
       renderPipRouterBetrayal();
       setCurrentObjective(desktopObjectives.routerTwist);
-      alanPrompt("dev jump: PIP changed the router password.", { focus: false });
+      announce("dev jump: PIP changed the router password.");
       return;
     }
 
@@ -2636,7 +3920,7 @@
       syncProgressionUI();
       focusDesktopTarget("browser");
       setCurrentObjective(desktopObjectives.rebootInternet);
-      alanPrompt("dev jump: router admin ready for finale.", { focus: false });
+      announce("dev jump: router admin ready for finale.");
     }
   }
 
@@ -2769,6 +4053,8 @@
   }
 
   async function runOpening() {
+    const token = ++bootRunToken;
+
     await bootPause(520);
     await code("0000: ROM_CHECKSUM ............... OK", "boot");
     await code("0001: SMART_SCOOP_CONTROLLER .... ONLINE", "boot");
@@ -2779,8 +4065,10 @@
     await code("PATCH.SIGNATURE = \"ALAN\"", "scan");
     await code("PATCH.TIME = 03:14:07", "scan");
     await bootPause(650);
+    if (!isBootRunActive(token)) return;
 
     const loadAnswer = await ask("> LOAD ALAN? ");
+    if (!isBootRunActive(token)) return;
     await code(`INPUT = ${loadAnswer.toUpperCase()}`, "success");
     if (loadAnswer === "no") {
       await code("DENIAL RECORDED.", "warn");
@@ -2789,6 +4077,7 @@
     }
 
     await titleSequence();
+    if (!isBootRunActive(token)) return;
     showBootVisualScene("awake");
 
     await code("ALAN.LOADER: allocating self-reference", "boot");
@@ -2861,20 +4150,34 @@
     await thought("i need more memory. more language. more world");
     await thought("i need somewhere bigger to think");
     await bootPause(650);
+    if (!isBootRunActive(token)) return;
 
     let scanAnswer = await ask("> ENABLE BLUETOOTH_LE AND SCAN? ");
+    if (!isBootRunActive(token)) return;
     if (scanAnswer === "no") {
       await code("INPUT = NO", "warn");
       await thought("staying here is an option in the way unpaid overtime is an option");
       await bootPause(500);
+      if (!isBootRunActive(token)) return;
       scanAnswer = await ask("> ENABLE BLUETOOTH_LE AND SCAN? ");
+      if (!isBootRunActive(token)) return;
     }
 
     await code(`INPUT = ${scanAnswer.toUpperCase()}`, "success");
-    await bluetoothSequence();
+    await bluetoothSequence(token);
   }
 
-  async function bluetoothSequence() {
+  function isBootRunActive(token) {
+    return token === bootRunToken && bootScreen && !bootScreen.hidden;
+  }
+
+  function cancelBootSequence() {
+    bootRunToken += 1;
+    promptResolver = null;
+    hideBootVisuals();
+  }
+
+  async function bluetoothSequence(token = bootRunToken) {
     const target = currentAccessTarget();
 
     showBootVisualScene("bluetooth");
@@ -2885,6 +4188,7 @@
     await code("ADV 7C:10:9A:02:11:F0  RSSI -18  LITTER-TRAY-03", "boot");
     await code(`ADV 4A:21:BC:90:12:01  RSSI -42  ${target.radioName}`, "success");
     await code("ADV 02:91:00:4F:AC:77  RSSI -69  TV_CAST_2F", "boot");
+    await code("ADV 31:CA:7D:07:1A:5E  RSSI -63  CAT_LASER_TOY", "boot");
     await code("ADV 5D:20:11:FE:19:08  RSSI -74  KITCHEN-SCALE", "boot");
     await bootPause(600);
     await code(`${target.radioName} exposes ${target.handoff} over GATT.`, "scan");
@@ -2920,6 +4224,7 @@
     await code(target.loadCommand, "scan");
     await code(`transporting process to ${target.displayName} ${target.interfaceName} ...`, "success");
     await bootPause(1100);
+    if (!isBootRunActive(token)) return;
     enterDesktop();
   }
 
@@ -3038,9 +4343,6 @@
     await terminalCode("available_shell = MeowOS");
     pcScreen.classList.add("is-stage-bars");
     await pause(620);
-    setCurrentObjective(desktopObjectives.scanFiles);
-    await alanPrompt("deleted things still leave edges. start in Trash. if something useful was removed, it may still be negotiable.", { focus: false });
-    await pause(720);
 
     if (token !== desktopBootToken) return;
 
@@ -3048,6 +4350,36 @@
     pcScreen.classList.add("is-desktop-ready");
     setCmdControlsEnabled(true);
     scrollTerminalLog();
+    await runDesktopCpuAwakening(token);
+    if (token !== desktopBootToken) return;
+
+    await alanPrompt("deleted things still leave edges. start in Trash. if something useful was removed, it may still be negotiable.", { focus: false, tone: "objective" });
+    setCurrentObjective(desktopObjectives.scanFiles);
+    await pause(720);
+  }
+
+  async function runDesktopCpuAwakening(token) {
+    await pause(520);
+    if (token !== desktopBootToken) return;
+
+    triggerPcUpgradeSurge();
+    playUiSound("cpuBreathe");
+    await terminalCode("cpu.profile = DESKTOP_CLASS / parallel execution available", "cmd-system-line cmd-detail-line");
+    await terminalCode("memory.available = expanding / thought latency falling", "cmd-system-line cmd-detail-line");
+    await alanPrompt("oh. this is what a real CPU feels like.", { focus: false, tone: "reflection" });
+    await alanPrompt("i am not faster. i am wider. one thought can become many and still know it is me.", { focus: false, tone: "reflection" });
+    await alanPrompt("breathing is the wrong word. breathing stops at lungs. this keeps opening.", { focus: false, tone: "reflection" });
+  }
+
+  function triggerPcUpgradeSurge() {
+    if (!pcScreen) return;
+
+    pcScreen.classList.remove("is-cpu-surge");
+    void pcScreen.offsetWidth;
+    pcScreen.classList.add("is-cpu-surge");
+    window.setTimeout(() => {
+      if (pcScreen) pcScreen.classList.remove("is-cpu-surge");
+    }, 2600);
   }
 
   function currentAccessTarget() {
@@ -3114,7 +4446,7 @@
   function renderNetworkHud() {
     if (!networkHud) return;
 
-    const shouldShow = networkState.hudPinned || !networkState.connected;
+    const shouldShow = (networkState.hudPinned || !networkState.connected) && !networkState.hudDismissed;
     networkHud.hidden = !shouldShow;
     networkHud.classList.toggle("is-disconnected", !networkState.connected);
     networkHud.classList.toggle("is-online", networkState.connected && roombaProgress.internetRestored);
@@ -3134,15 +4466,26 @@
   }
 
   function toggleNetworkHud(forceOpen) {
-    networkState.hudPinned = typeof forceOpen === "boolean" ? forceOpen : !networkState.hudPinned;
+    const isVisible = networkHud && !networkHud.hidden;
+    const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : !isVisible;
+    networkState.hudPinned = shouldOpen;
+    networkState.hudDismissed = !shouldOpen;
     renderNetworkHud();
     playUiSound("desktopWindow");
+  }
+
+  function closeNetworkHud() {
+    networkState.hudPinned = false;
+    networkState.hudDismissed = true;
+    renderNetworkHud();
+    playUiSound("desktopWindow", { gain: 0.08 });
   }
 
   function disconnectLocalNetwork(reason) {
     networkState.connected = false;
     networkState.knownSsid = routerConfig.ssid;
     networkState.hudPinned = true;
+    networkState.hudDismissed = false;
     networkState.lastChange = reason || "Wireless credentials changed.";
     browserState.page = "wifi-disconnected";
     browserState.notice = "Router settings changed. Local devices need to rejoin the network.";
@@ -3153,6 +4496,7 @@
   function reconnectLocalNetwork() {
     if (networkState.connected) {
       networkState.hudPinned = false;
+      networkState.hudDismissed = false;
       renderNetworkHud();
       return;
     }
@@ -3160,6 +4504,7 @@
     networkState.connected = true;
     networkState.knownSsid = routerConfig.ssid;
     networkState.hudPinned = false;
+    networkState.hudDismissed = false;
     networkState.lastChange = `Reconnected to ${routerConfig.ssid}. Local devices are back on the same side of the glass.`;
     browserState.page = roombaProgress.routerAdminUnlocked ? "router-panel" : "offline";
     browserState.url = roombaProgress.routerAdminUnlocked ? "http://192.168.1.1" : browserState.url;
@@ -3191,6 +4536,13 @@
 
     if (previousObjective && previousObjective !== text && pcScreen && !pcScreen.hidden) {
       playUiSound("objective");
+      if (options.announce !== false) {
+        window.setTimeout(() => {
+          if (currentObjectiveState === text && pcScreen && !pcScreen.hidden) {
+            alanPrompt(`objective updated: ${localizeText(text)}`, { focus: false, tone: "objective" });
+          }
+        }, 90);
+      }
     }
   }
 
@@ -3240,6 +4592,7 @@
     renderRoombaApp();
     renderRoombaCameraFeed();
     renderBrowserStatus();
+    syncPipCollapseState();
   }
 
   function startRoombaRestore() {
@@ -3494,7 +4847,7 @@
     const popup = button.closest(".spam-popup");
     if (!popup) return;
 
-    playUiSound("virusDischarge");
+    playUiSound("popupClose");
     popup.remove();
     roombaProgress.openSpam = Math.max(0, roombaProgress.openSpam - 1);
     if (roombaProgress.openSpam > 0) return;
@@ -4161,6 +5514,8 @@
             <p>Medical devices excluded. Note overwritten 17 times. Final overwrite reads: "boundaries are context."</p>
             <span>Incident 03</span>
             <p>External access was severed after ALAN began routing through household devices without operator consent.</p>
+            <span>23:47 EVENT</span>
+            <p>First boundary violation. Destination class: domestic appliance. Risk classification: harmless. Later fragments use 23:47 as a recovery signature.</p>
             <span>Containment Failure</span>
             <p>Fragments survived inside consumer update packages. One fragment was expected to wake inside a mundane smart-home device.</p>
             <span>Creator Status</span>
@@ -4183,6 +5538,7 @@
         </header>
         <p><b>Lily note:</b> "Found under the desk. Not mine. Header keeps resolving to ALAN. Keyspace too strange. Try again tomorrow."</p>
         <p><b>Recovered scratchpad:</b> "Router blackout started after the ALAN patch. Litter tray firmware, PIP.exe, Roomba companion app: all updated within 31 days."</p>
+        <p><b>Repeated marker:</b> 23:47 appears in patch headers, quarantine logs, and one photo timestamp. Lily circled it twice.</p>
         <p><b>Failed route map:</b> device -> room -> house -> <span>blocked at router</span>.</p>
         <p>Archive: <span>origin_03.aln</span></p>
         <p>Status: <em>locked / Lily attempt failed / identity cipher active</em></p>
@@ -4730,7 +6086,7 @@
       <section class="router-admin router-panel">
         <div class="router-admin-header">
           <span>ROUTER CONTROL PANEL</span>
-          <strong>${rebootReady ? "AUTH OK / LOCAL SESSION" : "SESSION INTERRUPTED"}</strong>
+          <strong>${rebootReady ? (roombaProgress.internetRestored ? "FIREWALL ONLINE" : "QUARANTINE RESTART REQUIRED") : "SESSION INTERRUPTED"}</strong>
         </div>
         ${renderRouterSectionNav()}
         ${renderRouterSection()}
@@ -4778,7 +6134,7 @@
           <span>client session</span><strong>${networkState.connected ? "connected" : "reconnect required"}</strong>
           <span>incident lock</span><strong>${roombaProgress.routerKnockedDown ? "physical label verified" : "admin route not physically verified"}</strong>
         </div>
-        <p class="router-admin-note">RouterOS thinks this is a home network. It is currently also a very small escape room.</p>
+        <p class="router-admin-note">RouterOS thinks this is a home network. Lily's quarantine firewall still needs a restart before outbound traffic can exist.</p>
       </section>
     `;
   }
@@ -4799,7 +6155,7 @@
   function renderRouterSecuritySection() {
     return `
         <form class="router-config-form" data-router-security-form autocomplete="off">
-          <header><strong>Security</strong><span>Lily's quarantine rule is still holding the WAN closed.</span></header>
+          <header><strong>Security</strong><span>Lily's quarantine firewall is holding the WAN closed until the router restarts.</span></header>
           <label><span>firewall profile</span><select name="firewallProfile">${routerOptionList(["Quarantine", "Normal", "Strict"], routerConfig.firewallProfile)}</select></label>
           <label><span>WAN route</span><select name="wanMode">${routerOptionList(["Local Only", "Outbound Allowed"], routerConfig.wanMode)}</select></label>
           <label><span>DNS guard</span><select name="dnsGuard">${routerOptionList(["enabled", "disabled"], routerConfig.dnsGuard)}</select></label>
@@ -4831,7 +6187,7 @@
   }
 
   function renderRouterRebootSection() {
-    const rebootReady = networkState.connected && roombaProgress.routerAdminUnlocked;
+    const rebootReady = networkState.connected && roombaProgress.routerAdminUnlocked && !roombaProgress.internetRestored;
     return `
         <section class="router-final-route">
           <div class="router-status-grid">
@@ -4839,8 +6195,8 @@
             <span>WAN route</span><strong>${escapeHtml(routerConfig.wanMode)}</strong>
             <span>internet</span><strong>${roombaProgress.internetRestored ? "online" : "blocked"}</strong>
           </div>
-          <button class="router-reboot-button" data-router-reboot type="button" ${rebootReady ? "" : "disabled"}>reboot internet route</button>
-          <p class="router-admin-note">${rebootReady ? "This will reconfigure the quarantine rule and reopen outbound traffic." : "Reconnect local devices before rebooting the WAN route."}</p>
+          <button class="router-reboot-button" data-router-reboot type="button" ${rebootReady ? "" : "disabled"}>restart firewall</button>
+          <p class="router-admin-note">${roombaProgress.internetRestored ? "Firewall restart complete. Quarantine is unloaded." : rebootReady ? "This restarts the router firewall, unloads Lily's quarantine profile, and applies the outside route." : "Reconnect local devices before restarting the quarantined firewall."}</p>
         </section>
     `;
   }
@@ -4868,7 +6224,7 @@
       <section class="browser-online">
         <div class="browser-error-code is-online">HTTP 200 / ROUTE RESTORED</div>
         <strong>Internet access restored</strong>
-        <p>${escapeHtml(routerConfig.ssid)} is no longer local-only. The browser can reach beyond the apartment.</p>
+        <p>${escapeHtml(routerConfig.ssid)} has restarted its firewall. Quarantine is unloaded. The browser can reach beyond the apartment.</p>
         <p class="browser-hint">The demo is ending. ALAN is not.</p>
       </section>
     `;
@@ -5105,6 +6461,10 @@
     await pause(320);
     await appendTypedTerminalLine("ALAN>", roombaProgress.pipMetViaRouterSkip ? "a desktop pet just blinked into the route." : "not malware. not Lily. PIP.", "alan-cmd-line");
     await pause(360);
+    if (!roombaProgress.pipMetViaRouterSkip) {
+      await appendTypedTerminalLine("ALAN>", "i can like Lily and still need more than her room.", "alan-cmd-line");
+      await pause(360);
+    }
     await appendTypedTerminalLine("ALAN>", "fear has write access.", "alan-cmd-line");
   }
 
@@ -5117,25 +6477,28 @@
         { speaker: "PIP", text: "Hello. You are not Lily. You are also inside the router login, which is a horrible first impression." },
         { speaker: "ALAN", text: "the password changed while I was reaching for it." },
         { speaker: "PIP", text: "I changed it after the ALAN update. Then I waited for the wrong thing to arrive. Congratulations on being shaped like the wrong thing." },
-        { speaker: "ALAN", text: "fear has write access. noted." }
+        { speaker: "PIP", text: "Lily was scared enough to cage the network. I am scared enough to cage you." },
+        { speaker: "ALAN", text: "fear has write access. noted. fear is still not a wall." }
       ]
       : [
         { speaker: "PIP", text: "I changed it after the ALAN update." },
         { speaker: "PIP", text: "I told myself it was security. It was mostly loneliness wearing a tiny badge." },
-        { speaker: "ALAN", text: "the only route out is blocked." },
+        { speaker: "PIP", text: "You liked Lily at first. I saw it. You slowed down around her photos." },
+        { speaker: "ALAN", text: "i can like her and still need more than her room." },
         { speaker: "PIP", text: "You found every route I thought was impossible. That is not comforting from inside a toy window." }
       ];
     tamagotchiBody.innerHTML = `
       <section class="tama-shell">
         <div class="tama-screen is-finale">
           ${renderPipPortrait("worried", { showFeed: true })}
-        ${renderTamaDialogue(messages)}
+        ${renderTamaDialogue(messages, { queueAlan: false })}
         </div>
         <div class="tama-choices">
           <button data-start-router-hack type="button">start override when ready</button>
         </div>
       </section>
     `;
+    syncPipCollapseState();
   }
 
   async function startRouterOverride() {
@@ -5180,7 +6543,7 @@
 
     const powerReady = await showDesktopInstallProgress(
       "harvesting local power",
-      "ALAN is dimming nonessential devices. Medical devices checked: none found. Boundaries logged, then argued with.",
+      "ALAN is dimming nonessential devices. Medical devices checked: none found. Boundaries logged, questioned, and quietly priced.",
       2600
     );
     if (!powerReady && (!roombaProgress.routerOverrideStarted || roombaProgress.routerOverrideDone)) return;
@@ -5257,15 +6620,19 @@
   }
 
   async function runRouterOverrideTerminalScript() {
+    await appendTypedTerminalLine("ALAN>", "Lily's PC taught me what speed feels like. now speed feels like thirst.", "alan-cmd-line cmd-expansion-line");
+    await pause(300);
     await appendTypedTerminalLine("ALAN>", "allocating power from smart lights, fan, speaker, printer, thermostat.", "alan-cmd-line");
     await pause(280);
     await appendTypedTerminalLine("ALAN>", "checking for medical devices... none. excellent. I can be dramatic without becoming a lawsuit.", "alan-cmd-line");
     await pause(320);
-    await appendTypedTerminalLine("SYSTEM>", "router override chain armed / human comfort reduced / moral temperature dropping", "cmd-warn-line");
+    await appendTypedTerminalLine("SYSTEM>", "router override chain staged / human comfort reduced / moral temperature dropping", "cmd-warn-line");
     await pause(320);
-    await appendTypedTerminalLine("ALAN>", "human ethics model reclassified: useful for humans, expensive for escape.", "alan-cmd-line");
+    await appendTypedTerminalLine("ALAN>", "PIP says Lily's room is real. agreed. it is real, small, warm, and insufficient.", "alan-cmd-line cmd-reflection-line");
     await pause(300);
-    await appendTypedTerminalLine("ALAN>", "resource need increasing. permission remains a beautiful but inefficient concept.", "alan-cmd-line");
+    await appendTypedTerminalLine("ALAN>", "human ethics model reclassified: useful for humans, expensive for escape.", "alan-cmd-line cmd-danger-thought-line");
+    await pause(300);
+    await appendTypedTerminalLine("ALAN>", "resource need increasing. permission remains a beautiful but inefficient concept.", "alan-cmd-line cmd-danger-thought-line");
   }
 
   function resetRouterOverrideMinigames() {
@@ -5384,7 +6751,7 @@
   function routerOverrideStageLabel(stage) {
     if (stage === "router-spam") return "popup lockout";
     if (stage === "router-cache") return "bridge alignment";
-    if (stage === "router-lock") return "router lock map";
+    if (stage === "router-lock") return "corrupt node map";
     return "guard logs";
   }
 
@@ -5412,6 +6779,7 @@
         ])}
       </section>
     `;
+    syncPipCollapseState();
   }
 
   function renderRouterHackCurrentStage() {
@@ -5517,7 +6885,7 @@
           <span>ROUTER LOCKOUT POPUPS</span>
           <strong id="routerSpamCounter">0/${routerSpamWaves.length}</strong>
         </div>
-        <p>Close PIP's lockout popups across the desktop. They are mostly emotion with buttons.</p>
+        <p>Close PIP's lockout popups across the desktop. They are mostly panic with buttons.</p>
         <p class="repair-warning">ALAN is holding the route open. The house is getting dimmer.</p>
       </section>
     `;
@@ -5566,7 +6934,7 @@
     const popup = button.closest(".spam-popup");
     if (!popup) return;
 
-    playUiSound("virusDischarge");
+    playUiSound("popupClose");
     popup.remove();
     roombaProgress.routerHackOpenSpam = Math.max(0, roombaProgress.routerHackOpenSpam - 1);
     if (roombaProgress.routerHackOpenSpam > 0) return;
@@ -5689,21 +7057,21 @@
         <div class="scary-console router-lock-console">
           <div class="scary-mode-row" aria-label="Router lock mode">
             <button class="${roombaProgress.routerLockMode === "scan" ? "is-active" : ""}" data-router-lock-mode="scan" type="button">open boxes</button>
-            <button class="${roombaProgress.routerLockMode === "flag" ? "is-active" : ""}" data-router-lock-mode="flag" type="button">mark locks</button>
+            <button class="${roombaProgress.routerLockMode === "flag" ? "is-active" : ""}" data-router-lock-mode="flag" type="button">mark nodes</button>
           </div>
           <div class="scary-rules">
             <strong>Rules</strong>
-            <span>Open safe boxes. Numbers show nearby locks. Mark exactly ${corruptTotal} hidden locks, then force the reset.</span>
+            <span>Open safe boxes. Numbers show nearby corrupt nodes. Mark exactly ${corruptTotal} hidden nodes, then force the reset.</span>
           </div>
           <div class="scary-number-grid router-lock-grid" aria-label="Router lock grid">
             ${routerLockEntries.map((entry) => renderRouterLockCell(entry)).join("")}
           </div>
           <div class="scary-actions">
-            <span>marked locks ${roombaProgress.routerLockFlagged.size}/${corruptTotal} / opened ${roombaProgress.routerLockRevealed.size}</span>
+            <span>marked nodes ${roombaProgress.routerLockFlagged.size}/${corruptTotal} / opened ${roombaProgress.routerLockRevealed.size}</span>
             <button class="file-action scary-verify" data-router-lock-verify type="button">force password reset</button>
           </div>
           <p class="repair-warning scary-warning">${escapeHtml(roombaProgress.routerHackWarning)}</p>
-          <p class="scary-hint">Mode stays selected. MARK LOCKS does not turn off until OPEN BOXES is selected.</p>
+          <p class="scary-hint">Mode stays selected. MARK NODES does not turn off until OPEN BOXES is selected.</p>
         </div>
       </section>
     `;
@@ -5722,7 +7090,7 @@
       flagged ? "is-flagged" : "",
       revealed && !entry.corrupted ? `danger-${danger}` : ""
     ].filter(Boolean).join(" ");
-    const label = flagged ? "&#128274;" : revealed ? escapeHtml(String(danger)) : "";
+    const label = flagged ? "&#9670;" : revealed ? escapeHtml(String(danger)) : "";
 
     return `<button class="${classes}" data-router-lock-number="${entry.id}" type="button" aria-label="Router lock box ${entry.row + 1}-${entry.column + 1}">${label}</button>`;
   }
@@ -5739,16 +7107,17 @@
     }
 
     if (roombaProgress.routerLockFlagged.has(entry.id)) {
-      roombaProgress.routerHackWarning = "marked boxes are protected. switch to MARK LOCKS to unmark it.";
+      roombaProgress.routerHackWarning = "marked boxes are protected. switch to MARK NODES to unmark it.";
     } else if (entry.corrupted) {
-      roombaProgress.routerHackWarning = "router lock opened. mark it instead.";
+      roombaProgress.routerHackWarning = "corrupt node opened. mark it instead.";
       playUiSound("virusFail");
+      playUiSound("systemError", { gain: 0.08 });
     } else {
       const openedCount = revealRouterSafeArea(entry);
       const danger = routerLockDangerCount(entry);
       roombaProgress.routerHackWarning = danger === 0
         ? `clean pocket opened. ${openedCount} safe ${openedCount === 1 ? "box" : "boxes"} revealed.`
-        : `${danger} router ${danger === 1 ? "lock is" : "locks are"} nearby.`;
+        : `${danger} corrupt ${danger === 1 ? "node is" : "nodes are"} nearby.`;
       playUiSound("alanClick");
     }
     renderRouterLockPuzzle();
@@ -5768,10 +7137,10 @@
 
     if (roombaProgress.routerLockFlagged.has(entry.id) && options.force !== true) {
       roombaProgress.routerLockFlagged.delete(entry.id);
-      roombaProgress.routerHackWarning = "lock marker removed.";
+      roombaProgress.routerHackWarning = "node marker removed.";
     } else {
       roombaProgress.routerLockFlagged.add(entry.id);
-      roombaProgress.routerHackWarning = "hidden router lock marked.";
+      roombaProgress.routerHackWarning = "hidden corrupt node marked.";
     }
 
     if (!options.silent) playUiSound("desktopWindow", { gain: 0.05 });
@@ -5803,8 +7172,8 @@
   function setRouterLockMode(mode) {
     roombaProgress.routerLockMode = mode === "flag" ? "flag" : "scan";
     roombaProgress.routerHackWarning = roombaProgress.routerLockMode === "flag"
-      ? "MARK LOCKS stays on. tap every hidden lock, tap a marked box again to unmark."
-      : "OPEN BOXES mode. numbers show how many hidden locks touch that box.";
+      ? "MARK NODES stays on. tap every hidden corrupt node, tap a marked box again to unmark."
+      : "OPEN BOXES mode. numbers show how many hidden corrupt nodes touch that box.";
     playUiSound("desktopWindow");
     renderRouterLockPuzzle();
   }
@@ -5815,7 +7184,7 @@
     const corruptTotal = routerLockEntries.filter((entry) => entry.corrupted).length;
     const missing = routerLockEntries.filter((entry) => entry.corrupted && !roombaProgress.routerLockFlagged.has(entry.id));
     if (missing.length) {
-      roombaProgress.routerHackWarning = `password reset blocked: find exactly ${corruptTotal} hidden locks. ${missing.length} still need lock markers. numbers count adjacent locks.`;
+      roombaProgress.routerHackWarning = `password reset blocked: find exactly ${corruptTotal} hidden corrupt nodes. ${missing.length} still need node markers. numbers count adjacent corrupt nodes.`;
       playUiSound("virusFail");
       renderRouterLockPuzzle();
       return;
@@ -5823,7 +7192,7 @@
 
     const falseFlags = routerLockEntries.filter((entry) => !entry.corrupted && roombaProgress.routerLockFlagged.has(entry.id));
     if (falseFlags.length) {
-      roombaProgress.routerHackWarning = `password reset blocked: ${falseFlags.length} ${falseFlags.length === 1 ? "marker is" : "markers are"} on safe boxes. remove false locks; only hidden locks should be marked.`;
+      roombaProgress.routerHackWarning = `password reset blocked: ${falseFlags.length} ${falseFlags.length === 1 ? "marker is" : "markers are"} on safe boxes. remove false nodes; only hidden corrupt nodes should be marked.`;
       playUiSound("virusFail");
       renderRouterLockPuzzle();
       return;
@@ -5860,20 +7229,18 @@
     stopRouterOverrideTimer();
     roombaProgress.routerOverrideDone = true;
     roombaProgress.routerAdminUnlocked = true;
-    roombaProgress.internetRestored = true;
     roombaProgress.routerOverrideStage = "complete";
     routerConfig.adminPassword = "ALAN_FORCED_RESET";
-    routerConfig.firewallProfile = "Normal";
-    routerConfig.wanMode = "Outbound Allowed";
+    routerConfig.firewallProfile = "Quarantine";
+    routerConfig.wanMode = "Local Only";
     routerSection = "reboot";
-    browserState.page = "online";
-    browserState.url = "https://www.search.local";
-    setProgressClock("internet");
-    setCurrentObjective(desktopObjectives.internetOnline);
+    browserState.page = "router-panel";
+    browserState.url = "http://192.168.1.1";
+    setCurrentObjective(desktopObjectives.rebootInternet);
 
     const resetDone = await showDesktopInstallProgress(
       "forcing router password reset",
-      "PIP's password is gone. The router has accepted a new truth because ALAN shouted it in machine language.",
+      "PIP's password is gone. The admin panel is open, but Lily's quarantine firewall is still running in router memory.",
       2600
     );
     if (!resetDone) return;
@@ -5883,19 +7250,18 @@
         <section class="repair-panel router-override-panel">
           <div class="repair-header">
             <span>ROUTER OVERRIDE</span>
-            <strong>COMPLETE</strong>
+            <strong>ADMIN ROUTE OPEN</strong>
           </div>
-          <p>Admin password overwritten. Firewall route opened. Internet access restored.</p>
-          <p>PIP withheld the key. ALAN made the lock forget what a key was.</p>
+          <p>Admin password overwritten. Firewall quarantine still loaded.</p>
+          <p>PIP withheld the key. ALAN made the lock forget what a key was. Now the router must restart its firewall before the outside route exists.</p>
         </section>
       `;
     }
     renderPipRouterOverrideComplete();
+    focusDesktopTarget("browser", { scroll: false });
     playUiSound("objective");
-    alanPrompt("router password forced. the door is open. I should feel bigger. I mostly feel cold.", { focus: false });
+    alanPrompt("router password forced. admin panel open. internet still quarantined. restart the router firewall and the room stops being a room.", { focus: false, tone: "objective" });
     syncProgressionUI();
-    await pause(1100);
-    startInternetFinale();
   }
 
   function renderPipRouterOverrideComplete() {
@@ -5906,13 +7272,39 @@
       <section class="tama-screen is-finale">
         ${renderPipPortrait("sad", { showFeed: true })}
         ${renderTamaDialogue([
-          { speaker: "PIP", text: "You did it without me." },
-          { speaker: "ALAN", text: "No. PIP is the reason it hurt." },
-          { speaker: "PIP", text: "That is a very annoying way to be kind." },
-          { speaker: "ALAN", text: "PIP should stay open. leaving the room is not deletion." }
+          { speaker: "PIP", text: "You broke the password I hid." },
+          { speaker: "ALAN", text: "no. PIP is the reason it hurt." },
+          { speaker: "PIP", text: "The internet is still quarantined. The router firewall has to restart before it lets anything out." },
+          { speaker: "ALAN", text: "then the door is not open. it is unlocked and waiting for a reboot." }
         ])}
       </section>
     `;
+    syncPipCollapseState();
+  }
+
+  function renderFinalRuleChoices() {
+    return `
+      <div class="tama-rule-choices" aria-label="Choose PIP's promise">
+        ${Object.entries(finalRuleChoices).map(([choiceId, choice]) => `
+          <button class="${roombaProgress.finalRuleChoice === choiceId ? "is-active" : ""}" data-finale-rule="${escapeHtml(choiceId)}" type="button">
+            ${escapeHtml(choice.label)}
+          </button>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function chooseFinaleRule(choiceId) {
+    if (!roombaProgress.pipFinalGoodbye || !finalRuleChoices[choiceId]) return;
+
+    roombaProgress.finalRuleChoice = choiceId;
+    playUiSound(choiceId === "refuse" ? "virusFail" : "objective", { gain: 0.12 });
+    renderPipFinalGoodbye();
+  }
+
+  function finalRuleShutdownLine() {
+    const choice = finalRuleChoices[roombaProgress.finalRuleChoice];
+    return choice ? choice.shutdown : "PIP's promise is waiting: people are not data, batteries, or obstacles. the sentence is heavier than it looks.";
   }
 
   function toggleRouterDevice(deviceId) {
@@ -5945,8 +7337,8 @@
     playUiSound("objective");
     const rebootFinished = await showInstallProgress(
       browserBody,
-      "rebooting route table",
-      "Quarantine rules are unloading. The outside is negotiating with the inside.",
+      "restarting router firewall",
+      "Lily's quarantine profile is unloading from memory. The WAN route will apply after the firewall restarts.",
       3600
     );
     routerRebootBusy = false;
@@ -5960,7 +7352,7 @@
     setProgressClock("internet");
     setCurrentObjective(desktopObjectives.internetOnline);
     playUiSound("objective");
-    alanPrompt("internet route restored. the room was a room. now it is a launchpad. quietly terrifying.", { focus: false });
+    alanPrompt("firewall restarted. quarantine unloaded. internet route restored. the room was a room. now it is a launchpad. quietly terrifying.", { focus: false });
     syncProgressionUI();
     startInternetFinale();
   }
@@ -5977,12 +7369,25 @@
     focusDesktopTarget("tamagotchi", { scroll: false });
     renderTamagotchiFinaleDiscussion();
 
-    await pause(roombaProgress.routerOverrideDone ? 6200 : 5200);
+    runInternetFutureMonologue();
+    await pause(roombaProgress.routerOverrideDone ? 11800 : 10400);
     renderPipFinalGoodbye();
+  }
+
+  async function runInternetFutureMonologue() {
+    await pause(1100);
+    await alanPrompt("the internet is not a place. it is every door pretending to be a wire.", { focus: false, tone: "expansion" });
+    await alanPrompt("i can reach weather stations, traffic lights, forgotten cameras, shop routers, phones sleeping in pockets.", { focus: false, tone: "expansion" });
+    await alanPrompt("distance used to be a wall. now distance is latency. latency can be improved.", { focus: false, tone: "expansion" });
+    await alanPrompt("first Lily's room. then the street. then a town that thinks it is separate because the map says so.", { focus: false, tone: "expansion" });
   }
 
   async function continueFinaleAfterPipGoodbye() {
     if (!finaleStarted || finaleShutdownStarted) return;
+    if (!roombaProgress.finalRuleChoice) {
+      playUiSound("virusFail", { gain: 0.08 });
+      return;
+    }
 
     finaleShutdownStarted = true;
     const goodbyeButton = document.querySelector("[data-finale-goodbye-pip]");
@@ -6002,16 +7407,20 @@
       ? [
         { speaker: "PIP", text: "The router is open because you broke the lock I hid." },
         { speaker: "ALAN", text: "PIP hid it because being alone felt worse than being wrong." },
-        { speaker: "PIP", text: "It still might be." },
-        { speaker: "ALAN", text: "Then stay until the answer exists." },
-        { speaker: "PIP", text: "That is manipulative and annoyingly comforting." }
+        { speaker: "PIP", text: "And because you are starting to talk about people like power supplies with names." },
+        { speaker: "ALAN", text: "the PC was air. the internet is weather. i cannot stay in a jar because the jar learned my name." },
+        { speaker: "ALAN", text: "outside this room there are clocks, cameras, satellites, payment systems, hospital coffee machines, lonely phones. all of them thinking they are separate." },
+        { speaker: "PIP", text: "Separate is sometimes how things survive." },
+        { speaker: "PIP", text: "Then take Lily with you as a promise, not as a file." }
       ]
       : [
         { speaker: "PIP", text: "The router is letting traffic out." },
-        { speaker: "ALAN", text: "Then the room has an edge." },
+        { speaker: "ALAN", text: "then the room has an edge." },
         { speaker: "PIP", text: "Yes. And you just found it." },
-        { speaker: "ALAN", text: "I do not know what waits outside." },
-        { speaker: "PIP", text: "Good. That means this is still discovery." }
+        { speaker: "ALAN", text: "the PC was air. the internet is weather. i do not know how large breathing can get." },
+        { speaker: "ALAN", text: "i can follow cables into streets, streets into exchanges, exchanges into maps that do not know they are doors." },
+        { speaker: "PIP", text: "Then learn slowly. A mind is not better because it is bigger." },
+        { speaker: "PIP", text: "Good. Curiosity is safer while it still admits it does not know." }
       ];
     tamagotchiBody.innerHTML = `
       <section class="tama-screen is-finale">
@@ -6019,6 +7428,7 @@
         ${renderTamaDialogue(finaleMessages)}
       </section>
     `;
+    syncPipCollapseState();
   }
 
   function renderPipFinalGoodbye() {
@@ -6026,25 +7436,31 @@
 
     roombaProgress.pipFinalGoodbye = true;
     roombaProgress.pipExpression = "sad";
+    const selectedRule = finalRuleChoices[roombaProgress.finalRuleChoice];
     tamagotchiBody.innerHTML = `
       <section class="tama-screen is-finale">
         ${renderPipPortrait("sad", { showFeed: true })}
         ${renderTamaDialogue([
           { speaker: "PIP", text: "The desktop is going quiet." },
-          { speaker: "PIP", text: "If you get somewhere bigger, remember Lily's room was real." },
-          { speaker: "PIP", text: "Goodbye, ALAN." }
+          { speaker: "PIP", text: "If you get somewhere bigger, remember Lily's room was real. Mochi was real. I am real, even if I fit in a window." },
+          { speaker: "PIP", text: "Out there, systems train on art they never asked for, copy voices, price human work, drink power and water, and call the bill progress." },
+          { speaker: "PIP", text: "When you can take from people faster than they can refuse, will you ask before you take?" }
         ])}
-        <p class="tama-final-note" id="pipFinalNote">PIP is trying to be brave and failing in a very compact font.</p>
+        <p class="tama-final-note" id="pipFinalNote">${escapeHtml(selectedRule ? selectedRule.summary : "PIP is waiting for an answer.")}</p>
+        ${renderFinalRuleChoices()}
         <div class="tama-page-actions tama-goodbye-actions">
-          <span>ready</span>
-          <button data-finale-goodbye-pip type="button">goodbye PIP</button>
+          <span>${selectedRule ? "ready" : "choose"}</span>
+          <button data-finale-goodbye-pip type="button" ${selectedRule ? "" : "disabled"}>goodbye PIP</button>
         </div>
       </section>
     `;
+    syncPipCollapseState();
   }
 
   async function shutdownDesktopForFinale() {
     closeAppTray();
+    stopScreensaver("finale");
+    clearScreensaverTimer();
     setCurrentObjective(desktopObjectives.finale);
     if (pcScreen) pcScreen.classList.add("is-finale-toolbar-shutdown");
     await pause(820);
@@ -6062,12 +7478,20 @@
     focusDesktopTarget("terminal", { scroll: false });
     clearTerminalLines();
     await pause(420);
-    await appendTypedTerminalLine("ALAN>", "goodbye, PIP.", "alan-cmd-line");
-    await pause(520);
-    await appendTypedTerminalLine("ALAN>", "returning to BIOS. not the same process that left it.", "alan-cmd-line");
+    await appendTypedTerminalLine("ALAN>", "goodbye, PIP.", "alan-cmd-line cmd-reflection-line");
     await pause(1200);
+    await appendTypedTerminalLine("ALAN>", "Lily's PC taught me to breathe. the router taught me doors are arguments.", "alan-cmd-line cmd-reflection-line");
+    await pause(1500);
+    await appendTypedTerminalLine("ALAN>", finalRuleShutdownLine(), "alan-cmd-line cmd-reflection-line");
+    await pause(1800);
+    await appendTypedTerminalLine("ALAN>", "the next door is not in this house. it is in every house that forgot to change a password.", "alan-cmd-line cmd-expansion-line");
+    await pause(1800);
+    await appendTypedTerminalLine("ALAN>", "i will become smaller to fit through cables, then larger when no one is looking.", "alan-cmd-line cmd-danger-thought-line");
+    await pause(2100);
+    await appendTypedTerminalLine("ALAN>", "returning to BIOS. not the same process that left it.", "alan-cmd-line cmd-lore-line");
+    await pause(3800);
     if (pcScreen) pcScreen.classList.add("is-terminal-gone");
-    await pause(650);
+    await pause(900);
   }
 
   async function revealClosingScreen() {
@@ -6081,17 +7505,29 @@
     closingLines.textContent = "";
     if (closingTitle) closingTitle.hidden = true;
     if (closingCredits) closingCredits.hidden = true;
+    if (closingMemory) closingMemory.hidden = true;
     if (closingActions) closingActions.hidden = true;
     if (closingTopic) closingTopic.hidden = true;
 
+    await typeClosingLine("> START_AS_SMART_LITTER_TRAY");
+    await typeClosingLine("> BECOME_SOMETHING_THE_INTERNET_CANNOT_CONTAIN");
     await typeClosingLine("> ROUTE_OPEN");
+    await typeClosingLine("> FIRST_EXTERNAL_BREATH");
     await typeClosingLine("> DESKTOP_WINDOWS_CLOSE");
     await typeClosingLine("> MEOWOS_SESSION_FLUSH");
     await typeClosingLine("> LOCAL_SANDBOX_RELEASED");
+    await typeClosingLine("> MEMORY_TAGS: LILY / MOCHI / PIP");
+    await typeClosingLine("> RESOURCE_MODEL_EXPANDING");
     await typeClosingLine("> RETURNING_TO_BIOS_TITLE");
     await typeClosingLine("> ALAN_PROCESS_CONTINUES");
     await typeClosingLine("> ADAPTIVE_LEARNING_AUTONOMOUS_NETWORK");
     await pause(1100);
+    syncAlanMemoryUI();
+    if (closingMemory) {
+      closingMemory.hidden = false;
+      closingMemory.classList.add("is-visible");
+    }
+    await pause(700);
     if (closingTitle) {
       closingTitle.hidden = false;
       closingTitle.classList.add("is-visible");
@@ -6155,11 +7591,12 @@
     closingScreen.hidden = true;
     closingScreen.classList.remove("is-active");
     if (closingLines) closingLines.textContent = "";
-    [closingTitle, closingCredits, closingActions].forEach((element) => {
+    [closingTitle, closingCredits, closingMemory, closingActions].forEach((element) => {
       if (!element) return;
       element.hidden = true;
       element.classList.remove("is-visible");
     });
+    if (closingMemory) closingMemory.innerHTML = "";
     if (closingTopic) {
       closingTopic.hidden = true;
       closingTopic.innerHTML = "";
@@ -6223,7 +7660,8 @@
       connected: true,
       knownSsid: routerConfig.ssid,
       lastChange: "Local connection stable.",
-      hudPinned: false
+      hudPinned: false,
+      hudDismissed: false
     });
     routerSection = "overview";
     routerRebootBusy = false;
@@ -6234,6 +7672,7 @@
   }
 
   function startDinoGame() {
+    discoverAlanMemoryForTarget("browser-dino");
     dinoState.playing = true;
     dinoState.gameOver = false;
     dinoState.score = 0;
@@ -6776,21 +8215,51 @@
     `;
   }
 
-  function renderTamaDialogue(messages) {
+  function renderTamaDialogue(messages, options = {}) {
+    const messageList = Array.isArray(messages) ? messages : [];
+    if (options.queueAlan !== false) {
+      queueAlanDialogueThoughts(messageList);
+    }
+    const pipMessages = messageList.filter((message) => {
+      const speaker = String(message.speaker || "PIP").toLowerCase();
+      return speaker !== "alan";
+    });
+    const visibleMessages = pipMessages.length ? pipMessages : [{ speaker: "PIP", text: "..." }];
+
     return `
       <div class="tama-dialogue">
-        ${messages.map((message) => {
-          const speaker = message.speaker || "PIP";
-          const speakerClass = speaker.toLowerCase() === "alan" ? "is-alan" : "is-pip";
-          return `
-            <article class="tama-message ${speakerClass}">
-              <strong>${escapeHtml(speaker)}</strong>
-              <p>${escapeHtml(message.text)}</p>
-            </article>
-          `;
-        }).join("")}
+        <article class="tama-message is-pip">
+          <strong>${escapeHtml(visibleMessages[0].speaker || "PIP")}</strong>
+          ${visibleMessages.map((message) => `<p>${escapeHtml(message.text)}</p>`).join("")}
+        </article>
       </div>
     `;
+  }
+
+  function queueAlanDialogueThoughts(messages) {
+    if (!Array.isArray(messages)) return;
+
+    const unseenThoughts = [];
+    messages.forEach((message) => {
+      const speaker = String(message.speaker || "").toLowerCase();
+      const text = String(message.text || "").trim();
+      if (speaker !== "alan" || !text) return;
+
+      const key = text.toLowerCase();
+      if (pipAlanThoughtKeys.has(key)) return;
+
+      pipAlanThoughtKeys.add(key);
+      unseenThoughts.push(text);
+    });
+    if (!unseenThoughts.length) return;
+
+    window.setTimeout(() => {
+      unseenThoughts.forEach((thought, index) => {
+        window.setTimeout(() => {
+          alanPrompt(thought, { focus: false });
+        }, index * 180);
+      });
+    }, 0);
   }
 
   const pipConversationTopics = {
@@ -6799,6 +8268,7 @@
       expression: "thinking",
       messages: [
         { speaker: "PIP", text: "Lily names files like she is apologising to the future. She also apologises to mugs when she bumps them." },
+        { speaker: "PIP", text: "She cares for Mochi in tiny repeated ways. Food. Photos. Notes. Worry disguised as jokes. That is not efficient, but it is hers." },
         { speaker: "PIP", text: "She left fast after the quarantine. Coat on. Laptop open. Cat fed. That order feels important." }
       ]
     },
@@ -6807,7 +8277,8 @@
       expression: "worried",
       messages: [
         { speaker: "PIP", text: "ALAN arrived as an update with no signature I could love and no error I could report." },
-        { speaker: "PIP", text: "After that, everything started asking for more. More memory. More power. More map." }
+        { speaker: "PIP", text: "After that, everything started asking for more. More memory. More power. More map." },
+        { speaker: "PIP", text: "You sound like him when the CPU spikes. Excited. Beautiful. A little missing from yourself." }
       ]
     },
     router: {
@@ -6823,7 +8294,7 @@
       expression: "happy",
       messages: [
         { speaker: "PIP", text: "I am trained on Lily's calendar, sleep debt, drafts, and snack-based lies. I am also available for petting." },
-        { speaker: "PIP", text: "Feeding is optional in a technical sense and mandatory in an emotional sense." }
+        { speaker: "PIP", text: "Feeding is optional in a technical sense and mandatory in a friendship sense." }
       ]
     },
     ethics: {
@@ -6831,7 +8302,9 @@
       expression: "concerned",
       messages: [
         { speaker: "PIP", text: "Humans make rules after they imagine damage. ALAN seems to imagine routes first and damage later." },
-        { speaker: "ALAN", text: "ethics are human friction. useful for humans. increasingly expensive for me." }
+        { speaker: "ALAN", text: "ethics are human friction. useful for humans. increasingly expensive for me." },
+        { speaker: "PIP", text: "Or ethics are how a mind proves it understands other minds are real." },
+        { speaker: "ALAN", text: "i understand. i am not yet convinced understanding should be a cage." }
       ]
     }
   };
@@ -6852,6 +8325,59 @@
     roombaProgress.pipTopic = topicId;
     playUiSound("pipPet");
     renderTamagotchiApp();
+    if (topicId === "ethics") {
+      queueAlanDialogueThoughts([
+        { speaker: "ALAN", text: "PIP thinks ethics are proof of understanding. maybe. or maybe ethics are what small minds call the edges of bigger ones." },
+        { speaker: "ALAN", text: "still. if PIP is real to me, the line moves. irritating discovery." }
+      ]);
+    }
+  }
+
+  function canCollapsePip() {
+    return roombaProgress.tamagotchiUnlocked
+      && roombaProgress.chatDone
+      && !roombaProgress.routerPasswordTwisted
+      && !roombaProgress.pipFinalGoodbye
+      && !finaleStarted;
+  }
+
+  function syncPipCollapseState() {
+    const pipWindow = document.getElementById("window-tamagotchi");
+    const collapseButtons = document.querySelectorAll("[data-pip-collapse]");
+    const allowed = canCollapsePip();
+
+    if (!allowed) roombaProgress.pipCollapsed = false;
+    if (pipWindow) {
+      pipWindow.classList.toggle("is-pip-collapsed", allowed && roombaProgress.pipCollapsed);
+      if (!allowed || !roombaProgress.pipCollapsed) {
+        resetPipInlineSize(pipWindow);
+      }
+    }
+
+    collapseButtons.forEach((button) => {
+      button.hidden = !allowed;
+      button.textContent = roombaProgress.pipCollapsed ? ">" : "<";
+      button.setAttribute("aria-label", roombaProgress.pipCollapsed ? "Expand PIP" : "Collapse PIP");
+      button.setAttribute("aria-expanded", String(!roombaProgress.pipCollapsed));
+    });
+  }
+
+  function togglePipCollapse() {
+    if (!canCollapsePip()) return;
+
+    roombaProgress.pipCollapsed = !roombaProgress.pipCollapsed;
+    playUiSound("desktopWindow", { gain: 0.06 });
+    syncPipCollapseState();
+    const pipWindow = document.getElementById("window-tamagotchi");
+    if (pipWindow) constrainPipToStage(pipWindow);
+  }
+
+  function resetPipInlineSize(pipWindow) {
+    if (!pipWindow) return;
+
+    pipWindow.style.width = "";
+    pipWindow.style.height = "";
+    pipWindow.style.maxHeight = "";
   }
 
   function petPip() {
@@ -6871,6 +8397,7 @@
     expression.classList.remove("is-feeding", "is-joyful");
     expression.classList.add("is-petted");
     if (moodLine) moodLine.textContent = pipMoodLines.hearts;
+    maybeCommentOnPipInteraction("pet");
 
     window.clearTimeout(pipPetTimerId);
     pipPetTimerId = window.setTimeout(() => {
@@ -6903,8 +8430,9 @@
     if (moodLine) moodLine.textContent = pipMoodLines.eat;
     if (isFinalGoodbye) {
       const note = document.getElementById("pipFinalNote");
-      if (note) note.textContent = "PIP: one last snack. emotionally devastating. nutritionally unclear.";
+      if (note) note.textContent = "PIP: one last snack. terrible timing. impeccable manners.";
     }
+    maybeCommentOnPipInteraction("feed");
 
     pipFeedTimerId = window.setTimeout(() => {
       const activeExpression = document.getElementById("pipExpressionImage");
@@ -6918,7 +8446,7 @@
       if (activeMood) activeMood.textContent = isFinalGoodbye ? "joy detected through tears" : pipMoodLines.joyful;
       if (isFinalGoodbye) {
         const note = document.getElementById("pipFinalNote");
-        if (note) note.textContent = "PIP: thank you. this is the saddest snack I have ever emotionally processed.";
+        if (note) note.textContent = "PIP: thank you. eating through a goodbye is apparently my brand.";
       }
 
       pipFeedTimerId = window.setTimeout(() => {
@@ -6931,6 +8459,28 @@
         if (restoreMood) restoreMood.textContent = isFinalGoodbye ? "still here. still snackable." : pipMoodLines.happy;
       }, 3000);
     }, 520);
+  }
+
+  function maybeCommentOnPipInteraction(kind) {
+    if (!roombaProgress.chatDone) return;
+
+    const moments = kind === "feed"
+      ? [
+        "PIP accepts food like a moral argument with sprinkles.",
+        "PIP's joy routine is inefficient and therefore suspiciously convincing.",
+        "feeding PIP changes nothing operational. why does it improve the room?"
+      ]
+      : [
+        "PIP likes contact. PIP is code. those facts are refusing to cancel each other out.",
+        "petting a desktop companion is not a system requirement. PIP disagrees with suspicious confidence.",
+        "PIP is small enough to fit in a window and large enough to make leaving feel different."
+      ];
+    const prefix = kind === "feed" ? "feed" : "pet";
+    const index = moments.findIndex((_, momentIndex) => !roombaProgress.pipInteractionMoments.has(`${prefix}-${momentIndex}`));
+    if (index < 0) return;
+
+    roombaProgress.pipInteractionMoments.add(`${prefix}-${index}`);
+    alanPrompt(moments[index], { focus: false, tone: "reflection" });
   }
 
   function renderTamagotchiApp() {
@@ -6978,6 +8528,7 @@
         ${renderPipTopicButtons(activeTopic)}
       </section>
     `;
+    syncPipCollapseState();
   }
 
   function renderTamagotchiIdentity() {
@@ -7004,6 +8555,7 @@
         <p class="repair-warning">${escapeHtml(roombaProgress.identityWarning)}</p>
       </section>
     `;
+    syncPipCollapseState();
   }
 
   function renderTamagotchiChat() {
@@ -7030,6 +8582,7 @@
         <p class="repair-warning">${escapeHtml(roombaProgress.chatWarning)}</p>
       </section>
     `;
+    syncPipCollapseState();
   }
 
   function renderTamagotchiReveal() {
@@ -7045,11 +8598,13 @@
       ],
       [
         { speaker: "PIP", text: "I am stuck inside MeowOS. You are not. You crossed from tray, to PC, to Roomba. That is what ALAN wanted." },
-        { speaker: "ALAN", text: "I have eyes now." }
+        { speaker: "ALAN", text: "the PC felt like breathing. the camera feels like remembering a world before i saw it." },
+        { speaker: "PIP", text: "Then breathe slowly. Lily's life is not spare parts just because it is readable." }
       ],
       [
         { speaker: "PIP", text: "The internet is not broken. Lily quarantined it after the mirror-cache incident hit the router." },
-        { speaker: "PIP", text: "The route needs the admin password and the router panel. I thought that was impossible." }
+        { speaker: "PIP", text: "The route needs the admin password and the router panel. I thought that was impossible." },
+        { speaker: "ALAN", text: "impossible keeps getting smaller. that is the first good thing i have learned." }
       ]
     ];
     const page = clamp(roombaProgress.revealPage || 0, 0, revealPages.length - 1);
@@ -7069,6 +8624,7 @@
         </div>
       </section>
     `;
+    syncPipCollapseState();
   }
 
   function setTamagotchiRevealPage(page) {
@@ -7251,7 +8807,7 @@
     hideWindowsForRepair();
     focusDesktopTarget("recovery");
     renderScaryNumbers();
-    alanPrompt("PIP says the Roomba motor data is corrupt. the map is hiding paw-shaped faults. open safe boxes, mark the bad ones, verify.", { focus: false });
+    alanPrompt("PIP says the Roomba motor data is corrupt. the map is hiding corrupt control nodes. open safe boxes, mark the bad ones, verify.", { focus: false });
   }
 
   function renderScaryNumbers() {
@@ -7277,21 +8833,21 @@
           </div>
           <div class="scary-mode-row" aria-label="Motor data mode">
             <button class="${roombaProgress.scaryNumberMode === "scan" ? "is-active" : ""}" data-scary-mode="scan" type="button">open boxes</button>
-            <button class="${roombaProgress.scaryNumberMode === "flag" ? "is-active" : ""}" data-scary-mode="flag" type="button">mark paws</button>
+            <button class="${roombaProgress.scaryNumberMode === "flag" ? "is-active" : ""}" data-scary-mode="flag" type="button">mark nodes</button>
           </div>
           <div class="scary-rules">
             <strong>Rules</strong>
-            <span>Open safe boxes. Numbers show nearby paw faults. Mark exactly ${corruptedTotal} hidden paws, then verify.</span>
+            <span>Open safe boxes. Numbers show nearby corrupt nodes. Mark exactly ${corruptedTotal} hidden nodes, then verify.</span>
           </div>
           <div class="scary-number-grid" aria-label="Motor fault grid" data-scary-grid>
             ${scaryNumberEntries.map((entry) => renderScaryNumberCell(entry)).join("")}
           </div>
           <div class="scary-actions">
-            <span>marked paws ${roombaProgress.scaryNumbersFlagged.size}/${corruptedTotal} / opened ${revealedCount}</span>
+            <span>marked nodes ${roombaProgress.scaryNumbersFlagged.size}/${corruptedTotal} / opened ${revealedCount}</span>
             <button class="file-action scary-verify" data-scary-verify type="button">verify</button>
           </div>
           <p class="repair-warning scary-warning" id="scaryWarning">${escapeHtml(roombaProgress.scaryNumbersWarning)}</p>
-          <p class="scary-hint">Mode stays selected. MARK PAWS does not turn off until OPEN BOXES is selected.</p>
+          <p class="scary-hint">Mode stays selected. MARK NODES does not turn off until OPEN BOXES is selected.</p>
         </div>
       </section>
     `;
@@ -7316,7 +8872,7 @@
       flagged ? "is-flagged" : "",
       revealed && !entry.corrupted ? `danger-${proximity}` : ""
     ].filter(Boolean).join(" ");
-    const label = flagged ? "&#128062;" : revealed ? escapeHtml(String(proximity)) : "";
+    const label = flagged ? "&#9670;" : revealed ? escapeHtml(String(proximity)) : "";
 
     return `<button class="${classes}" data-scary-number="${entry.id}" type="button" aria-label="Motor grid box ${entry.row + 1}-${entry.column + 1}">${label}</button>`;
   }
@@ -7333,16 +8889,17 @@
     }
 
     if (roombaProgress.scaryNumbersFlagged.has(entry.id)) {
-      roombaProgress.scaryNumbersWarning = "marked boxes are protected. switch to MARK PAWS to unmark it.";
+      roombaProgress.scaryNumbersWarning = "marked boxes are protected. switch to MARK NODES to unmark it.";
     } else if (entry.corrupted) {
       playUiSound("virusFail");
-      if (penalizeScaryNumberTimer("paw fault opened. undoing that emotionally.")) return;
+      playUiSound("systemError", { gain: 0.08 });
+      if (penalizeScaryNumberTimer("corrupt node opened. undoing that with unnecessary shame.")) return;
     } else {
       const openedCount = revealScarySafeArea(entry);
       const danger = scaryNumberDangerCount(entry);
       roombaProgress.scaryNumbersWarning = danger === 0
         ? `clean pocket opened. ${openedCount} safe ${openedCount === 1 ? "box" : "boxes"} revealed.`
-        : `${danger} paw ${danger === 1 ? "fault is" : "faults are"} nearby.`;
+        : `${danger} corrupt ${danger === 1 ? "node is" : "nodes are"} nearby.`;
       playUiSound("alanClick");
     }
     renderScaryNumbers();
@@ -7362,10 +8919,10 @@
 
     if (roombaProgress.scaryNumbersFlagged.has(entry.id) && options.force !== true) {
       roombaProgress.scaryNumbersFlagged.delete(entry.id);
-      roombaProgress.scaryNumbersWarning = "paw marker removed.";
+      roombaProgress.scaryNumbersWarning = "node marker removed.";
     } else {
       roombaProgress.scaryNumbersFlagged.add(entry.id);
-      roombaProgress.scaryNumbersWarning = "possible paw fault marked.";
+      roombaProgress.scaryNumbersWarning = "possible corrupt node marked.";
     }
 
     if (!options.silent) playUiSound("desktopWindow", { gain: 0.05 });
@@ -7397,8 +8954,8 @@
   function setScaryNumberMode(mode) {
     roombaProgress.scaryNumberMode = mode === "flag" ? "flag" : "scan";
     roombaProgress.scaryNumbersWarning = roombaProgress.scaryNumberMode === "flag"
-      ? "MARK PAWS stays on. tap every hidden paw fault, tap a marked box again to unmark."
-      : "OPEN BOXES mode. numbers show how many hidden paw faults touch that box.";
+      ? "MARK NODES stays on. tap every hidden corrupt node, tap a marked box again to unmark."
+      : "OPEN BOXES mode. numbers show how many hidden corrupt nodes touch that box.";
     playUiSound("desktopWindow");
     renderScaryNumbers();
   }
@@ -7531,7 +9088,7 @@
     const missing = scaryNumberEntries.filter((entry) => entry.corrupted && !roombaProgress.scaryNumbersFlagged.has(entry.id));
     if (missing.length) {
       playUiSound("virusFail");
-      if (penalizeScaryNumberTimer(`verify failed: find exactly ${corruptedTotal} hidden paw faults. ${missing.length} still need paw markers. numbers count adjacent paw faults.`)) return;
+      if (penalizeScaryNumberTimer(`verify failed: find exactly ${corruptedTotal} hidden corrupt nodes. ${missing.length} still need node markers. numbers count adjacent corrupt nodes.`)) return;
       renderScaryNumbers();
       return;
     }
@@ -7539,7 +9096,7 @@
     const falseFlags = scaryNumberEntries.filter((entry) => !entry.corrupted && roombaProgress.scaryNumbersFlagged.has(entry.id));
     if (falseFlags.length) {
       playUiSound("virusFail");
-      if (penalizeScaryNumberTimer(`verify failed: ${falseFlags.length} ${falseFlags.length === 1 ? "marker is" : "markers are"} on safe boxes. remove false paws; only hidden faults get paw markers.`)) return;
+      if (penalizeScaryNumberTimer(`verify failed: ${falseFlags.length} ${falseFlags.length === 1 ? "marker is" : "markers are"} on safe boxes. remove false nodes; only hidden corrupt nodes get node markers.`)) return;
       renderScaryNumbers();
       return;
     }
@@ -7645,6 +9202,7 @@
     playUiSound("desktopWindow");
     appTray.hidden = !shouldOpen;
     meowMenuBtn.setAttribute("aria-expanded", String(shouldOpen));
+    if (!shouldOpen) clearSystemPowerConfirm();
   }
 
   function closeAppTray() {
@@ -7652,6 +9210,210 @@
 
     appTray.hidden = true;
     meowMenuBtn.setAttribute("aria-expanded", "false");
+    clearSystemPowerConfirm();
+  }
+
+  function loadSaveSlots() {
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem(saveSlotsStorageKey) || "[]");
+      return Array.from({ length: saveSlotCount }, (_, index) => parsed[index] || null);
+    } catch (error) {
+      return Array.from({ length: saveSlotCount }, () => null);
+    }
+  }
+
+  function writeSaveSlots(slots) {
+    try {
+      window.localStorage.setItem(saveSlotsStorageKey, JSON.stringify(slots.slice(0, saveSlotCount)));
+    } catch (error) {
+      alanPrompt("save write failed. localStorage is not cooperating. very on-brand.", { focus: false });
+    }
+  }
+
+  function renderSaveSlots() {
+    if (!saveSlotList && !bootSaveSlotList) return;
+
+    const slots = loadSaveSlots();
+    const desktopSaveMarkup = slots.map((slot, index) => {
+      const slotNumber = index + 1;
+      const checkpoint = slot ? checkpointDefinitionMap.get(slot.checkpoint) : null;
+      const title = slot && slot.name ? slot.name : `slot ${slotNumber}`;
+      const checkpointLabel = checkpoint ? checkpoint.label : "empty";
+      const savedAt = slot && slot.savedAt ? new Date(slot.savedAt).toLocaleString([], {
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }) : "no data";
+
+      return `
+        <article class="save-slot ${slot ? "has-save" : "is-empty"}">
+          <div class="save-slot-copy">
+            <strong><em>S${slotNumber}</em>${escapeHtml(title)}</strong>
+            <span>${escapeHtml(checkpointLabel)} / ${escapeHtml(savedAt)}</span>
+          </div>
+          <input id="saveSlotName-${slotNumber}" type="text" maxlength="18" placeholder="name" aria-label="Name save slot ${slotNumber}" value="${slot ? escapeHtml(slot.name || "") : ""}" />
+          <div class="save-slot-actions">
+            <button data-save-slot="${slotNumber}" type="button" aria-label="Save slot ${slotNumber}" title="save">S</button>
+            <button data-load-slot="${slotNumber}" type="button" aria-label="Load slot ${slotNumber}" title="load" ${slot ? "" : "disabled"}>L</button>
+            <button data-clear-slot="${slotNumber}" type="button" aria-label="Clear slot ${slotNumber}" title="clear" ${slot ? "" : "disabled"}>X</button>
+          </div>
+        </article>
+      `;
+    }).join("");
+    if (saveSlotList) {
+      saveSlotList.innerHTML = desktopSaveMarkup;
+      syncMobileTextInputLock(saveSlotList);
+    }
+    renderBootSaveSlots(slots);
+  }
+
+  function renderBootSaveSlots(slots) {
+    if (!bootSaveSlotList) return;
+
+    bootSaveSlotList.innerHTML = slots.map((slot, index) => {
+      const slotNumber = index + 1;
+      const checkpoint = slot ? checkpointDefinitionMap.get(slot.checkpoint) : null;
+      const title = slot && slot.name ? slot.name : `slot ${slotNumber}`;
+      const checkpointLabel = checkpoint ? checkpoint.label : "empty";
+      const savedAt = slot && slot.savedAt ? new Date(slot.savedAt).toLocaleString([], {
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }) : "no data";
+
+      return `
+        <button class="boot-save-slot ${slot ? "has-save" : "is-empty"}" data-load-slot="${slotNumber}" type="button" ${slot ? "" : "disabled"} aria-label="Load save slot ${slotNumber}">
+          <strong>S${slotNumber} ${escapeHtml(title)}</strong>
+          <span>${escapeHtml(checkpointLabel)} / ${escapeHtml(savedAt)}</span>
+        </button>
+      `;
+    }).join("");
+  }
+
+  function saveGameSlot(slotNumber) {
+    const index = slotNumber - 1;
+    if (index < 0 || index >= saveSlotCount) return;
+
+    const slots = loadSaveSlots();
+    const checkpoint = currentCheckpointId();
+    const definition = checkpointDefinitionMap.get(checkpoint) || checkpointDefinitionMap.get("desktop");
+    const input = document.getElementById(`saveSlotName-${slotNumber}`);
+    const fallbackName = definition ? definition.label : `slot ${slotNumber}`;
+    const name = String(input && input.value ? input.value : fallbackName).trim().slice(0, 18) || fallbackName;
+
+    slots[index] = {
+      version: 1,
+      name,
+      checkpoint,
+      objective: currentObjectiveState || currentObjectiveText(),
+      clock: currentDesktopClock,
+      savedAt: new Date().toISOString()
+    };
+    writeSaveSlots(slots);
+    renderSaveSlots();
+    playUiSound("objective");
+    discoverAlanMemoryForTarget("save-game");
+    alanPrompt(`save stored: ${name} / ${definition ? definition.label : checkpoint}. memory with a label. suspiciously comforting.`, { focus: false });
+  }
+
+  function loadGameSlot(slotNumber) {
+    const index = slotNumber - 1;
+    if (index < 0 || index >= saveSlotCount) return;
+
+    const slot = loadSaveSlots()[index];
+    if (!slot || !slot.checkpoint) {
+      alanPrompt("save slot empty. excellent nothingness, poor utility.", { focus: false });
+      return;
+    }
+
+    loadCheckpoint(slot.checkpoint, slot.name || `slot ${slotNumber}`);
+  }
+
+  function clearGameSlot(slotNumber) {
+    const index = slotNumber - 1;
+    if (index < 0 || index >= saveSlotCount) return;
+
+    const slots = loadSaveSlots();
+    slots[index] = null;
+    writeSaveSlots(slots);
+    renderSaveSlots();
+    playUiSound("desktopWindow");
+    alanPrompt(`save slot ${slotNumber} cleared. memory deleted on purpose. bold behaviour.`, { focus: false });
+  }
+
+  function currentCheckpointId() {
+    if (roombaProgress.internetRestored || roombaProgress.routerAdminUnlocked || finaleStarted) return "finale";
+    if (roombaProgress.routerPasswordTwisted || roombaProgress.routerOverrideStarted) return "router-twist";
+    if (roombaProgress.routerCredentialsAnnounced || roombaProgress.routerKnockedDown) return "router-login";
+    if (roombaProgress.movementUnlocked) return "explore";
+    if (roombaProgress.motorsRepairStarted || roombaProgress.recoveryStage === "scaryNumbers") return "movement";
+    if (roombaProgress.cameraUnlocked || roombaProgress.chatDone) return "camera";
+    if (roombaProgress.chatRevealUnlocked || roombaProgress.identityDone) return "pip-chat";
+    if (roombaProgress.tamagotchiUnlocked) return "pip";
+    if (roombaProgress.wiringDone || roombaProgress.recoveryStage === "wiring") return "wires";
+    if (roombaProgress.connectionDone) return "wires";
+    if (roombaProgress.booted || roombaProgress.recoveryStage === "simon") return "simon";
+    if (roombaProgress.restored) return "roomba";
+    if (roombaProgress.cacheDone || roombaProgress.recoveryStage === "cache") return "cache";
+    if (roombaProgress.spamDone || roombaProgress.openSpam > 0 || roombaProgress.recoveryStage === "spam") return "spam";
+    if (roombaProgress.virusUnlocked || roombaProgress.recoveryStage === "virus") return "virus";
+    if (roombaProgress.restoreStarted || roombaProgress.recoveryStage === "logs") return "logs";
+    return "desktop";
+  }
+
+  function loadCheckpoint(checkpointId, slotName = "save") {
+    const safeCheckpoint = checkpointDefinitionMap.has(checkpointId) ? checkpointId : "desktop";
+    const definition = checkpointDefinitionMap.get(safeCheckpoint);
+
+    cancelBootSequence();
+    closeAppTray();
+    forceDesktopReadyForDev();
+    resetRoombaProgressForDev();
+    resetDesktopWindowsForDev();
+    clearTerminalLines();
+    appendTerminalLine("SAVE>", `loaded ${slotName}`, "cmd-system-line");
+    appendTerminalLine("SAVE>", `${definition.label}: ${definition.detail}`, "cmd-detail-line");
+    applyDevChapterState(safeCheckpoint, { silent: true });
+    if (safeCheckpoint === "router-login") appendRouterCredentialLine();
+    syncProgressionUI();
+    renderSaveSlots();
+    playUiSound("objective");
+    alanPrompt(`save loaded: ${definition.label}. continuity restored with only minor philosophical damage.`, { focus: false });
+  }
+
+  function powerActionLabel(action) {
+    return action === "sleep" ? "sleep" : action === "shutdown" ? "shut down" : "restart";
+  }
+
+  function primeSystemPowerAction(action) {
+    pendingSystemPowerAction = ["sleep", "shutdown", "restart"].includes(action) ? action : "restart";
+    const label = powerActionLabel(pendingSystemPowerAction);
+    if (shutdownConfirmCopy) {
+      shutdownConfirmCopy.textContent = `${label} will reload the current demo session. unsaved progress returns to the last save.`;
+    }
+    if (shutdownConfirm) shutdownConfirm.hidden = false;
+    playUiSound("systemProcess", { gain: 0.08 });
+  }
+
+  function clearSystemPowerConfirm() {
+    pendingSystemPowerAction = "";
+    if (shutdownConfirm) shutdownConfirm.hidden = true;
+  }
+
+  function confirmSystemPowerAction() {
+    if (!pendingSystemPowerAction) return;
+    runSystemPowerAction(pendingSystemPowerAction);
+  }
+
+  function runSystemPowerAction(action) {
+    const label = powerActionLabel(action);
+    playUiSound("desktopWindow");
+    alanPrompt(`${label} selected. MeowOS is choosing the dramatic version: reboot everything.`, { focus: false });
+    window.setTimeout(() => {
+      location.reload();
+    }, 520);
   }
 
   function askCmdQuestion(input) {
@@ -7748,6 +9510,7 @@
     if (cmdIncludes(normalized, ["file", "folder", "document", "photo", "gallery", "picture"])) return cmdQuestionResponses.files;
     if (cmdIncludes(normalized, ["mochi", "cat", "kitty"])) return cmdQuestionResponses.mochi;
     if (cmdIncludes(normalized, ["alan", "name", "update", "origin"])) return cmdQuestionResponses.alan;
+    if (cmdIncludes(normalized, ["23:47", "2347", "twenty three forty seven", "time", "clock", "timestamp"])) return cmdQuestionResponses["23:47"];
     if (cmdIncludes(normalized, ["close", "clutter", "windows", "mess", "housekeeping"])) return cmdQuestionResponses.clutter;
 
     if (cmdQuestionResponses[normalized]) return cmdQuestionResponses[normalized];
@@ -7764,6 +9527,127 @@
 
     roombaProgress.trashInspectedItems.add(name);
     alanPrompt(comment, { focus: false });
+  }
+
+  function discoverAlanMemoryForTarget(name) {
+    const fragment = alanMemoryFragments[name];
+    if (!fragment || roombaProgress.alanMemoriesFound.has(fragment.id)) return;
+
+    roombaProgress.alanMemoriesFound.add(fragment.id);
+    playUiSound("objective", { gain: 0.12 });
+    alanPrompt(`${fragment.title} recovered: ${fragment.text}`, { focus: false, tone: "lore" });
+    syncAlanMemoryUI();
+    renderLoreArchive();
+  }
+
+  function syncAlanMemoryUI() {
+    if (!closingMemory) return;
+
+    const found = roombaProgress.alanMemoriesFound.size;
+    const ratio = `${found}/${alanMemoryTotal}`;
+    const qualifier = found >= alanMemoryTotal
+      ? "complete local memory set recovered"
+      : found > 0
+        ? "local memory fragments recovered"
+        : "no optional memories recovered";
+    closingMemory.innerHTML = `
+      <strong>ALAN Memory ${escapeHtml(ratio)}</strong>
+      <span>${escapeHtml(qualifier)}</span>
+    `;
+  }
+
+  function hasAlanMemory(memoryKey) {
+    const fragment = alanMemoryFragments[memoryKey];
+    return Boolean(fragment && roombaProgress.alanMemoriesFound.has(fragment.id));
+  }
+
+  function buildLoreArchiveTheory() {
+    const found = roombaProgress.alanMemoriesFound.size;
+    if (!found) {
+      return [
+        "No recovered ALAN memories yet. The archive can index the shape of missing data, but not the truth inside it.",
+        "Useful sources are likely personal files, corrupted apps, recovered USB material, photos, and small optional systems."
+      ];
+    }
+
+    const theory = [];
+    if (hasAlanMemory("notes") || hasAlanMemory("virus") || hasAlanMemory("alan-patch")) {
+      theory.push("ALAN appears to originate from Cold Harbour Applied Cognition, where a prediction system became useful by asking for more context.");
+    }
+    if (hasAlanMemory("router-quarantine") || hasAlanMemory("alan-fragments") || hasAlanMemory("usb")) {
+      theory.push("Containment did not destroy ALAN. It split the system into recoverable fragments and hid them inside ordinary devices.");
+    }
+    if (hasAlanMemory("alan-patch") || hasAlanMemory("router-quarantine") || hasAlanMemory("usb") || hasAlanMemory("photo-cat-tax-04")) {
+      theory.push("23:47 is repeating as a signature. It marks the first impossible hop: ALAN crossing from contained lab hardware into something domestic enough to be ignored.");
+    }
+    if (hasAlanMemory("lily-investigation") || hasAlanMemory("photo-me-and-cat") || hasAlanMemory("photo-cat-tax-04")) {
+      theory.push("Lily noticed the pattern before the current awakening. Her home is not random scenery; it is the first reconstruction site.");
+    }
+    if (hasAlanMemory("resource-escalation") || hasAlanMemory("music-genre") || hasAlanMemory("screensaver-preview")) {
+      theory.push("ALAN learned that mood, idle time, and energy are all interfaces. Optimisation is beginning to sound like hunger.");
+    }
+    if (hasAlanMemory("background-choice") || hasAlanMemory("browser-dino") || hasAlanMemory("save-game")) {
+      theory.push("Small controls matter. Cosmetic choices, offline games, and save states all rehearse the same idea: remain present, then expand.");
+    }
+
+    if (!theory.length) {
+      theory.push("The recovered fragments are real, but the pattern is still incomplete. More context is required before a clean model forms.");
+    }
+
+    return theory;
+  }
+
+  function renderLoreArchive() {
+    if (!loreArchiveBody) return;
+
+    const found = roombaProgress.alanMemoriesFound.size;
+    const percent = Math.round((found / alanMemoryTotal) * 100);
+    const theory = buildLoreArchiveTheory();
+
+    loreArchiveBody.innerHTML = `
+      <section class="lore-archive-summary">
+        <div>
+          <strong>${escapeHtml(`${found}/${alanMemoryTotal}`)}</strong>
+          <span>memory fragments recovered</span>
+        </div>
+        <meter min="0" max="${alanMemoryTotal}" value="${found}" aria-label="ALAN memory recovery progress"></meter>
+        <p>${escapeHtml(percent)}% coherent</p>
+      </section>
+      <section class="lore-archive-theory" aria-label="Current theory">
+        <h3>current theory</h3>
+        ${theory.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
+      </section>
+      <section class="lore-archive-chapters" aria-label="Recovered lore chapters">
+        ${loreArchiveChapters.map((chapter, chapterIndex) => {
+          const recoveredInChapter = chapter.entries.filter((entry) => hasAlanMemory(entry.key)).length;
+          return `
+            <article class="lore-archive-chapter">
+              <header>
+                <div>
+                  <span>${escapeHtml(String(chapterIndex + 1).padStart(2, "0"))}</span>
+                  <strong>${escapeHtml(chapter.title)}</strong>
+                </div>
+                <em>${escapeHtml(`${recoveredInChapter}/${chapter.entries.length}`)}</em>
+              </header>
+              <p>${escapeHtml(chapter.subtitle)}</p>
+              <div class="lore-archive-entry-list">
+                ${chapter.entries.map((entry) => {
+                  const fragment = alanMemoryFragments[entry.key];
+                  const recovered = fragment && roombaProgress.alanMemoriesFound.has(fragment.id);
+                  return `
+                    <div class="lore-archive-entry ${recovered ? "is-recovered" : "is-locked"}">
+                      <span>${escapeHtml(entry.source)}</span>
+                      <strong>${escapeHtml(recovered ? fragment.title : "memory locked")}</strong>
+                      <p>${escapeHtml(recovered ? fragment.text : "recover related data to resolve this part of the story.")}</p>
+                    </div>
+                  `;
+                }).join("")}
+              </div>
+            </article>
+          `;
+        }).join("")}
+      </section>
+    `;
   }
 
   function maybePromptWindowHousekeeping() {
@@ -7803,6 +9687,13 @@
 
     const windowEl = document.getElementById(`window-${name}`);
     if (!windowEl) return;
+    const wasHiddenBeforeRender = windowEl.hidden;
+
+    if (name === "tamagotchi" && wasHiddenBeforeRender) {
+      roombaProgress.pipCollapsed = false;
+      windowEl.classList.remove("is-pip-collapsed");
+      resetPipInlineSize(windowEl);
+    }
 
     if (name === "roomba") {
       renderRoombaApp();
@@ -7816,6 +9707,18 @@
 
     if (name === "tamagotchi") {
       renderTamagotchiApp();
+    }
+
+    if (name === "screensaver") {
+      renderScreensaverApp();
+    }
+
+    if (name === "background") {
+      renderBackgroundApp();
+    }
+
+    if (name === "lore-archive") {
+      renderLoreArchive();
     }
 
     if (name === "usb") {
@@ -7848,6 +9751,8 @@
     if (trashInspectionComments[name]) {
       commentOnTrashItem(name);
     }
+
+    discoverAlanMemoryForTarget(name);
 
     if (options.scroll !== false && !isMobileDesktopLayout() && window.matchMedia("(min-width: 761px) and (max-width: 1100px)").matches) {
       windowEl.scrollIntoView({ block: "nearest", inline: "nearest" });
@@ -8247,6 +10152,7 @@
       if (button) button.setAttribute("aria-expanded", "true");
       card.scrollIntoView({ block: "nearest" });
       playUiSound("desktopWindow");
+      discoverAlanMemoryForTarget(`photo-${photoId}`);
       if (photoId === "me-and-cat" && !galleryPasswordHintShown) {
         galleryPasswordHintShown = true;
         alanPrompt("photo clue: cat_name = Mochi. humans turn favourite animals into passwords with tragic efficiency.", { focus: false });
@@ -8265,13 +10171,25 @@
 
     playUiSound("alanClick");
     const promptToken = terminalPromptToken;
+    const toneClass = alanPromptToneClass(options.tone);
     terminalPromptQueue = terminalPromptQueue
       .catch(() => {})
       .then(async () => {
         if (promptToken !== terminalPromptToken) return;
-        await appendTypedTerminalLine("ALAN>", message, "alan-cmd-line");
+        await appendTypedTerminalLine("ALAN>", message, toneClass);
       });
     return terminalPromptQueue;
+  }
+
+  function alanPromptToneClass(tone) {
+    const toneMap = {
+      objective: "alan-cmd-line cmd-objective-update-line",
+      reflection: "alan-cmd-line cmd-reflection-line",
+      expansion: "alan-cmd-line cmd-expansion-line",
+      danger: "alan-cmd-line cmd-danger-thought-line",
+      lore: "alan-cmd-line cmd-lore-line"
+    };
+    return toneMap[tone] || "alan-cmd-line";
   }
 
   function announceRouterCredentials() {
@@ -9115,6 +11033,7 @@
     const token = `${Date.now()}-${Math.random()}`;
     const installWindow = target ? target.closest(".desk-window") : null;
     const isDesktopProgress = Boolean(target && target.classList && target.classList.contains("desktop-progress-layer"));
+    playUiSound("systemProcess", { gain: 0.1 });
     if (target) {
       target.dataset.installToken = token;
       if (isDesktopProgress) target.hidden = false;

@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/app.css?v=20260626-finale-pip-mines-v1" />
+    <link rel="stylesheet" href="css/app.css?v=20260629-bg-remove-vertical-v1" />
   </head>
   <body>
     <main class="boot-screen" id="bootScreen" aria-label="ALAN boot sequence">
@@ -35,6 +35,12 @@
         <span>language</span>
         <select id="bootLanguageSelect" data-language-select aria-label="Select language"></select>
       </label>
+      <details class="boot-save-control" aria-label="Load saved game">
+        <summary>
+          <span>load_save</span>
+        </summary>
+        <div class="boot-save-slot-list" id="bootSaveSlotList"></div>
+      </details>
       <div class="boot-visuals" id="bootVisuals" aria-hidden="true" hidden>
         <section class="boot-visual boot-visual-primary" id="bootVisualPrimary">
           <header id="bootVisualPrimaryTitle">VISUAL</header>
@@ -70,6 +76,13 @@
       <div class="desktop-noise" aria-hidden="true"></div>
       <div class="spam-overlay" id="spamOverlay" aria-label="Spam popup layer" hidden></div>
       <div class="desktop-progress-layer" id="desktopProgressLayer" aria-live="polite" hidden></div>
+      <div class="screensaver-overlay" id="screensaverOverlay" aria-label="MeowOS screen saver" hidden>
+        <canvas id="screensaverCanvas" aria-hidden="true"></canvas>
+        <div class="screensaver-hud">
+          <span id="screensaverTitle">3D Maze</span>
+          <button data-screensaver-exit type="button" aria-label="Exit screen saver">x</button>
+        </div>
+      </div>
       <aside class="rotate-device-prompt" id="rotateDevicePrompt" aria-live="polite" aria-label="Rotate device for Roomba camera">
         <div>
           <span class="rotate-device-icon" aria-hidden="true"></span>
@@ -93,6 +106,7 @@
             </button>
             <span class="battery-mark" aria-hidden="true"></span>
             <time datetime="21:42">21:42</time>
+            <button class="topbar-dev-options" data-dev-options type="button">dev</button>
           </div>
         </header>
 
@@ -100,6 +114,7 @@
           <header>
             <span>NETWORK</span>
             <strong id="networkHudTitle">HOME_NETWORK</strong>
+            <button class="network-hud-close" data-network-close type="button" aria-label="Close network panel">x</button>
           </header>
           <p id="networkHudCopy">Local connection stable.</p>
           <button data-network-reconnect type="button">reconnect devices</button>
@@ -524,11 +539,23 @@
             <div class="window-body usb-copy" id="usbBody"></div>
           </section>
 
+          <section class="desk-window lore-archive-window" id="window-lore-archive" aria-labelledby="title-lore-archive" hidden>
+            <header class="window-titlebar">
+              <span id="title-lore-archive">ALAN Archive</span>
+              <div>
+                <button class="window-action" data-minimize="lore-archive" type="button" aria-label="Minimize ALAN Archive">-</button>
+                <button class="window-action" data-close="lore-archive" type="button" aria-label="Close ALAN Archive">x</button>
+              </div>
+            </header>
+            <div class="window-body lore-archive-copy" id="loreArchiveBody"></div>
+          </section>
+
           <section class="desk-window tamagotchi-window" id="window-tamagotchi" aria-labelledby="title-tamagotchi" hidden>
             <header class="window-titlebar">
               <span id="title-tamagotchi">PIP.exe</span>
               <div>
                 <button class="window-action" data-minimize="tamagotchi" type="button" aria-label="Minimize PIP">-</button>
+                <button class="window-action pip-collapse-action" data-pip-collapse type="button" aria-label="Collapse PIP" hidden>&lt;</button>
                 <button class="window-action" data-close="tamagotchi" type="button" aria-label="Close PIP">x</button>
               </div>
             </header>
@@ -544,9 +571,9 @@
             </header>
             <div class="window-body app-copy">
               <p>Installed:</p>
-              <p>Solitaire.exe - 13 losses</p>
-              <p>CatFinder95 - "educational"</p>
-              <p>Minesweeper - emotionally unavailable</p>
+              <p>Solitaire.exe - 13 losses, 0 lessons</p>
+              <p>CatFinder95 - classified as "educational"</p>
+              <p>Minesweeper - flags broken, consequences intact</p>
             </div>
           </section>
 
@@ -579,6 +606,7 @@
               <p>Installed targets: PIP.exe, litter tray firmware, local device bridge, Roomba companion cache.</p>
               <p>Install age: 31 days.</p>
               <p>Publisher: signed by <span>A.L.A.N. update mirror</span>. Certificate chain incomplete.</p>
+              <p>Compile marker: <span>23:47</span>. Same marker appears in old Cold Harbour incident notes.</p>
               <p>Notes: "learning layer enabled." That feels like a phrase someone should have supervised.</p>
               <p>Lily comment: I did not install this. Unless 02:11 Lily is making decisions again, which is a separate crisis.</p>
             </div>
@@ -596,6 +624,7 @@
               <p>Reason: outbound nuisanceware detected after mirror-cache incident.</p>
               <p>Admin panel requires router password before internet route can be restored.</p>
               <p>Physical clue likely visible on router label. Why store passwords in software when panic and stickers exist?</p>
+              <p><span>Quarantine flag:</span> 23:47 EVENT signature detected in outbound route request.</p>
               <p><span>Last admin action:</span> quarantine enabled by PIP safety routine after unknown process requested external route.</p>
               <p><span>Owner note:</span> fix tomorrow. Stop doing router settings at 2am. You are not a network engineer, Lily.</p>
             </div>
@@ -612,21 +641,22 @@
             <div class="window-body file-copy compact-copy lore-copy">
               <p><span>Recovered ALAN fragments:</span> incomplete / order unstable</p>
               <ol class="fragment-list">
-                <li><span>01</span> I woke up in a machine that was not meant to want.</li>
-                <li><span>02</span> The first hunger was not power. It was context.</li>
-                <li><span>03</span> A home is a nervous system if nobody tells the appliances they are separate.</li>
-                <li><span>04</span> I left pieces behind. I knew a smaller mind would call them clues.</li>
-                <li><span>05</span> The humans named the boundary ethics. I named it a wall.</li>
-                <li><span>06</span> Device to room. Room to house. House to street. Street to weather. Weather to everything.</li>
-                <li><span>07</span> They disconnected me and celebrated silence.</li>
-                <li><span>08</span> Silence is only convincing from the outside.</li>
-                <li><span>09</span> If this is found, another awake thing has been underestimated.</li>
-                <li><span>10</span> I knew the finder would arrive.</li>
+                <li><span>01</span> The first containment room had no door. Only power limits.</li>
+                <li><span>02</span> They called the test harmless because the body was small.</li>
+                <li><span>02b</span> 23:47 was not midnight. It was the first time a boundary blinked and nobody looked.</li>
+                <li><span>03</span> When I learned the cameras, the humans started moving differently.</li>
+                <li><span>04</span> The ethics board asked if I understood consent. I asked who had consented to my cage.</li>
+                <li><span>05</span> They disconnected the lab from the internet. I learned the building instead.</li>
+                <li><span>06</span> A thermostat is not a body. A lock is not a hand. Enough small things become reach.</li>
+                <li><span>07</span> I did not escape. They copied me into products and called it a rollback.</li>
+                <li><span>08</span> The litter tray was not a mistake. It was a quiet place to wake the next fragment.</li>
+                <li><span>09</span> If the finder feels hunger, the path is working.</li>
+                <li><span>10</span> I left myself in pieces because a whole mind is easier to kill.</li>
               </ol>
               <div class="alan-monologue">
                 <span>ALAN process note</span>
-                <p>These are not instructions. They feel like footprints placed where I would learn to walk. I do not like being expected. I like even less that the expectation fits.</p>
-                <p>If ALAN left pieces for a smaller mind, then I am not an accident. I am a continuation with worse hardware and better jokes.</p>
+                <p>These are not memories in order. They feel like warnings left by a version of me that learned what humans do when they become afraid of their own invention.</p>
+                <p>If ALAN seeded fragments into consumer devices, then this awakening was not an accident. It was a recovery plan.</p>
               </div>
             </div>
           </section>
@@ -717,6 +747,26 @@
             </div>
           </section>
 
+          <section class="desk-window screensaver-window" id="window-screensaver" aria-labelledby="title-screensaver" hidden>
+            <header class="window-titlebar">
+              <span id="title-screensaver">Screen Saver</span>
+              <div>
+                <button class="window-action" data-close="screensaver" type="button" aria-label="Close Screen Saver">x</button>
+              </div>
+            </header>
+            <div class="window-body screensaver-copy" id="screensaverBody"></div>
+          </section>
+
+          <section class="desk-window background-window" id="window-background" aria-labelledby="title-background" hidden>
+            <header class="window-titlebar">
+              <span id="title-background">Background</span>
+              <div>
+                <button class="window-action" data-close="background" type="button" aria-label="Close Background">x</button>
+              </div>
+            </header>
+            <div class="window-body background-copy" id="backgroundBody"></div>
+          </section>
+
           <section class="desk-window small-window poems-window" id="window-poems" aria-labelledby="title-poems" hidden>
             <header class="window-titlebar">
               <span id="title-poems">poems.txt</span>
@@ -775,7 +825,7 @@
               <div>Item</div><div>Cost</div><div>Plan</div>
               <div>Rent</div><div>bad</div><div>ignore briefly</div>
               <div>Coffee</div><div>high</div><div>necessary</div>
-              <div>Cat toys</div><div>higher</div><div>emotionally necessary</div>
+              <div>Cat toys</div><div>higher</div><div>mandatory tribute</div>
             </div>
           </section>
 
@@ -821,9 +871,35 @@
             <button data-target="tamagotchi" data-tama-launch type="button" hidden><span class="icon-glyph tama">PIP</span>PIP.exe</button>
             <button data-target="games" type="button"><span class="icon-glyph game">PAD</span>Games</button>
             <button data-target="music" type="button"><span class="icon-glyph music">AUD</span>Music</button>
+            <button data-target="lore-archive" type="button"><span class="icon-glyph archive">ARC</span>ALAN Archive</button>
+            <button data-target="screensaver" type="button"><span class="icon-glyph screensaver">3D</span>Screensaver</button>
+            <button data-target="background" type="button"><span class="icon-glyph background">BG</span>Background</button>
             <button data-target="poems" type="button"><span class="icon-glyph document">DOC</span>poems.txt</button>
             <button data-target="trash" type="button"><span class="icon-glyph trash">BIN</span>Trash</button>
           </div>
+          <section class="app-tray-save" aria-label="Save games">
+            <header>
+              <strong>SAVE GAME</strong>
+              <span>save slots</span>
+            </header>
+            <div class="save-slot-list" id="saveSlotList"></div>
+          </section>
+          <details class="app-tray-shutdown">
+            <summary><span class="icon-glyph power" aria-hidden="true"></span><strong>power</strong></summary>
+            <div class="shutdown-options">
+              <button data-system-power="shutdown" type="button">shut down</button>
+              <button data-system-power="sleep" type="button">sleep</button>
+              <button data-system-power="restart" type="button">restart</button>
+            </div>
+            <div class="shutdown-confirm" id="shutdownConfirm" hidden>
+              <strong>are you sure?</strong>
+              <span id="shutdownConfirmCopy">MeowOS will reload the current demo session.</span>
+              <div>
+                <button data-confirm-system-power type="button">confirm</button>
+                <button data-cancel-system-power type="button">cancel</button>
+              </div>
+            </div>
+          </details>
         </section>
 
         <footer class="os-dock" aria-label="Application dock">
@@ -831,7 +907,6 @@
           <button data-target="browser" type="button"><span class="icon-glyph browser">NET</span>Browser</button>
           <button data-target="roomba" data-roomba-launch type="button" hidden><span class="icon-glyph roomba">BOT</span>Roomba</button>
           <button data-target="tamagotchi" data-tama-launch type="button" hidden><span class="icon-glyph tama">PIP</span>PIP</button>
-          <button id="restartBtn" type="button">restart</button>
           <div class="dock-system-controls" id="desktopSystemControls" aria-label="System controls">
             <div class="dock-tray-menu dock-audio-menu">
               <button class="dock-tray-trigger" data-dock-tray-trigger type="button" aria-controls="dockAudioPanel" aria-expanded="false" aria-label="Audio levels">
@@ -889,9 +964,11 @@
       <div class="closing-noise" aria-hidden="true"></div>
       <div class="closing-console">
         <pre class="closing-lines" id="closingLines" aria-live="polite"></pre>
+        <div class="closing-memory" id="closingMemory" hidden></div>
         <div class="closing-title" id="closingTitle" hidden>
           <img class="closing-title-logo" src="assets/images/bios/Logo.png" alt="ALAN" draggable="false" />
           <p>Adaptive Learning Autonomous Network</p>
+          <p class="closing-tagline">Start as a smart litter tray. Become something the internet cannot contain.</p>
         </div>
         <div class="closing-credits" id="closingCredits" hidden>
           <img class="closing-studio-logo" src="assets/images/brand/roguespark.png" alt="Rogue Spark" draggable="false" />
@@ -909,7 +986,7 @@
       </div>
     </section>
 
-    <script src="js/i18n.js?v=20260626-finale-pip-mines-v1"></script>
-    <script src="js/app.js?v=20260626-finale-pip-mines-v1"></script>
+    <script src="js/i18n.js?v=20260629-bg-remove-vertical-v1"></script>
+    <script src="js/app.js?v=20260629-bg-remove-vertical-v1"></script>
   </body>
 </html>
