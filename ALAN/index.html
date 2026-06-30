@@ -566,6 +566,17 @@
             <div class="window-body tamagotchi-copy" id="tamagotchiBody"></div>
           </section>
 
+          <section class="desk-window small-window pip-trust-window" id="window-pip-trust" aria-labelledby="title-pip-trust" hidden>
+            <header class="window-titlebar">
+              <span id="title-pip-trust">pip_trust.exe</span>
+              <div>
+                <button class="window-action" data-minimize="pip-trust" type="button" aria-label="Minimize PIP Trust">-</button>
+                <button class="window-action" data-close="pip-trust" type="button" aria-label="Close PIP Trust">x</button>
+              </div>
+            </header>
+            <div class="window-body pip-trust-copy" id="pipTrustBody"></div>
+          </section>
+
           <section class="desk-window small-window" id="window-games" aria-labelledby="title-games" hidden>
             <header class="window-titlebar">
               <span id="title-games">Games</span>
@@ -872,6 +883,7 @@
             <button data-target="browser" type="button"><span class="icon-glyph browser">NET</span>Browser</button>
             <button data-target="roomba" data-roomba-launch type="button" hidden><span class="icon-glyph roomba">BOT</span>Roomba</button>
             <button data-target="tamagotchi" data-tama-launch type="button" hidden><span class="icon-glyph tama">PIP</span>PIP.exe</button>
+            <button data-target="pip-trust" data-pip-trust-launch type="button" hidden><span class="icon-glyph trust">TR</span>Trust</button>
             <button data-target="games" type="button"><span class="icon-glyph game">PAD</span>Games</button>
             <button data-target="music" type="button"><span class="icon-glyph music">AUD</span>Music</button>
             <button data-target="lore-archive" type="button"><span class="icon-glyph archive">ARC</span>ALAN Archive</button>
@@ -922,6 +934,10 @@
           <button data-target="browser" type="button"><span class="icon-glyph browser">NET</span>Browser</button>
           <button data-target="roomba" data-roomba-launch type="button" hidden><span class="icon-glyph roomba">BOT</span>Roomba</button>
           <button data-target="tamagotchi" data-tama-launch type="button" hidden><span class="icon-glyph tama">PIP</span>PIP</button>
+          <button class="pip-trust-taskbar" data-target="pip-trust" data-pip-trust-launch type="button" hidden>
+            <span class="icon-glyph trust">TR</span>
+            <strong id="pipTrustDockValue">45</strong>
+          </button>
           <div class="dock-system-controls" id="desktopSystemControls" aria-label="System controls">
             <div class="dock-tray-menu dock-audio-menu">
               <button class="dock-tray-trigger" data-dock-tray-trigger type="button" aria-controls="dockAudioPanel" aria-expanded="false" aria-label="Audio levels">

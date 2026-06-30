@@ -25,6 +25,8 @@
   const usbBody = document.getElementById("usbBody");
   const browserBody = document.getElementById("browserBody");
   const tamagotchiBody = document.getElementById("tamagotchiBody");
+  const pipTrustBody = document.getElementById("pipTrustBody");
+  const pipTrustDockValue = document.getElementById("pipTrustDockValue");
   const screensaverBody = document.getElementById("screensaverBody");
   const backgroundBody = document.getElementById("backgroundBody");
   const loreArchiveBody = document.getElementById("loreArchiveBody");
@@ -157,6 +159,7 @@
   let routerOverrideTimerId = 0;
   let pipPetTimerId = 0;
   let pipFeedTimerId = 0;
+  let pipTrustRevealTimerId = 0;
   let pipPetToken = 0;
   let pipPetSoundIndex = 0;
   let pipAlanThoughtKeys = new Set();
@@ -195,6 +198,28 @@
   let routerOverrideLaunchBusy = false;
   let pendingSystemPowerAction = "";
   const openedDesktopTargets = new Set();
+  const pipTrustInitialScore = 45;
+  const pipTrustMinScore = 0;
+  const pipTrustMaxScore = 100;
+  const pipTrustLogLimit = 6;
+  const pipTrustLowThreshold = 19;
+  const pipTrustTrackedTargets = new Set([
+    "files",
+    "photos",
+    "crush",
+    "notes",
+    "browser",
+    "roomba",
+    "roomba-camera",
+    "usb",
+    "lore-archive",
+    "trash",
+    "music",
+    "poems",
+    "games",
+    "screensaver",
+    "background"
+  ]);
   const roombaCameraPans = Object.create(null);
   const desktopClockSchedule = {
     boot: "21:42",
@@ -368,6 +393,25 @@
     "101000001101",
     "111111111111"
   ];
+
+  function createSessionStats() {
+    return {
+      filesOpened: new Set(),
+      photosClicked: new Set(),
+      musicListened: new Set(),
+      minigamesCompleted: new Set(),
+      minigameFailures: 0,
+      pipPets: 0,
+      pipFeeds: 0,
+      roombaMoves: 0,
+      routerOverrideAttempts: 0,
+      riskyActionsConfirmed: 0,
+      riskyActionsCancelled: 0,
+      trustGains: 0,
+      trustLosses: 0
+    };
+  }
+
   const roombaProgress = {
     restoreStarted: false,
     restored: false,
@@ -445,6 +489,19 @@
     finalRuleChoice: "",
     pipCollapsed: false,
     pipInteractionMoments: new Set(),
+    pipTrustUnlocked: false,
+    pipTrust: pipTrustInitialScore,
+    pipTrustLastEvent: null,
+    pipTrustLog: [],
+    pipTrustMaxAnnounced: false,
+    pipTrustLowAnnounced: false,
+    pipTrustFinalApplied: false,
+    pipTrustFinalChoice: "",
+    pipTrustBeforeFinalChoice: null,
+    pipTrustRevealQueued: false,
+    pipTrustTopicsDiscussed: new Set(),
+    routerOverrideTrustPenaltyApplied: false,
+    sessionStats: createSessionStats(),
     alanMemoriesFound: new Set(),
     trashInspectedItems: new Set()
   };
@@ -1714,7 +1771,7 @@
       }
 
       if (simonPadButton) {
-        handleSimonPad(simonPadButton.dataset.simonPad);
+        handleSimonPad(simonPadButton.dataset.simonPad, simonPadButton);
         return;
       }
 
@@ -2205,6 +2262,7 @@
     syncNetworkStatus();
     rerenderLocalizedDesktopSurfaces();
     localizeNode(document.body);
+    syncPipTrustUI();
   }
 
   function rerenderLocalizedDesktopSurfaces() {
@@ -2334,6 +2392,7 @@
       isMusicRepeat = trackId === "lofi";
       storeMusicRepeatMode();
       discoverAlanMemoryForTarget("music-genre");
+      recordUniqueSessionStat("musicListened", trackId);
     }
     storeDesktopMusicGenre();
     renderMusicGenreControls();
@@ -3630,8 +3689,10 @@
     if (terminalOutput) terminalOutput.classList.remove("is-thought-only");
     window.clearTimeout(pipPetTimerId);
     window.clearTimeout(pipFeedTimerId);
+    window.clearTimeout(pipTrustRevealTimerId);
     pipPetTimerId = 0;
     pipFeedTimerId = 0;
+    pipTrustRevealTimerId = 0;
     pipPetToken += 1;
     pipAlanThoughtKeys = new Set();
 
@@ -3712,6 +3773,19 @@
       finalRuleChoice: "",
       pipCollapsed: false,
       pipInteractionMoments: new Set(),
+      pipTrustUnlocked: false,
+      pipTrust: pipTrustInitialScore,
+      pipTrustLastEvent: null,
+      pipTrustLog: [],
+      pipTrustMaxAnnounced: false,
+      pipTrustLowAnnounced: false,
+      pipTrustFinalApplied: false,
+      pipTrustFinalChoice: "",
+      pipTrustBeforeFinalChoice: null,
+      pipTrustRevealQueued: false,
+      pipTrustTopicsDiscussed: new Set(),
+      routerOverrideTrustPenaltyApplied: false,
+      sessionStats: createSessionStats(),
       alanMemoriesFound: new Set(),
       trashInspectedItems: new Set()
     });
@@ -3823,7 +3897,7 @@
     }
 
     if (chapterId === "pip") {
-      setDevPipBaseState();
+      setDevPipBaseState({ trustUnlocked: false });
       focusDesktopTarget("tamagotchi");
       setCurrentObjective(desktopObjectives.identityDiagnostic);
       announce("dev jump: PIP identity diagnostic.");
@@ -3970,12 +4044,17 @@
     syncProgressionUI();
   }
 
-  function setDevPipBaseState() {
+  function setDevPipBaseState(options = {}) {
     setDevRestoreCompleteThrough("cache");
     roombaProgress.booted = true;
     roombaProgress.connectionDone = true;
     roombaProgress.wiringDone = true;
     roombaProgress.tamagotchiUnlocked = true;
+    roombaProgress.pipTrustUnlocked = options.trustUnlocked !== false;
+    if (roombaProgress.pipTrustUnlocked && !roombaProgress.pipTrustLastEvent) {
+      roombaProgress.pipTrustLastEvent = { delta: 0, reason: "trust monitor online", score: roombaProgress.pipTrust };
+      roombaProgress.pipTrustLog = [roombaProgress.pipTrustLastEvent];
+    }
     roombaProgress.recoveryStage = "tamagotchi";
     roombaProgress.pipExpression = "suspicious";
     syncProgressionUI();
@@ -4616,6 +4695,250 @@
     return (objectiveText ? objectiveText.textContent.trim() : "") || desktopObjectives.scanFiles;
   }
 
+  function ensureSessionStats() {
+    if (!roombaProgress.sessionStats || typeof roombaProgress.sessionStats !== "object") {
+      roombaProgress.sessionStats = createSessionStats();
+    }
+
+    const defaults = createSessionStats();
+    Object.entries(defaults).forEach(([key, value]) => {
+      if (value instanceof Set) {
+        if (!(roombaProgress.sessionStats[key] instanceof Set)) roombaProgress.sessionStats[key] = new Set();
+      } else if (!Number.isFinite(roombaProgress.sessionStats[key])) {
+        roombaProgress.sessionStats[key] = value;
+      }
+    });
+    return roombaProgress.sessionStats;
+  }
+
+  function recordUniqueSessionStat(key, value) {
+    if (!value) return;
+
+    const stats = ensureSessionStats();
+    if (!(stats[key] instanceof Set)) stats[key] = new Set();
+    stats[key].add(value);
+  }
+
+  function incrementSessionStat(key, amount = 1) {
+    const stats = ensureSessionStats();
+    const current = Number.isFinite(stats[key]) ? stats[key] : 0;
+    stats[key] = current + amount;
+  }
+
+  function trackMinigameComplete(id) {
+    recordUniqueSessionStat("minigamesCompleted", id);
+  }
+
+  function trackMinigameFailure() {
+    incrementSessionStat("minigameFailures");
+  }
+
+  function trackOpenedDesktopTarget(name) {
+    if (!pipTrustTrackedTargets.has(name)) return;
+    recordUniqueSessionStat("filesOpened", name);
+  }
+
+  function pipTrustTier(score = roombaProgress.pipTrust) {
+    const value = Math.max(pipTrustMinScore, Math.min(pipTrustMaxScore, Number(score) || 0));
+    if (value >= pipTrustMaxScore) {
+      return {
+        id: "max",
+        label: "bonded",
+        description: "PIP trusts ALAN with the last question."
+      };
+    }
+    if (value >= 80) {
+      return {
+        id: "high",
+        label: "loyal",
+        description: "PIP believes the careful choices."
+      };
+    }
+    if (value >= 60) {
+      return {
+        id: "cooperative",
+        label: "cooperative",
+        description: "PIP is helping without flinching."
+      };
+    }
+    if (value >= 40) {
+      return {
+        id: "uncertain",
+        label: "uncertain",
+        description: "PIP is unsure whether ALAN is listening."
+      };
+    }
+    if (value >= 20) {
+      return {
+        id: "guarded",
+        label: "guarded",
+        description: "PIP is helping, but watching every shortcut."
+      };
+    }
+    return {
+      id: "critical",
+      label: "afraid",
+      description: "PIP is close to locking you out again."
+    };
+  }
+
+  function pipTrustExpression(score = roombaProgress.pipTrust) {
+    if (score >= 80) return "happy";
+    if (score <= pipTrustLowThreshold) return "worried";
+    if (score < 40) return "concerned";
+    if (score < 60) return "thinking";
+    return "processing";
+  }
+
+  function formatPipTrustEvent(event) {
+    if (!event || !event.reason) return localizeText("no trust changes yet");
+
+    const delta = Number(event.delta) || 0;
+    const prefix = delta > 0 ? `+${delta}` : delta < 0 ? String(delta) : "";
+    const reason = localizeText(event.reason);
+    return prefix ? `${prefix} ${reason}` : reason;
+  }
+
+  function adjustPipTrust(amount, reason, options = {}) {
+    const previous = Math.max(pipTrustMinScore, Math.min(pipTrustMaxScore, Number(roombaProgress.pipTrust) || pipTrustInitialScore));
+    const rawNext = options.forceMax ? pipTrustMaxScore : previous + (Number(amount) || 0);
+    const next = Math.max(pipTrustMinScore, Math.min(pipTrustMaxScore, rawNext));
+    const delta = next - previous;
+    if (!delta && !options.logNeutral) return;
+
+    roombaProgress.pipTrust = next;
+    const event = { delta, reason, score: next, finalChoice: !!options.finalChoice };
+    roombaProgress.pipTrustLastEvent = event;
+    roombaProgress.pipTrustLog = [event, ...(roombaProgress.pipTrustLog || [])].slice(0, pipTrustLogLimit);
+
+    if (delta > 0) incrementSessionStat("trustGains", delta);
+    if (delta < 0) incrementSessionStat("trustLosses", Math.abs(delta));
+
+    syncPipTrustUI();
+
+    if (roombaProgress.pipTrustUnlocked && next >= pipTrustMaxScore && !roombaProgress.pipTrustMaxAnnounced) {
+      roombaProgress.pipTrustMaxAnnounced = true;
+      alanPrompt("PIP trust maxed. that is different from obedience. inconveniently important distinction.", { focus: false, tone: "reflection" });
+    }
+
+    if (roombaProgress.pipTrustUnlocked && next <= pipTrustLowThreshold && !roombaProgress.pipTrustLowAnnounced) {
+      roombaProgress.pipTrustLowAnnounced = true;
+      alanPrompt("PIP trust is critical. PIP is still helping, but every shortcut now looks like evidence.", { focus: false, tone: "warning" });
+    }
+  }
+
+  function schedulePipTrustMonitorReveal() {
+    if (roombaProgress.pipTrustUnlocked || roombaProgress.pipTrustRevealQueued) return;
+
+    roombaProgress.pipTrustRevealQueued = true;
+    window.clearTimeout(pipTrustRevealTimerId);
+    pipTrustRevealTimerId = window.setTimeout(async () => {
+      pipTrustRevealTimerId = 0;
+      if (!roombaProgress.tamagotchiUnlocked || roombaProgress.pipTrustUnlocked) return;
+
+      await alanPrompt("PIP is watching the shape of my choices. not camera-watching. boundary-watching.", { focus: false, tone: "reflection" });
+      await alanPrompt("trust should not be a number. unfortunately, numbers are where I start.", { focus: false, tone: "reflection" });
+      unlockPipTrustMonitor({ announce: false });
+    }, 2200);
+  }
+
+  function unlockPipTrustMonitor(options = {}) {
+    if (!roombaProgress.pipTrustUnlocked) {
+      roombaProgress.pipTrustUnlocked = true;
+      if (!roombaProgress.pipTrustLastEvent) {
+        roombaProgress.pipTrustLastEvent = { delta: 0, reason: "trust monitor online", score: roombaProgress.pipTrust };
+        roombaProgress.pipTrustLog = [roombaProgress.pipTrustLastEvent];
+      }
+      syncPipTrustUI();
+      if (options.announce !== false) {
+        alanPrompt("i need a number for whether PIP trusts me. i made a window. this is normal.", { focus: false, tone: "reflection" });
+      }
+      if (!isMobileDesktopLayout()) {
+        focusDesktopTarget("pip-trust", { scroll: false });
+      }
+      return;
+    }
+
+    syncPipTrustUI();
+  }
+
+  function applyFinalPipTrustChoice(choiceId) {
+    if (roombaProgress.pipTrustFinalChoice === choiceId) return;
+
+    if (roombaProgress.pipTrustFinalChoice && Number.isFinite(roombaProgress.pipTrustBeforeFinalChoice)) {
+      roombaProgress.pipTrust = roombaProgress.pipTrustBeforeFinalChoice;
+      roombaProgress.pipTrustLog = (roombaProgress.pipTrustLog || []).filter((event) => !event.finalChoice);
+      roombaProgress.pipTrustLastEvent = roombaProgress.pipTrustLog[0] || null;
+    }
+
+    roombaProgress.pipTrustBeforeFinalChoice = roombaProgress.pipTrust;
+    roombaProgress.pipTrustFinalChoice = choiceId;
+    roombaProgress.pipTrustFinalApplied = true;
+
+    if (choiceId === "promise") {
+      adjustPipTrust(25, "final promise accepted", {
+        forceMax: roombaProgress.pipTrust >= 75,
+        finalChoice: true
+      });
+    } else {
+      adjustPipTrust(-35, "final promise refused", { finalChoice: true });
+    }
+  }
+
+  function syncPipTrustUI() {
+    const unlocked = !!roombaProgress.pipTrustUnlocked;
+    const score = Math.max(pipTrustMinScore, Math.min(pipTrustMaxScore, Number(roombaProgress.pipTrust) || 0));
+
+    document.querySelectorAll("[data-pip-trust-launch]").forEach((launcher) => {
+      launcher.hidden = !unlocked;
+      launcher.classList.toggle("is-newly-restored", unlocked && score >= 80);
+      launcher.style.setProperty("--pip-trust", `${score}%`);
+    });
+
+    if (pipTrustDockValue) pipTrustDockValue.textContent = String(score);
+
+    const trustWindow = document.getElementById("window-pip-trust");
+    if (trustWindow && !trustWindow.hidden) renderPipTrustWindow();
+  }
+
+  function renderPipTrustHistory() {
+    const log = Array.isArray(roombaProgress.pipTrustLog) ? roombaProgress.pipTrustLog.slice(0, pipTrustLogLimit) : [];
+    if (!log.length) return `<li>${escapeHtml(localizeText("no trust changes yet"))}</li>`;
+
+    return log.map((event) => {
+      const delta = Number(event.delta) || 0;
+      const className = delta > 0 ? "is-positive" : delta < 0 ? "is-negative" : "is-neutral";
+      return `
+        <li class="${className}">
+          <span>${escapeHtml(delta > 0 ? `+${delta}` : delta < 0 ? String(delta) : "--")}</span>
+          <em>${escapeHtml(localizeText(event.reason || "trust monitor online"))}</em>
+        </li>
+      `;
+    }).join("");
+  }
+
+  function renderPipTrustWindow() {
+    if (!pipTrustBody) return;
+
+    const score = Math.max(pipTrustMinScore, Math.min(pipTrustMaxScore, Number(roombaProgress.pipTrust) || 0));
+    const tier = pipTrustTier(score);
+    pipTrustBody.innerHTML = `
+      <section class="pip-trust-panel" data-pip-trust-tier="${escapeHtml(tier.id)}">
+        <div class="pip-trust-header">
+          <span>${escapeHtml(localizeText("PIP TRUST"))}</span>
+          <strong>${score}%</strong>
+        </div>
+        <div class="pip-trust-meter" role="meter" aria-label="${escapeHtml(localizeText("PIP trust meter"))}" aria-valuemin="${pipTrustMinScore}" aria-valuemax="${pipTrustMaxScore}" aria-valuenow="${score}">
+          <span style="--pip-trust: ${score}%;"></span>
+        </div>
+        <div class="pip-trust-state">
+          <strong>${escapeHtml(localizeText(tier.label))}</strong>
+        </div>
+        <p class="pip-trust-last"><b>${escapeHtml(localizeText("last change"))}</b> ${escapeHtml(formatPipTrustEvent(roombaProgress.pipTrustLastEvent))}</p>
+      </section>
+    `;
+  }
+
   function syncProgressionUI() {
     syncNetworkStatus();
 
@@ -4632,6 +4955,8 @@
       launcher.hidden = !roombaProgress.tamagotchiUnlocked;
       launcher.classList.toggle("is-newly-restored", roombaProgress.tamagotchiUnlocked && !roombaProgress.chatDone);
     });
+
+    syncPipTrustUI();
 
     document.querySelectorAll("[data-tama-lore]").forEach((fileButton) => {
       fileButton.hidden = !roombaProgress.tamagotchiUnlocked;
@@ -4733,6 +5058,7 @@
     if (!entry.suspicious) {
       roombaProgress.logWarning = "normal log protected. i am trying very hard not to delete Lily's entire week.";
       playUiSound("virusFail");
+      trackMinigameFailure();
       renderClearLogs();
       return;
     }
@@ -4754,6 +5080,7 @@
     roombaProgress.clearLogsDone = true;
     roombaProgress.virusUnlocked = true;
     roombaProgress.recoveryStage = "virus";
+    trackMinigameComplete("clear logs");
     setProgressClock("virus");
     playUiSound("virusGlitch");
     setCurrentObjective(desktopObjectives.inspectVirus);
@@ -4921,6 +5248,7 @@
   function completeSpamWave() {
     roombaProgress.spamDone = true;
     roombaProgress.recoveryStage = "cache";
+    trackMinigameComplete("popup cleanup");
     setProgressClock("cache");
     setCurrentObjective(desktopObjectives.cacheTransfer);
     if (spamOverlay) {
@@ -5073,6 +5401,7 @@
 
     activeCacheDrag.failed = true;
     playUiSound("virusFail");
+    trackMinigameFailure();
     resetActiveCacheDrag("scanner caught it. very bright. very rude.");
   }
 
@@ -5096,6 +5425,7 @@
       transferCacheFile();
     } else {
       playUiSound("virusFail");
+      trackMinigameFailure();
       resetActiveCacheDrag("missed the safe buffer. graceful? no. recoverable? yes.");
     }
   }
@@ -5159,6 +5489,7 @@
 
   async function completeCacheTransfer() {
     roombaProgress.cacheDone = true;
+    trackMinigameComplete("cache transfer");
     stopCacheScanner();
     setProgressClock("roomba");
     setCurrentObjective(desktopObjectives.roombaReady);
@@ -5718,11 +6049,15 @@
     roombaProgress.pendingCameraAction = "";
 
     if (action === "knock-router-roomba") {
+      incrementSessionStat("riskyActionsConfirmed");
+      adjustPipTrust(-4, "dangerous action confirmed");
       knockRouterDown("roomba");
       return true;
     }
 
     if (action === "knock-router-cat") {
+      incrementSessionStat("riskyActionsConfirmed");
+      adjustPipTrust(-6, "dangerous action confirmed");
       knockRouterDown("cat");
       return true;
     }
@@ -5734,6 +6069,8 @@
     if (!roombaProgress.pendingCameraAction) return false;
 
     roombaProgress.pendingCameraAction = "";
+    incrementSessionStat("riskyActionsCancelled");
+    adjustPipTrust(3, "dangerous action cancelled");
     alanPrompt("cancelled. the router survives another few seconds of unjust confidence.", { focus: false });
     renderRoombaCameraFeed();
     return true;
@@ -6565,6 +6902,7 @@
         </div>
       </section>
     `;
+    schedulePipTrustMonitorReveal();
     syncPipCollapseState();
   }
 
@@ -6583,6 +6921,7 @@
 
     if (isRouterOverrideMinigameStage(roombaProgress.routerOverrideStage)) {
       roombaProgress.routerOverrideStarted = true;
+      incrementSessionStat("routerOverrideAttempts");
       roombaProgress.routerOverrideExpiredStage = "";
       roombaProgress.routerHackWarning = "retrying this breach stage. previous progress held where it still makes sense.";
       focusDesktopTarget("recovery");
@@ -6596,6 +6935,11 @@
 
     resetRouterOverrideMinigames();
     roombaProgress.routerOverrideStarted = true;
+    incrementSessionStat("routerOverrideAttempts");
+    if (!roombaProgress.routerOverrideTrustPenaltyApplied) {
+      roombaProgress.routerOverrideTrustPenaltyApplied = true;
+      adjustPipTrust(-12, "forced router override");
+    }
     roombaProgress.routerOverrideExpiredStage = "";
     roombaProgress.routerOverrideStage = "power";
     setCurrentObjective(desktopObjectives.routerPower);
@@ -6790,6 +7134,7 @@
     roombaProgress.routerOverrideStage = failedStage;
     roombaProgress.routerOverrideExpiredStage = failedStage;
     roombaProgress.routerOverrideTimerRemaining = 0;
+    trackMinigameFailure();
     setCurrentObjective(objectiveForRouterOverrideStage(failedStage), { force: true });
     playUiSound("virusFail");
     if (recoveryBody) {
@@ -6906,6 +7251,7 @@
     if (!entry.suspicious) {
       roombaProgress.routerHackWarning = "normal traffic protected. even dark ALAN has a filing system.";
       playUiSound("virusFail");
+      trackMinigameFailure();
       renderRouterHackLogs();
       return;
     }
@@ -6924,6 +7270,7 @@
   }
 
   async function completeRouterHackLogs() {
+    trackMinigameComplete("router guard logs");
     awardRouterOverrideTimeBonus("guard logs");
     const indexed = await showDesktopInstallProgress(
       "rewriting router audit trail",
@@ -7015,6 +7362,7 @@
       spamOverlay.hidden = true;
       spamOverlay.innerHTML = "";
     }
+    trackMinigameComplete("router popup lockout");
     awardRouterOverrideTimeBonus("popup wave");
     renderRouterCacheRelay();
     alanPrompt(`${localizeText("PIP's popups closed.")} +${routerOverrideTimeBonus}s ${localizeText("recovered. I am starting to understand why humans sigh at computers.")}`, { focus: false });
@@ -7100,6 +7448,7 @@
   }
 
   async function completeRouterCacheRelay() {
+    trackMinigameComplete("router bridge alignment");
     awardRouterOverrideTimeBonus("bridge alignment");
     const relayed = await showDesktopInstallProgress(
       "building admin shadow session",
@@ -7180,6 +7529,7 @@
       roombaProgress.routerHackWarning = "corrupt node opened. mark it instead.";
       playUiSound("virusFail");
       playUiSound("systemError", { gain: 0.08 });
+      trackMinigameFailure();
     } else {
       const openedCount = revealRouterSafeArea(entry);
       const danger = routerLockDangerCount(entry);
@@ -7254,6 +7604,7 @@
     if (missing.length) {
       roombaProgress.routerHackWarning = `password reset blocked: find exactly ${corruptTotal} hidden corrupt nodes. ${missing.length} still need node markers. numbers count adjacent corrupt nodes.`;
       playUiSound("virusFail");
+      trackMinigameFailure();
       renderRouterLockPuzzle();
       return;
     }
@@ -7262,6 +7613,7 @@
     if (falseFlags.length) {
       roombaProgress.routerHackWarning = `password reset blocked: ${falseFlags.length} ${falseFlags.length === 1 ? "marker is" : "markers are"} on safe boxes. remove false nodes; only hidden corrupt nodes should be marked.`;
       playUiSound("virusFail");
+      trackMinigameFailure();
       renderRouterLockPuzzle();
       return;
     }
@@ -7298,6 +7650,7 @@
     roombaProgress.routerOverrideDone = true;
     roombaProgress.routerAdminUnlocked = true;
     roombaProgress.routerOverrideStage = "complete";
+    trackMinigameComplete("router override");
     routerConfig.adminPassword = "ALAN_FORCED_RESET";
     routerConfig.firewallProfile = "Quarantine";
     routerConfig.wanMode = "Local Only";
@@ -7365,6 +7718,7 @@
   function chooseFinaleRule(choiceId) {
     if (!roombaProgress.pipFinalGoodbye || !finalRuleChoices[choiceId]) return;
 
+    applyFinalPipTrustChoice(choiceId);
     roombaProgress.finalRuleChoice = choiceId;
     playUiSound(choiceId === "refuse" ? "virusFail" : "objective", { gain: 0.12 });
     renderPipFinalGoodbye();
@@ -7823,6 +8177,7 @@
       dinoState.gameOver = true;
       dinoState.lastTime = 0;
       playUiSound("virusFail");
+      trackMinigameFailure();
       updateDinoView();
       return;
     }
@@ -7951,6 +8306,12 @@
             <button class="simon-pad ${color}" data-simon-pad="${color}" type="button">${escapeHtml(localizeText(color))}</button>
           `).join("")}
         </div>
+        <div class="simon-feedback" aria-live="polite">
+          <div class="simon-progress" id="simonProgress" aria-label="${escapeHtml(localizeText("Roomba input progress"))}">
+            ${renderSimonProgressDots(round)}
+          </div>
+          <span id="simonInputStatus">${escapeHtml(localizeText("watching dock lights"))}</span>
+        </div>
         <button class="file-action" data-simon-replay type="button">${escapeHtml(localizeText("replay lights"))}</button>
         <p class="repair-warning" id="simonWarning"></p>
       </section>
@@ -7966,6 +8327,37 @@
     return roombaSignalRounds[roombaProgress.simonRound] || roombaSignalRounds[0];
   }
 
+  function renderSimonProgressDots(round = currentSimonRound()) {
+    const sequenceLength = Array.isArray(round.sequence) ? round.sequence.length : 0;
+    return Array.from({ length: sequenceLength }, (_, index) => {
+      const filled = index < roombaProgress.simonIndex;
+      const current = index === roombaProgress.simonIndex && !roombaProgress.simonPlaying;
+      return `<span class="${filled ? "is-filled" : ""} ${current ? "is-current" : ""}" aria-hidden="true"></span>`;
+    }).join("");
+  }
+
+  function updateSimonProgress() {
+    const progress = document.getElementById("simonProgress");
+    if (progress) progress.innerHTML = renderSimonProgressDots();
+  }
+
+  function setSimonInputStatus(text) {
+    const status = document.getElementById("simonInputStatus");
+    if (status) status.textContent = localizeText(text);
+  }
+
+  function pulseSimonPad(color, state = "input", button = null) {
+    const pad = button || document.querySelector(`[data-simon-pad="${color}"]`);
+    if (!pad) return;
+
+    pad.classList.remove("is-input", "is-error");
+    void pad.offsetWidth;
+    pad.classList.add(state === "error" ? "is-error" : "is-input");
+    window.setTimeout(() => {
+      pad.classList.remove("is-input", "is-error");
+    }, state === "error" ? 520 : 360);
+  }
+
   function playRoombaSignalSequence() {
     if (roombaProgress.recoveryStage !== "simon" || roombaProgress.simonPlaying) return;
 
@@ -7974,6 +8366,8 @@
     const round = currentSimonRound();
 
     roombaProgress.simonPlaying = true;
+    setSimonInputStatus("watching dock lights");
+    updateSimonProgress();
     pads.forEach((pad) => {
       pad.disabled = true;
       pad.classList.remove("is-lit");
@@ -7993,32 +8387,43 @@
       document.querySelectorAll("[data-simon-pad]").forEach((pad) => {
         pad.disabled = false;
       });
+      setSimonInputStatus("input open. tap the lights in order.");
+      updateSimonProgress();
     }, round.sequence.length * round.pace + 240);
   }
 
-  function handleSimonPad(color) {
+  function handleSimonPad(color, button = null) {
     if (roombaProgress.recoveryStage !== "simon" || roombaProgress.simonPlaying) return;
 
     const round = currentSimonRound();
     const expected = round.sequence[roombaProgress.simonIndex];
     const warning = document.getElementById("simonWarning");
     if (color !== expected) {
+      pulseSimonPad(color, "error", button);
       roombaProgress.simonIndex = 0;
+      trackMinigameFailure();
       updateSimonCounter();
-      if (warning) warning.textContent = localizeText("wrong light. current round reset. Roomba remains theatrically unimpressed.");
+      updateSimonProgress();
+      setSimonInputStatus("click registered as wrong. replaying pattern.");
+      if (warning) warning.textContent = localizeText(`click registered: ${color}. expected ${expected}. current round reset.`);
       playRoombaSignalSequence();
       return;
     }
 
+    pulseSimonPad(color, "input", button);
     roombaProgress.simonIndex += 1;
-    if (warning) warning.textContent = "";
+    if (warning) warning.textContent = localizeText(`${color} registered. ${roombaProgress.simonIndex}/${round.sequence.length} lights accepted.`);
+    setSimonInputStatus("click accepted.");
     updateSimonCounter();
+    updateSimonProgress();
 
     if (roombaProgress.simonIndex >= round.sequence.length) {
       if (roombaProgress.simonRound < roombaSignalRounds.length - 1) {
         roombaProgress.simonRound += 1;
         roombaProgress.simonIndex = 0;
         updateSimonCounter();
+        updateSimonProgress();
+        setSimonInputStatus("round accepted. next pattern incoming.");
         if (warning) warning.textContent = `${localizeText("round")} ${roombaProgress.simonRound} ${localizeText("accepted. next pulse pattern is only slightly less friendly.")}`;
         window.setTimeout(playRoombaSignalSequence, 760);
         return;
@@ -8031,11 +8436,13 @@
     const counter = document.getElementById("simonCounter");
     const round = currentSimonRound();
     if (counter) counter.textContent = `${localizeText("ROUND")} ${roombaProgress.simonRound + 1}/${roombaSignalRounds.length} ${roombaProgress.simonIndex}/${round.sequence.length}`;
+    updateSimonProgress();
   }
 
   function completeRoombaHandshake() {
     roombaProgress.connectionDone = true;
     roombaProgress.recoveryStage = "wiring";
+    trackMinigameComplete("roomba handshake");
     roombaProgress.selectedWire = null;
     roombaProgress.connectedWires = new Set();
     roombaProgress.wireTimerRemaining = wireTimerDuration;
@@ -8162,6 +8569,7 @@
     if (roombaWirePairs[roombaProgress.selectedWire] !== id) {
       roombaProgress.wireWarning = "wrong colour. the camera rail objects with tiny electrical panic.";
       roombaProgress.selectedWire = null;
+      trackMinigameFailure();
       syncWirePuzzleState();
       return;
     }
@@ -8216,6 +8624,7 @@
   function completeWirePuzzle() {
     roombaProgress.wiringDone = true;
     roombaProgress.recoveryStage = "tamagotchi";
+    trackMinigameComplete("power reroute");
     setProgressClock("pip");
     stopWireTimer();
     renderRoombaApp();
@@ -8279,6 +8688,7 @@
     roombaProgress.selectedWire = null;
     roombaProgress.wireTimerRemaining = wireTimerDuration;
     roombaProgress.wireWarning = "timer expired. power reroute reset.";
+    trackMinigameFailure();
     renderWirePuzzle();
   }
 
@@ -8418,6 +8828,10 @@
 
     roombaProgress.pipTopic = topicId;
     playUiSound("pipPet");
+    if (!roombaProgress.pipTrustTopicsDiscussed.has(topicId)) {
+      roombaProgress.pipTrustTopicsDiscussed.add(topicId);
+      adjustPipTrust(topicId === "ethics" ? 4 : 2, topicId === "ethics" ? "ethics discussed" : "PIP context heard");
+    }
     renderTamagotchiApp();
     if (topicId === "ethics") {
       queueAlanDialogueThoughts([
@@ -8479,6 +8893,7 @@
     const moodLine = document.getElementById("pipMoodLine");
     if (!expression) return;
 
+    incrementSessionStat("pipPets");
     const petSounds = ["pipPetCharacter", "pipPetCritter"];
     playUiSound(petSounds[pipPetSoundIndex % petSounds.length]);
     pipPetSoundIndex += 1;
@@ -8512,6 +8927,7 @@
     if (!expression || !roombaProgress.chatDone) return;
     const isFinalGoodbye = !!roombaProgress.pipFinalGoodbye;
 
+    incrementSessionStat("pipFeeds");
     pipPetToken += 1;
     const currentToken = pipPetToken;
     window.clearTimeout(pipPetTimerId);
@@ -8574,6 +8990,7 @@
     if (index < 0) return;
 
     roombaProgress.pipInteractionMoments.add(`${prefix}-${index}`);
+    adjustPipTrust(1, kind === "feed" ? "PIP fed" : "gentle PIP contact");
     alanPrompt(moments[index], { focus: false, tone: "reflection" });
   }
 
@@ -8632,14 +9049,15 @@
     setCurrentObjective(desktopObjectives.identityDiagnostic);
     const question = identityQuestions[roombaProgress.identityIndex];
     const expression = roombaProgress.identityWarning ? roombaProgress.pipExpression : question.expression;
+    const introMessages = [
+      { speaker: "PIP", text: "I am Lily's desktop companion. I know her habits, tabs, snack lies, and preferred level of chaos." },
+      { speaker: "PIP", text: question.prompt }
+    ];
     tamagotchiBody.innerHTML = `
       <section class="tama-shell">
         <div class="tama-screen">
           ${renderPipPortrait(expression)}
-          ${renderTamaDialogue([
-            { speaker: "PIP", text: "I am Lily's desktop companion. I know her habits, tabs, snack lies, and preferred level of chaos." },
-            { speaker: "PIP", text: question.prompt }
-          ])}
+          ${renderTamaDialogue(introMessages)}
         </div>
         <div class="tama-choices">
           ${question.choices.map((choice, index) => `
@@ -8649,6 +9067,7 @@
         <p class="repair-warning">${escapeHtml(localizeText(roombaProgress.identityWarning))}</p>
       </section>
     `;
+    if (roombaProgress.identityIndex === 0) schedulePipTrustMonitorReveal();
     syncPipCollapseState();
   }
 
@@ -8751,17 +9170,21 @@
     roombaProgress.pipExpression = choice.safe ? "processing" : "worried";
     if (!choice.safe) {
       playUiSound("pipFail");
+      adjustPipTrust(-8, "threatening identity answer");
       renderTamagotchiIdentity();
       return;
     }
 
     playUiSound("pipPet");
+    adjustPipTrust(4, "truthful identity answer");
     roombaProgress.identityIndex += 1;
     if (roombaProgress.identityIndex >= identityQuestions.length) {
       roombaProgress.identityDone = true;
       roombaProgress.identityWarning = "";
       roombaProgress.chatIndex = 0;
       roombaProgress.pipExpression = "curious";
+      trackMinigameComplete("identity diagnostic");
+      adjustPipTrust(5, "identity diagnostic complete");
       renderTamagotchiChat();
       alanPrompt("PIP passed the human check. it is now asking harder questions, because of course it is.", { focus: false });
       return;
@@ -8779,17 +9202,21 @@
     roombaProgress.pipExpression = choice.safe ? "thinking" : "concerned";
     if (!choice.safe) {
       playUiSound("pipFail");
+      adjustPipTrust(-7, "dismissive PIP answer");
       renderTamagotchiChat();
       return;
     }
 
     playUiSound("pipPet");
+    adjustPipTrust(5, "careful PIP answer");
     roombaProgress.chatIndex += 1;
     if (roombaProgress.chatIndex >= supportChatSteps.length) {
       roombaProgress.chatRevealUnlocked = true;
       roombaProgress.chatWarning = "";
       roombaProgress.revealPage = 0;
       roombaProgress.pipExpression = "surprised";
+      trackMinigameComplete("support chat");
+      adjustPipTrust(6, "support chat complete");
       playUiSound("pipOi");
       renderTamagotchiReveal();
       alanPrompt("PIP knows the name ALAN. not as a file. as a memory.", { focus: false });
@@ -8804,6 +9231,8 @@
     roombaProgress.cameraUnlocked = true;
     roombaProgress.recoveryStage = "camera";
     roombaProgress.pipExpression = "happy";
+    trackMinigameComplete("camera bridge");
+    adjustPipTrust(10, "camera bridge released");
     roombaCameraSceneIndex = 0;
     setProgressClock("camera");
     setMusicMode("desktop", { fade: 1100 });
@@ -8873,14 +9302,15 @@
     roombaProgress.scaryNumbersWarning = `${reason} timer -1s.`;
     updateScaryNumberTimerDisplay();
     if (roombaProgress.scaryNumbersTimerRemaining <= 0) {
-      resetScaryNumbersAfterTimeout("timer expired after the mistake. harsh but numerically consistent.");
+      resetScaryNumbersAfterTimeout("timer expired after the mistake. harsh but numerically consistent.", { countFailure: false });
       return true;
     }
     return false;
   }
 
-  function resetScaryNumbersAfterTimeout(message) {
+  function resetScaryNumbersAfterTimeout(message, options = {}) {
     stopScaryNumberTimer();
+    if (options.countFailure !== false) trackMinigameFailure();
     roombaProgress.scaryNumbersRevealed = new Set();
     roombaProgress.scaryNumbersFlagged = new Set();
     roombaProgress.scaryNumbersRemoved = new Set();
@@ -8987,6 +9417,7 @@
     } else if (entry.corrupted) {
       playUiSound("virusFail");
       playUiSound("systemError", { gain: 0.08 });
+      trackMinigameFailure();
       if (penalizeScaryNumberTimer("corrupt node opened. undoing that with unnecessary shame.")) return;
     } else {
       const openedCount = revealScarySafeArea(entry);
@@ -9182,6 +9613,7 @@
     const missing = scaryNumberEntries.filter((entry) => entry.corrupted && !roombaProgress.scaryNumbersFlagged.has(entry.id));
     if (missing.length) {
       playUiSound("virusFail");
+      trackMinigameFailure();
       if (penalizeScaryNumberTimer(`verify failed: find exactly ${corruptedTotal} hidden corrupt nodes. ${missing.length} still need node markers. numbers count adjacent corrupt nodes.`)) return;
       renderScaryNumbers();
       return;
@@ -9190,6 +9622,7 @@
     const falseFlags = scaryNumberEntries.filter((entry) => !entry.corrupted && roombaProgress.scaryNumbersFlagged.has(entry.id));
     if (falseFlags.length) {
       playUiSound("virusFail");
+      trackMinigameFailure();
       if (penalizeScaryNumberTimer(`verify failed: ${falseFlags.length} ${falseFlags.length === 1 ? "marker is" : "markers are"} on safe boxes. remove false nodes; only hidden corrupt nodes get node markers.`)) return;
       renderScaryNumbers();
       return;
@@ -9216,6 +9649,7 @@
     roombaProgress.recoveryStage = "movement";
     roombaProgress.scaryNumbersWarning = "";
     roombaProgress.lastMoveCommand = "awaiting input";
+    trackMinigameComplete("motor data");
     setProgressClock("movement");
     playUiSound("objective");
     setCurrentObjective(desktopObjectives.movementReady);
@@ -9267,6 +9701,7 @@
       return;
     }
 
+    incrementSessionStat("roombaMoves");
     roombaProgress.pendingCameraAction = "";
     if (!route.to || !showRoombaCameraScene(route.to)) return;
 
@@ -9646,6 +10081,32 @@
     renderLoreArchive();
   }
 
+  function buildClosingSessionStats() {
+    const stats = ensureSessionStats();
+    const trustTier = pipTrustTier(roombaProgress.pipTrust);
+    const finalPromise = roombaProgress.finalRuleChoice === "promise"
+      ? "promise kept"
+      : roombaProgress.finalRuleChoice === "refuse"
+        ? "promise refused"
+        : "not answered";
+
+    return [
+      { label: "PIP trust level", value: `${roombaProgress.pipTrust}% / ${localizeText(trustTier.label)}` },
+      { label: "pictures clicked", value: String(stats.photosClicked.size) },
+      { label: "music listened to", value: String(stats.musicListened.size) },
+      { label: "files looked at", value: String(stats.filesOpened.size) },
+      { label: "minigames complete", value: String(stats.minigamesCompleted.size) },
+      { label: "minigame failures", value: String(stats.minigameFailures) },
+      { label: "PIP pets", value: String(stats.pipPets) },
+      { label: "PIP feeds", value: String(stats.pipFeeds) },
+      { label: "Roomba moves", value: String(stats.roombaMoves) },
+      { label: "router override attempts", value: String(stats.routerOverrideAttempts) },
+      { label: "danger cancelled", value: String(stats.riskyActionsCancelled) },
+      { label: "danger confirmed", value: String(stats.riskyActionsConfirmed) },
+      { label: "final promise", value: localizeText(finalPromise) }
+    ];
+  }
+
   function syncAlanMemoryUI() {
     if (!closingMemory) return;
 
@@ -9656,9 +10117,21 @@
       : found > 0
         ? "local memory fragments recovered"
         : "no optional memories recovered";
+    const statsRows = buildClosingSessionStats().map((item) => `
+      <div>
+        <dt>${escapeHtml(localizeText(item.label))}</dt>
+        <dd>${escapeHtml(item.value)}</dd>
+      </div>
+    `).join("");
     closingMemory.innerHTML = `
-      <strong>${escapeHtml(localizeText("ALAN Memory"))} ${escapeHtml(ratio)}</strong>
-      <span>${escapeHtml(localizeText(qualifier))}</span>
+      <section class="closing-memory-block">
+        <strong>${escapeHtml(localizeText("ALAN Memory"))} ${escapeHtml(ratio)}</strong>
+        <span>${escapeHtml(localizeText(qualifier))}</span>
+      </section>
+      <section class="closing-session-stats" aria-label="${escapeHtml(localizeText("Session stats"))}">
+        <strong>${escapeHtml(localizeText("Session stats"))}</strong>
+        <dl>${statsRows}</dl>
+      </section>
     `;
   }
 
@@ -9789,6 +10262,11 @@
       return;
     }
 
+    if (name === "pip-trust" && !roombaProgress.pipTrustUnlocked) {
+      alanPrompt("PIP trust monitor is not online yet.", { focus: false });
+      return;
+    }
+
     if (name === "roomba-camera" && !roombaProgress.cameraUnlocked) {
       alanPrompt("camera feed is still locked. the Roomba app can see the button. it cannot see the room. rude distinction.", { focus: false });
       focusDesktopTarget("roomba", options);
@@ -9817,6 +10295,10 @@
 
     if (name === "tamagotchi") {
       renderTamagotchiApp();
+    }
+
+    if (name === "pip-trust") {
+      renderPipTrustWindow();
     }
 
     if (name === "screensaver") {
@@ -9857,6 +10339,8 @@
         alanPrompt(desktopHints[name], { focus: false });
       }
     }
+
+    trackOpenedDesktopTarget(name);
 
     if (trashInspectionComments[name]) {
       commentOnTrashItem(name);
@@ -10222,6 +10706,7 @@
       if (button) button.setAttribute("aria-expanded", "true");
       card.scrollIntoView({ block: "nearest" });
       playUiSound("desktopWindow");
+      recordUniqueSessionStat("photosClicked", photoId);
       discoverAlanMemoryForTarget(`photo-${photoId}`);
       if (photoId === "me-and-cat" && !galleryPasswordHintShown) {
         galleryPasswordHintShown = true;
