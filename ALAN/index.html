@@ -3,11 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>ALAN</title>
+    <title>ALAN v0.9.0</title>
+    <meta name="application-name" content="ALAN" />
+    <meta name="version" content="0.9.0" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/app.css?v=20260629-bg-remove-vertical-v1" />
+    <link rel="stylesheet" href="css/app.css?v=20260630-pip-i18n-v3" />
   </head>
   <body>
     <main class="boot-screen" id="bootScreen" aria-label="ALAN boot sequence">
@@ -41,6 +43,7 @@
         </summary>
         <div class="boot-save-slot-list" id="bootSaveSlotList"></div>
       </details>
+      <div class="game-version boot-version" aria-label="Game version">ALAN v0.9.0</div>
       <div class="boot-visuals" id="bootVisuals" aria-hidden="true" hidden>
         <section class="boot-visual boot-visual-primary" id="bootVisualPrimary">
           <header id="bootVisualPrimaryTitle">VISUAL</header>
@@ -96,6 +99,7 @@
           <div class="os-brand">
             <span class="paw-mark" aria-hidden="true"><span></span></span>
             <strong>MeowOS v2.1.3</strong>
+            <span class="game-version desktop-version">ALAN v0.9.0</span>
           </div>
           <div class="network-copy" id="networkCopy">
             HOME_NETWORK <span>//</span> <em>NO INTERNET ACCESS</em>
@@ -858,7 +862,7 @@
         <section class="app-tray" id="appTray" aria-label="MeowOS app tray" hidden>
           <header>
             <strong>MeowOS</strong>
-            <span>local apps</span>
+            <span>ALAN v0.9.0</span>
           </header>
           <div class="app-tray-grid">
             <button data-target="files" type="button"><span class="icon-glyph folder">DIR</span>My Stuff</button>
@@ -866,7 +870,6 @@
             <button data-target="crush" type="button"><span class="icon-glyph heart">TXT</span>crush.txt</button>
             <button data-target="notes" type="button"><span class="icon-glyph document">TXT</span>Notes</button>
             <button data-target="browser" type="button"><span class="icon-glyph browser">NET</span>Browser</button>
-            <button data-network-panel type="button"><span class="icon-glyph browser">WIFI</span>Network</button>
             <button data-target="roomba" data-roomba-launch type="button" hidden><span class="icon-glyph roomba">BOT</span>Roomba</button>
             <button data-target="tamagotchi" data-tama-launch type="button" hidden><span class="icon-glyph tama">PIP</span>PIP.exe</button>
             <button data-target="games" type="button"><span class="icon-glyph game">PAD</span>Games</button>
@@ -877,6 +880,18 @@
             <button data-target="poems" type="button"><span class="icon-glyph document">DOC</span>poems.txt</button>
             <button data-target="trash" type="button"><span class="icon-glyph trash">BIN</span>Trash</button>
           </div>
+          <details class="app-tray-network" id="appTrayNetwork">
+            <summary>
+              <span class="icon-glyph browser" aria-hidden="true">WIFI</span>
+              <strong>Network</strong>
+              <em id="networkTrayState">NO INTERNET ACCESS</em>
+            </summary>
+            <div class="app-tray-network-body">
+              <p><span>SSID</span><strong id="networkTrayTitle">HOME_NETWORK</strong></p>
+              <p id="networkTrayCopy">Local connection stable.</p>
+              <button data-network-reconnect type="button">reconnect devices</button>
+            </div>
+          </details>
           <section class="app-tray-save" aria-label="Save games">
             <header>
               <strong>SAVE GAME</strong>
@@ -942,18 +957,6 @@
                 </div>
               </div>
             </div>
-            <div class="dock-tray-menu dock-language-menu">
-              <button class="dock-tray-trigger" data-dock-tray-trigger type="button" aria-controls="dockLanguagePanel" aria-expanded="false" aria-label="Select language">
-                <span class="dock-tray-icon dock-tray-icon-language" aria-hidden="true">LNG</span>
-                <strong>LANG</strong>
-              </button>
-              <div class="dock-tray-panel dock-language-panel" id="dockLanguagePanel" role="group" aria-label="Select language">
-                <label class="language-control desktop-language-control dock-language-control" aria-label="Select language">
-                  <span>LANG</span>
-                  <select id="desktopLanguageSelect" data-language-select aria-label="Select language"></select>
-                </label>
-              </div>
-            </div>
           </div>
           <time datetime="21:42">21:42</time>
         </footer>
@@ -972,6 +975,7 @@
         </div>
         <div class="closing-credits" id="closingCredits" hidden>
           <img class="closing-studio-logo" src="assets/images/brand/roguespark.png" alt="Rogue Spark" draggable="false" />
+          <span>ALAN v0.9.0 browser prototype.</span>
           <span>Created for the Krafton EU hackathon.</span>
           <span>Direction, writing, UX, code, audio integration and systems design by Rogue Spark.</span>
         </div>
@@ -986,7 +990,7 @@
       </div>
     </section>
 
-    <script src="js/i18n.js?v=20260629-bg-remove-vertical-v1"></script>
-    <script src="js/app.js?v=20260629-bg-remove-vertical-v1"></script>
+    <script src="js/i18n.js?v=20260630-pip-i18n-v3"></script>
+    <script src="js/app.js?v=20260630-pip-i18n-v3"></script>
   </body>
 </html>

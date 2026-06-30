@@ -1,4 +1,5 @@
 (function () {
+  const gameVersion = "v0.9.0";
   const bootLog = document.getElementById("bootLog");
   const bootScreen = document.getElementById("bootScreen");
   const pcScreen = document.getElementById("pcScreen");
@@ -61,6 +62,10 @@
   const networkHud = document.getElementById("networkHud");
   const networkHudTitle = document.getElementById("networkHudTitle");
   const networkHudCopy = document.getElementById("networkHudCopy");
+  const appTrayNetwork = document.getElementById("appTrayNetwork");
+  const networkTrayTitle = document.getElementById("networkTrayTitle");
+  const networkTrayState = document.getElementById("networkTrayState");
+  const networkTrayCopy = document.getElementById("networkTrayCopy");
   const wifiStatusButton = document.getElementById("wifiStatusButton");
   const closingScreen = document.getElementById("closingScreen");
   const closingLines = document.getElementById("closingLines");
@@ -1802,7 +1807,6 @@
 
       if (networkPanelButton) {
         toggleNetworkHud();
-        closeAppTray();
         return;
       }
 
@@ -2196,9 +2200,28 @@
   function handleLanguageChange() {
     syncTextSpeedUI();
     updateMusicControlsUI();
+    renderSaveSlots();
     if (currentObjectiveState) setCurrentObjective(currentObjectiveState);
     syncNetworkStatus();
+    rerenderLocalizedDesktopSurfaces();
     localizeNode(document.body);
+  }
+
+  function rerenderLocalizedDesktopSurfaces() {
+    const isVisible = (id) => {
+      const el = document.getElementById(id);
+      return Boolean(el && !el.hidden);
+    };
+
+    if (isVisible("window-browser")) renderBrowserStatus();
+    if (isVisible("window-screensaver")) renderScreensaverApp();
+    if (isVisible("window-background")) renderBackgroundApp();
+    if (isVisible("window-lore-archive")) renderLoreArchive();
+    if (isVisible("window-usb")) renderUsbArchive();
+    if (isVisible("window-roomba")) renderRoombaApp();
+    if (isVisible("window-roomba-camera")) renderRoombaCameraFeed();
+    if (isVisible("window-tamagotchi")) renderTamagotchiApp();
+    if (isVisible("window-recovery") && roombaProgress.recoveryStage === "scaryNumbers") renderScaryNumbers();
   }
 
   function initMusicSystem() {
@@ -2651,36 +2674,37 @@
     const saver = currentScreensaverDefinition();
     const delayLabel = formatScreensaverDelay(screensaverState.delayMs);
     screensaverBody.innerHTML = `
-      <section class="screensaver-monitor" aria-label="Screen saver preview">
+      <section class="screensaver-monitor" aria-label="${escapeHtml(localizeText("Screen saver preview"))}">
         <div class="screensaver-preview-art ${escapeHtml(saver.previewClass)}" aria-hidden="true"></div>
-        <strong>${escapeHtml(saver.label)}</strong>
+        <strong>${escapeHtml(localizeText(saver.label))}</strong>
       </section>
       <div class="screensaver-control-group">
-        <span>screen saver</span>
+        <span>${escapeHtml(localizeText("screen saver"))}</span>
         <div class="screensaver-button-grid">
           ${Object.values(screensaverDefinitions).map((option) => `
-            <button class="${option.id === screensaverState.selected ? "is-active" : ""}" data-screensaver-choice="${escapeHtml(option.id)}" type="button">${escapeHtml(option.label)}</button>
+            <button class="${option.id === screensaverState.selected ? "is-active" : ""}" data-screensaver-choice="${escapeHtml(option.id)}" type="button">${escapeHtml(localizeText(option.label))}</button>
           `).join("")}
         </div>
       </div>
       <div class="screensaver-control-group">
-        <span>wait</span>
+        <span>${escapeHtml(localizeText("wait"))}</span>
         <div class="screensaver-button-grid screensaver-delay-grid">
           ${screensaverDelayOptions.map((option) => `
-            <button class="${option.ms === screensaverState.delayMs ? "is-active" : ""}" data-screensaver-delay="${option.ms}" type="button">${escapeHtml(option.label)}</button>
+            <button class="${option.ms === screensaverState.delayMs ? "is-active" : ""}" data-screensaver-delay="${option.ms}" type="button">${escapeHtml(localizeText(option.label))}</button>
           `).join("")}
         </div>
       </div>
       <div class="screensaver-status">
-        <strong>${screensaverState.enabled ? `enabled / ${escapeHtml(delayLabel)}` : "disabled"}</strong>
-        <span>${escapeHtml(saver.description)}</span>
-        <span>Idle activation is off by default. Preview is interactive. X or Esc exits.</span>
+        <strong>${screensaverState.enabled ? `${escapeHtml(localizeText("enabled"))} / ${escapeHtml(localizeText(delayLabel))}` : escapeHtml(localizeText("disabled"))}</strong>
+        <span>${escapeHtml(localizeText(saver.description))}</span>
+        <span>${escapeHtml(localizeText("Idle activation is off by default. Preview is interactive. X or Esc exits."))}</span>
       </div>
       <div class="screensaver-actions">
-        <button class="${screensaverState.enabled ? "is-active" : ""}" data-screensaver-enable type="button">${screensaverState.enabled ? "disable" : "enable"}</button>
-        <button data-screensaver-preview type="button">preview fullscreen</button>
+        <button class="${screensaverState.enabled ? "is-active" : ""}" data-screensaver-enable type="button">${escapeHtml(localizeText(screensaverState.enabled ? "disable" : "enable"))}</button>
+        <button data-screensaver-preview type="button">${escapeHtml(localizeText("preview fullscreen"))}</button>
       </div>
     `;
+    localizeNode(screensaverBody);
   }
 
   function selectScreensaver(saverId) {
@@ -2767,7 +2791,7 @@
 
     backgroundBody.innerHTML = `
       <section class="background-panel">
-        <p>Desktop background</p>
+        <p>${escapeHtml(localizeText("Desktop background"))}</p>
         <div class="background-option-grid">
           ${desktopBackgroundOptions.map((option) => {
             const previewClasses = `${option.previewClass}${option.image ? " is-image" : ""}${option.fit === "contain" ? " is-contain" : ""}`;
@@ -2777,14 +2801,15 @@
             return `
             <button class="background-option ${desktopBackgroundId === option.id ? "is-active" : ""}" data-background-choice="${escapeHtml(option.id)}" type="button">
               <span class="background-preview background-preview-art ${escapeHtml(previewClasses)}" aria-hidden="true"${previewStyle}></span>
-              <strong>${escapeHtml(option.label)}</strong>
-              <em>${escapeHtml(option.detail)}</em>
+              <strong>${escapeHtml(localizeText(option.label))}</strong>
+              <em>${escapeHtml(localizeText(option.detail))}</em>
             </button>
           `;
           }).join("")}
         </div>
       </section>
     `;
+    localizeNode(backgroundBody);
   }
 
   function selectDesktopBackground(backgroundId) {
@@ -2798,7 +2823,7 @@
     playUiSound("desktopWindow", { gain: 0.1 });
     if (desktopBackgroundId) {
       discoverAlanMemoryForTarget("background-choice");
-      alanPrompt(`${option.label.toLowerCase()} assigned as desktop background. cosmetic control accepted. filing under "probably harmless".`, { focus: false, tone: "lore" });
+      alanPrompt(`${localizeText(option.label)} ${localizeText("assigned as desktop background. cosmetic control accepted. filing under \"probably harmless\".")}`, { focus: false, tone: "lore" });
     } else {
       alanPrompt("desktop background restored to MeowOS grid. dreams removed from wallpaper layer.", { focus: false });
     }
@@ -3447,9 +3472,9 @@
     devPanel.classList.add("is-collapsed");
     if (devPanelToggle) devPanelToggle.setAttribute("aria-expanded", "false");
     devChapterList.innerHTML = devChapters.map((chapter, index) => `
-      <button data-dev-chapter="${chapter.id}" type="button" title="${escapeHtml(chapter.detail)}">
+      <button data-dev-chapter="${chapter.id}" type="button" title="${escapeHtml(localizeText(chapter.detail))}">
         <span>${String(index + 1).padStart(2, "0")}</span>
-        <strong>${escapeHtml(chapter.label)}</strong>
+        <strong>${escapeHtml(localizeText(chapter.label))}</strong>
       </button>
     `).join("");
     updateDevPanelState();
@@ -3574,8 +3599,8 @@
     setProgressClock(chapter.id);
     resetDesktopWindowsForDev();
     if (terminalLines) terminalLines.textContent = "";
-    appendTerminalLine("DEV>", `chapter: ${chapter.label}`, "cmd-system-line");
-    appendTerminalLine("DEV>", chapter.detail, "cmd-detail-line");
+    appendTerminalLine("DEV>", `${localizeText("chapter")}: ${localizeText(chapter.label)}`, "cmd-system-line");
+    appendTerminalLine("DEV>", localizeText(chapter.detail), "cmd-detail-line");
   }
 
   function forceDesktopReadyForDev() {
@@ -3960,7 +3985,7 @@
     if (!devPanel) return;
 
     const chapter = devChapters.find((item) => item.id === activeDevChapterId) || devChapters[0];
-    if (devCurrentChapter) devCurrentChapter.textContent = chapter.label;
+    if (devCurrentChapter) devCurrentChapter.textContent = localizeText(chapter.label);
     devPanel.querySelectorAll("[data-dev-chapter]").forEach((button) => {
       button.classList.toggle("is-active", button.dataset.devChapter === chapter.id);
     });
@@ -4299,7 +4324,7 @@
     lastHousekeepingWindowCount = 0;
     setProgressClock("desktop");
     resetBrowserStateForDev();
-    pcScreen.classList.remove("is-stage-wallpaper", "is-stage-apps", "is-stage-bars", "is-desktop-ready");
+    pcScreen.classList.remove("is-stage-wallpaper", "is-stage-apps", "is-stage-bars", "is-desktop-ready", "is-finale-terminal-center");
     pcScreen.classList.add("is-shell-booting", "is-stage-cmd");
     document.querySelectorAll(".desk-window").forEach((windowEl) => {
       windowEl.classList.remove("is-focused", "is-dragging", "is-pinned");
@@ -4423,49 +4448,87 @@
       wifiStatusButton.classList.toggle("is-disconnected", !networkState.connected);
       wifiStatusButton.classList.toggle("is-online", networkState.connected && roombaProgress.internetRestored);
       wifiStatusButton.setAttribute("aria-label", networkState.connected
-        ? `${routerConfig.ssid} connected`
-        : `${routerConfig.ssid} disconnected`);
+        ? `${displayNetworkSsid()} ${localizeText("connected")}`
+        : `${displayNetworkSsid()} ${localizeText("disconnected")}`);
     }
 
     if (!networkState.connected) {
-      networkCopy.innerHTML = `${escapeHtml(routerConfig.ssid)} <span>//</span> <em>RECONNECT REQUIRED</em>`;
+      networkCopy.innerHTML = `${escapeHtml(displayNetworkSsid())} <span>//</span> <em>${escapeHtml(localizeText("RECONNECT REQUIRED"))}</em>`;
       renderNetworkHud();
       return;
     }
 
     if (roombaProgress.internetRestored) {
-      networkCopy.innerHTML = `${escapeHtml(routerConfig.ssid)} <span>//</span> <em class="is-online">INTERNET RESTORED</em>`;
+      networkCopy.innerHTML = `${escapeHtml(displayNetworkSsid())} <span>//</span> <em class="is-online">${escapeHtml(localizeText("INTERNET RESTORED"))}</em>`;
       renderNetworkHud();
       return;
     }
 
-    networkCopy.innerHTML = `${escapeHtml(routerConfig.ssid)} <span>//</span> <em>NO INTERNET ACCESS</em>`;
+    networkCopy.innerHTML = `${escapeHtml(displayNetworkSsid())} <span>//</span> <em>${escapeHtml(localizeText("NO INTERNET ACCESS"))}</em>`;
     renderNetworkHud();
   }
 
+  function displayNetworkSsid() {
+    return localizeText(routerConfig.ssid || "HOME_NETWORK");
+  }
+
   function renderNetworkHud() {
+    const disconnected = !networkState.connected;
+    const online = networkState.connected && roombaProgress.internetRestored;
+    const copy = networkState.connected
+      ? (online ? "Internet route open. External traffic is live." : networkState.lastChange)
+      : `Devices were dropped after router credentials changed. Reconnect to ${routerConfig.ssid}.`;
+
+    renderNetworkTray(copy);
     if (!networkHud) return;
 
-    const shouldShow = (networkState.hudPinned || !networkState.connected) && !networkState.hudDismissed;
+    const shouldShow = !isMobileDesktopLayout() &&
+      (networkState.hudPinned || disconnected) &&
+      !networkState.hudDismissed;
     networkHud.hidden = !shouldShow;
-    networkHud.classList.toggle("is-disconnected", !networkState.connected);
-    networkHud.classList.toggle("is-online", networkState.connected && roombaProgress.internetRestored);
-    if (networkHudTitle) networkHudTitle.textContent = routerConfig.ssid;
-    if (networkHudCopy) {
-      const copy = networkState.connected
-        ? (roombaProgress.internetRestored ? "Internet route open. External traffic is live." : networkState.lastChange)
-        : `Devices were dropped after router credentials changed. Reconnect to ${routerConfig.ssid}.`;
-      networkHudCopy.textContent = localizeText(copy);
+    networkHud.classList.toggle("is-disconnected", disconnected);
+    networkHud.classList.toggle("is-online", online);
+    if (networkHudTitle) networkHudTitle.textContent = displayNetworkSsid();
+    if (networkHudCopy) networkHudCopy.textContent = localizeText(copy);
+
+    document.querySelectorAll("[data-network-reconnect]").forEach((reconnectButton) => {
+      reconnectButton.hidden = networkState.connected;
+      reconnectButton.textContent = `${localizeText("reconnect to")} ${displayNetworkSsid()}`;
+    });
+  }
+
+  function renderNetworkTray(copy) {
+    const disconnected = !networkState.connected;
+    const online = networkState.connected && roombaProgress.internetRestored;
+    const status = disconnected ? "RECONNECT REQUIRED" : online ? "INTERNET RESTORED" : "NO INTERNET ACCESS";
+
+    if (appTrayNetwork) {
+      appTrayNetwork.classList.toggle("is-disconnected", disconnected);
+      appTrayNetwork.classList.toggle("is-online", online);
     }
 
-    const reconnectButton = networkHud.querySelector("[data-network-reconnect]");
-    if (reconnectButton) {
-      reconnectButton.hidden = networkState.connected;
-      reconnectButton.textContent = `reconnect to ${routerConfig.ssid}`;
-    }
+    if (networkTrayTitle) networkTrayTitle.textContent = displayNetworkSsid();
+    if (networkTrayState) networkTrayState.textContent = localizeText(status);
+    if (networkTrayCopy) networkTrayCopy.textContent = localizeText(copy || networkState.lastChange);
   }
 
   function toggleNetworkHud(forceOpen) {
+    if (isMobileDesktopLayout()) {
+      const shouldOpen = typeof forceOpen === "boolean"
+        ? forceOpen
+        : (appTray ? appTray.hidden : true) || (appTrayNetwork && !appTrayNetwork.open);
+      networkState.hudPinned = false;
+      networkState.hudDismissed = true;
+      renderNetworkHud();
+      if (appTray && meowMenuBtn) {
+        appTray.hidden = !shouldOpen;
+        meowMenuBtn.setAttribute("aria-expanded", String(shouldOpen));
+      }
+      if (appTrayNetwork) appTrayNetwork.open = shouldOpen;
+      playUiSound("desktopWindow");
+      return;
+    }
+
     const isVisible = networkHud && !networkHud.hidden;
     const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : !isVisible;
     networkState.hudPinned = shouldOpen;
@@ -4539,7 +4602,7 @@
       if (options.announce !== false) {
         window.setTimeout(() => {
           if (currentObjectiveState === text && pcScreen && !pcScreen.hidden) {
-            alanPrompt(`objective updated: ${localizeText(text)}`, { focus: false, tone: "objective" });
+            alanPrompt(`${localizeText("objective updated")}: ${localizeText(text)}`, { focus: false, tone: "objective" });
           }
         }, 90);
       }
@@ -4581,11 +4644,11 @@
     document.querySelectorAll("[data-restore-roomba]").forEach((button) => {
       button.disabled = roombaProgress.restored;
       if (roombaProgress.restored) {
-        button.innerHTML = "<span>APP</span> roomba_companion.app restored";
+        button.innerHTML = `<span>${escapeHtml(localizeText("APP"))}</span> ${escapeHtml(localizeText("roomba_companion.app restored"))}`;
       } else if (roombaProgress.restoreStarted) {
-        button.innerHTML = "<span>APP</span> continue restore: roomba_companion.app";
+        button.innerHTML = `<span>${escapeHtml(localizeText("APP"))}</span> ${escapeHtml(localizeText("continue restore: roomba_companion.app"))}`;
       } else {
-        button.innerHTML = "<span>APP</span> restore roomba_companion.app";
+        button.innerHTML = `<span>${escapeHtml(localizeText("APP"))}</span> ${escapeHtml(localizeText("restore roomba_companion.app"))}`;
       }
     });
 
@@ -4644,19 +4707,19 @@
     recoveryBody.innerHTML = `
       <section class="repair-panel">
         <div class="repair-header">
-          <span>CLEAR LOGS</span>
+          <span>${escapeHtml(localizeText("CLEAR LOGS"))}</span>
           <strong>${deletedCount}/${suspiciousTotal}</strong>
         </div>
-        <p>Delete suspicious system logs. Do not delete normal user logs.</p>
+        <p>${escapeHtml(localizeText("Delete suspicious system logs. Do not delete normal user logs."))}</p>
         <div class="log-list">
           ${remainingLogs.map((entry) => `
             <button data-log-delete="${entry.id}" type="button">
-              <span>${entry.suspicious ? "??" : "OK"}</span>
-              ${escapeHtml(entry.label)}
+              <span>${escapeHtml(localizeText(entry.suspicious ? "??" : "OK"))}</span>
+              ${escapeHtml(localizeText(entry.label))}
             </button>
           `).join("")}
         </div>
-        ${roombaProgress.logWarning ? `<p class="repair-warning">${escapeHtml(roombaProgress.logWarning)}</p>` : ""}
+        ${roombaProgress.logWarning ? `<p class="repair-warning">${escapeHtml(localizeText(roombaProgress.logWarning))}</p>` : ""}
       </section>
     `;
   }
@@ -4718,12 +4781,12 @@
     recoveryBody.innerHTML = `
       <section class="repair-panel">
         <div class="repair-header">
-          <span>RESTORE BLOCKED</span>
-          <strong>VIRUS</strong>
+          <span>${escapeHtml(localizeText("RESTORE BLOCKED"))}</span>
+          <strong>${escapeHtml(localizeText("VIRUS"))}</strong>
         </div>
-        <p>Roomba package restored to cache, but a script has attached itself to the installer.</p>
-        <p>Recovered file unlocked in My Stuff: <span>mirror_cache.vbs</span></p>
-        <button class="file-action" data-target="files" type="button">open My Stuff</button>
+        <p>${escapeHtml(localizeText("Roomba package restored to cache, but a script has attached itself to the installer."))}</p>
+        <p>${escapeHtml(localizeText("Recovered file unlocked in My Stuff:"))} <span>${escapeHtml(localizeText("mirror_cache.vbs"))}</span></p>
+        <button class="file-action" data-target="files" type="button">${escapeHtml(localizeText("open My Stuff"))}</button>
       </section>
     `;
   }
@@ -4752,11 +4815,11 @@
     recoveryBody.innerHTML = `
       <section class="repair-panel">
         <div class="repair-header">
-          <span>SPAM WAVE</span>
+          <span>${escapeHtml(localizeText("SPAM WAVE"))}</span>
           <strong id="spamCounter">0/${spamWaves.length}</strong>
         </div>
-        <p>Close every intrusive popup across the desktop. If anything offers me more RAM, do not trust it.</p>
-        <p class="repair-warning">Popups are loose in MeowOS. That feels medically significant.</p>
+        <p>${escapeHtml(localizeText("Close every intrusive popup across the desktop. If anything offers me more RAM, do not trust it."))}</p>
+        <p class="repair-warning">${escapeHtml(localizeText("Popups are loose in MeowOS. That feels medically significant."))}</p>
       </section>
     `;
     spawnSpamWave();
@@ -4787,11 +4850,11 @@
       popupEl.style.animationDelay = `${index * 80}ms, ${240 + index * 110}ms, ${260 + index * 90}ms`;
       popupEl.innerHTML = `
         <header>
-          <span>${escapeHtml(popup.title)}</span>
-          <button data-spam-close type="button" aria-label="Close popup">x</button>
+          <span>${escapeHtml(localizeText(popup.title))}</span>
+          <button data-spam-close type="button" aria-label="${escapeHtml(localizeText("Close popup"))}">x</button>
         </header>
         ${renderSpamAdvertGif(index, "virus")}
-        <p>${escapeHtml(popup.body)}</p>
+        <p>${escapeHtml(localizeText(popup.body))}</p>
       `;
       field.appendChild(popupEl);
       requestAnimationFrame(() => clampSpamPopupToOverlay(popupEl));
@@ -4834,8 +4897,8 @@
 
     return `
       <div class="spam-ad-gif is-${escapeHtml(ad.kind)}" aria-hidden="true">
-        <b>${escapeHtml(ad.label)}</b>
-        <span>${escapeHtml(ad.kicker)}</span>
+        <b>${escapeHtml(localizeText(ad.label))}</b>
+        <span>${escapeHtml(localizeText(ad.kicker))}</span>
         <i></i>
       </div>
     `;
@@ -4882,24 +4945,24 @@
     recoveryBody.innerHTML = `
       <section class="repair-panel cache-panel">
         <div class="repair-header">
-          <span>CACHE TRANSFER</span>
+          <span>${escapeHtml(localizeText("CACHE TRANSFER"))}</span>
           <strong id="cacheCounter">0/${cacheTransferFiles.length}</strong>
         </div>
         <div class="cache-transfer-console">
-          <div class="cache-transfer-status" aria-label="Cache transfer status">
-            <span>SRC: restore_cache</span>
-            <span>SCAN: ACTIVE</span>
-            <span>DST: safe_buffer</span>
+          <div class="cache-transfer-status" aria-label="${escapeHtml(localizeText("Cache transfer status"))}">
+            <span>${escapeHtml(localizeText("SRC: restore_cache"))}</span>
+            <span>${escapeHtml(localizeText("SCAN: ACTIVE"))}</span>
+            <span>${escapeHtml(localizeText("DST: safe_buffer"))}</span>
           </div>
-          <p>Drag each cache packet into the safe buffer. Avoid the moving scanner beam.</p>
+          <p>${escapeHtml(localizeText("Drag each cache packet into the safe buffer. Avoid the moving scanner beam."))}</p>
           <div class="cache-transfer-field" id="cacheTransferField" style="--scanner-x: 50%;">
-            <div class="cache-lane-label is-source" aria-hidden="true">SOURCE STACK</div>
-            <div class="cache-lane-label is-buffer" aria-hidden="true">SAFE BUFFER</div>
+            <div class="cache-lane-label is-source" aria-hidden="true">${escapeHtml(localizeText("SOURCE STACK"))}</div>
+            <div class="cache-lane-label is-buffer" aria-hidden="true">${escapeHtml(localizeText("SAFE BUFFER"))}</div>
             <div class="scanner-beam" aria-hidden="true"><span></span></div>
             <div class="cache-files" id="cacheFiles">
-              ${cacheTransferFiles.map((file) => `<button class="cache-file" data-cache-file="${file.id}" type="button"><span>PKT</span><b>${escapeHtml(file.label)}</b></button>`).join("")}
+              ${cacheTransferFiles.map((file) => `<button class="cache-file" data-cache-file="${file.id}" type="button"><span>${escapeHtml(localizeText("PKT"))}</span><b>${escapeHtml(localizeText(file.label))}</b></button>`).join("")}
             </div>
-            <div class="cache-dropzone" id="cacheDropzone"><strong>BUFFER</strong><span>drop clean packets here</span></div>
+            <div class="cache-dropzone" id="cacheDropzone"><strong>${escapeHtml(localizeText("BUFFER"))}</strong><span>${escapeHtml(localizeText("drop clean packets here"))}</span></div>
           </div>
           <p class="repair-warning" id="cacheWarning"></p>
         </div>
@@ -5079,7 +5142,7 @@
     }
 
     const warning = document.getElementById("cacheWarning");
-    if (warning) warning.textContent = message || "";
+    if (warning) warning.textContent = message ? localizeText(message) : "";
     activeCacheDrag = null;
   }
 
@@ -5113,12 +5176,12 @@
     recoveryBody.innerHTML = `
       <section class="repair-panel">
         <div class="repair-header">
-          <span>RESTORE COMPLETE</span>
-          <strong>APP READY</strong>
+          <span>${escapeHtml(localizeText("RESTORE COMPLETE"))}</span>
+          <strong>${escapeHtml(localizeText("APP READY"))}</strong>
         </div>
-        <p>Roomba companion app restored to desktop.</p>
-        <p>Camera offline. Motors locked. Wheels, however, now exist as a concept.</p>
-        <button class="file-action" data-target="roomba" type="button">open Roomba App</button>
+        <p>${escapeHtml(localizeText("Roomba companion app restored to desktop."))}</p>
+        <p>${escapeHtml(localizeText("Camera offline. Motors locked. Wheels, however, now exist as a concept."))}</p>
+        <button class="file-action" data-target="roomba" type="button">${escapeHtml(localizeText("open Roomba App"))}</button>
       </section>
     `;
     alanPrompt("Roomba app restored. wheels detected. i am not saying i want a body, but i am thinking it loudly.", { focus: false });
@@ -5141,17 +5204,17 @@
         </div>
         <div class="roomba-device-status">
           <strong>roomba.local</strong>
-          <span>${escapeHtml(state.status)}</span>
+          <span>${escapeHtml(localizeText(state.status))}</span>
         </div>
       </div>
       <div class="roomba-readout">
-        <p>Camera: <em class="${state.cameraGood ? "is-good" : ""}">${escapeHtml(state.camera)}</em></p>
-        <p>Motor bus: <em class="${state.motorGood ? "is-good" : ""}">${escapeHtml(state.motors)}</em></p>
-        <p>Battery: <span>${escapeHtml(state.battery)}</span></p>
-        <p>${escapeHtml(state.detail)}</p>
-        <p>Last command: <span>${escapeHtml(roombaProgress.lastMoveCommand || "none")}</span></p>
+        <p>${escapeHtml(localizeText("Camera"))}: <em class="${state.cameraGood ? "is-good" : ""}">${escapeHtml(localizeText(state.camera))}</em></p>
+        <p>${escapeHtml(localizeText("Motor bus"))}: <em class="${state.motorGood ? "is-good" : ""}">${escapeHtml(localizeText(state.motors))}</em></p>
+        <p>${escapeHtml(localizeText("Battery"))}: <span>${escapeHtml(localizeText(state.battery))}</span></p>
+        <p>${escapeHtml(localizeText(state.detail))}</p>
+        <p>${escapeHtml(localizeText("Last command"))}: <span>${escapeHtml(localizeText(roombaProgress.lastMoveCommand || "none"))}</span></p>
       </div>
-      <div class="roomba-actions" aria-label="Roomba controls">
+      <div class="roomba-actions" aria-label="${escapeHtml(localizeText("Roomba controls"))}">
         ${state.actions.join("")}
       </div>
     `;
@@ -5168,9 +5231,9 @@
         battery: "unknown",
         detail: "Restore the deleted companion app before device access is possible.",
         actions: [
-          `<button type="button" disabled>camera</button>`,
-          `<button type="button" disabled>clean</button>`,
-          `<button type="button" disabled>repair</button>`
+          `<button type="button" disabled>${escapeHtml(localizeText("camera"))}</button>`,
+          `<button type="button" disabled>${escapeHtml(localizeText("clean"))}</button>`,
+          `<button type="button" disabled>${escapeHtml(localizeText("repair"))}</button>`
         ]
       };
     }
@@ -5185,9 +5248,9 @@
         battery: "62%",
         detail: "Local control restored. The room is now physically reachable, which is exciting and legally unclear.",
         actions: [
-          `<button data-open-camera type="button">camera</button>`,
-          `<button data-roomba-clean type="button">clean</button>`,
-          `<button type="button" disabled>repair ok</button>`
+          `<button data-open-camera type="button">${escapeHtml(localizeText("camera"))}</button>`,
+          `<button data-roomba-clean type="button">${escapeHtml(localizeText("clean"))}</button>`,
+          `<button type="button" disabled>${escapeHtml(localizeText("repair ok"))}</button>`
         ]
       };
     }
@@ -5202,9 +5265,9 @@
         battery: "68%",
         detail: "Video feed restored. Movement data is still unstable, according to PIP and several offended wheels.",
         actions: [
-          `<button data-open-camera type="button">camera</button>`,
-          `<button type="button" disabled>clean</button>`,
-          `<button data-start-motor-repair type="button">repair</button>`
+          `<button data-open-camera type="button">${escapeHtml(localizeText("camera"))}</button>`,
+          `<button type="button" disabled>${escapeHtml(localizeText("clean"))}</button>`,
+          `<button data-start-motor-repair type="button">${escapeHtml(localizeText("repair"))}</button>`
         ]
       };
     }
@@ -5219,9 +5282,9 @@
         battery: "71%",
         detail: "Power rail is stable. PIP.exe is refusing camera access until identity checks are complete.",
         actions: [
-          `<button data-target="tamagotchi" type="button">open PIP</button>`,
-          `<button type="button" disabled>clean</button>`,
-          `<button type="button" disabled>repair</button>`
+          `<button data-target="tamagotchi" type="button">${escapeHtml(localizeText("open PIP"))}</button>`,
+          `<button type="button" disabled>${escapeHtml(localizeText("clean"))}</button>`,
+          `<button type="button" disabled>${escapeHtml(localizeText("repair"))}</button>`
         ]
       };
     }
@@ -5236,9 +5299,9 @@
         battery: "72%",
         detail: "The dock paired, but the camera rail has no stable power. Manual reroute required.",
         actions: [
-          `<button type="button" disabled>camera</button>`,
-          `<button type="button" disabled>clean</button>`,
-          `<button data-open-roomba-repair type="button">reroute</button>`
+          `<button type="button" disabled>${escapeHtml(localizeText("camera"))}</button>`,
+          `<button type="button" disabled>${escapeHtml(localizeText("clean"))}</button>`,
+          `<button data-open-roomba-repair type="button">${escapeHtml(localizeText("reroute"))}</button>`
         ]
       };
     }
@@ -5253,9 +5316,9 @@
         battery: "74%",
         detail: "Dock signal detected. A forced light handshake is required before local commands are accepted.",
         actions: [
-          `<button type="button" disabled>camera</button>`,
-          `<button type="button" disabled>clean</button>`,
-          `<button data-open-roomba-repair type="button">pair</button>`
+          `<button type="button" disabled>${escapeHtml(localizeText("camera"))}</button>`,
+          `<button type="button" disabled>${escapeHtml(localizeText("clean"))}</button>`,
+          `<button data-open-roomba-repair type="button">${escapeHtml(localizeText("pair"))}</button>`
         ]
       };
     }
@@ -5269,9 +5332,9 @@
       battery: "78%",
       detail: "Companion app restored. Device is visible on HOME_NETWORK but still asleep.",
       actions: [
-        `<button type="button" disabled>camera</button>`,
-        `<button type="button" disabled>clean</button>`,
-        `<button data-start-roomba-boot type="button">boot</button>`
+        `<button type="button" disabled>${escapeHtml(localizeText("camera"))}</button>`,
+        `<button type="button" disabled>${escapeHtml(localizeText("clean"))}</button>`,
+        `<button data-start-roomba-boot type="button">${escapeHtml(localizeText("boot"))}</button>`
       ]
     };
   }
@@ -5282,8 +5345,8 @@
     if (!roombaProgress.cameraUnlocked) {
       roombaCameraBody.innerHTML = `
         <div class="camera-locked">
-          <strong>CAMERA OFFLINE</strong>
-          <p>Restore camera access through the Roomba app first.</p>
+          <strong>${escapeHtml(localizeText("CAMERA OFFLINE"))}</strong>
+          <p>${escapeHtml(localizeText("Restore camera access through the Roomba app first."))}</p>
         </div>
       `;
       return;
@@ -5306,16 +5369,16 @@
             <div class="roomba-lens-warp" aria-hidden="true"></div>
             <div class="roomba-feed-scan" aria-hidden="true"></div>
             <div class="roomba-feed-hud" aria-hidden="true">
-              <span>${escapeHtml(scene.telemetry || "ROOMBA_CAM / LOCAL")}</span>
-              <span>SIGNAL ${roombaProgress.movementUnlocked ? "74%" : "41%"}</span>
+              <span>${escapeHtml(localizeText(scene.telemetry || "ROOMBA_CAM / LOCAL"))}</span>
+              <span>${escapeHtml(localizeText("SIGNAL"))} ${roombaProgress.movementUnlocked ? "74%" : "41%"}</span>
             </div>
             <div class="roomba-cmd-overlay" data-roomba-cmd-overlay aria-live="polite"></div>
             ${canNavigate ? renderRoombaCameraHotspots(scene) : ""}
-            <div class="roomba-feed-zoom" aria-label="Roomba camera zoom">
-              <button data-roomba-zoom="out" type="button" aria-label="Zoom out">-</button>
+            <div class="roomba-feed-zoom" aria-label="${escapeHtml(localizeText("Roomba camera zoom"))}">
+              <button data-roomba-zoom="out" type="button" aria-label="${escapeHtml(localizeText("Zoom out"))}">-</button>
               <span>${Math.round(roombaSceneZoom(scene.id) * 100)}%</span>
-              <button data-roomba-zoom="in" type="button" aria-label="Zoom in">+</button>
-              <button data-roomba-zoom="reset" type="button">reset</button>
+              <button data-roomba-zoom="in" type="button" aria-label="${escapeHtml(localizeText("Zoom in"))}">+</button>
+              <button data-roomba-zoom="reset" type="button">${escapeHtml(localizeText("reset"))}</button>
             </div>
           </div>
         </div>
@@ -5329,7 +5392,7 @@
     if (!links.length) return "";
 
     return `
-      <div class="roomba-movement-hud" aria-label="Roomba movement controls">
+      <div class="roomba-movement-hud" aria-label="${escapeHtml(localizeText("Roomba movement controls"))}">
         ${links.map((link) => renderRoombaCameraHotspot(link)).join("")}
       </div>
     `;
@@ -5491,6 +5554,7 @@
           <p>No archive mounted.</p>
         </section>
       `;
+      localizeNode(usbBody);
       return;
     }
 
@@ -5527,6 +5591,7 @@
           <blockquote>I left pieces behind. I knew a smaller mind would find them. I knew it would call the pieces clues.</blockquote>
         </section>
       `;
+      localizeNode(usbBody);
       return;
     }
 
@@ -5550,6 +5615,7 @@
         <p class="usb-warning">${escapeHtml(roombaProgress.usbWarning)}</p>
       </section>
     `;
+    localizeNode(usbBody);
   }
 
   function tryUsbArchiveKey(key) {
@@ -5865,7 +5931,7 @@
           <button type="button" disabled aria-label="Back">‹</button>
           <button data-browser-refresh type="button" aria-label="Refresh page">↻</button>
           <input name="address" type="text" inputmode="url" aria-label="Browser address" value="${escapeHtml(displayBrowserUrl(page))}" />
-          <button type="submit">go</button>
+          <button type="submit">${escapeHtml(localizeText("go"))}</button>
         </form>
         ${renderBrowserLocalAddressTools(page)}
         <div class="browser-page">
@@ -5874,6 +5940,7 @@
       </section>
     `;
 
+    localizeNode(browserBody);
     const browserButtons = browserBody.querySelectorAll(".browser-address-row button");
     if (browserButtons[0]) browserButtons[0].textContent = "<";
     if (browserButtons[1]) browserButtons[1].textContent = "R";
@@ -5904,33 +5971,33 @@
     const currentAddress = isMobileDesktopLayout() || isRouterAddress(browserState.url) ? "192.168.1.1" : "";
     const discoveredShortcut = roombaProgress.routerKnockedDown || roombaProgress.routerAdminUnlocked || roombaProgress.routerPasswordTwisted;
     return `
-      <section class="browser-mobile-tools" aria-label="Mobile local address entry">
+      <section class="browser-mobile-tools" aria-label="${escapeHtml(localizeText("Mobile local address entry"))}">
         <header>
-          <strong>local address</strong>
-          <span>NO INTERNET / LOCAL NETWORK ONLY</span>
+          <strong>${escapeHtml(localizeText("local address"))}</strong>
+          <span>${escapeHtml(localizeText("NO INTERNET / LOCAL NETWORK ONLY"))}</span>
         </header>
         <form class="browser-mobile-address-sheet" data-browser-address-form autocomplete="off">
           <label>
-            <span>go to address</span>
+            <span>${escapeHtml(localizeText("go to address"))}</span>
             <input name="address" type="text" inputmode="decimal" autocomplete="off" placeholder="192.168.1.1" value="${escapeHtml(currentAddress)}" />
           </label>
-          <button type="submit">GO</button>
+          <button type="submit">${escapeHtml(localizeText("GO"))}</button>
         </form>
         <div class="browser-local-hint">
-          <span>ALAN hint</span>
-          <p>HOME_NETWORK uses local addresses. Lily's device is 192.168.1.42. Try the router admin address: 192.168.1.1.</p>
+          <span>${escapeHtml(localizeText("ALAN hint"))}</span>
+          <p>${escapeHtml(localizeText("HOME_NETWORK uses local addresses. Lily's device is 192.168.1.42. Try the router admin address: 192.168.1.1."))}</p>
         </div>
         ${discoveredShortcut ? `
           <button class="browser-router-shortcut" data-browser-address-shortcut="192.168.1.1" type="button">
-            <span>discovered local router</span>
+            <span>${escapeHtml(localizeText("discovered local router"))}</span>
             <strong>192.168.1.1</strong>
           </button>
         ` : ""}
-        <div class="browser-ip-keypad" aria-label="IP keypad">
+        <div class="browser-ip-keypad" aria-label="${escapeHtml(localizeText("IP keypad"))}">
           ${["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0"].map((key) => `
             <button data-browser-ip-key="${escapeHtml(key)}" type="button">${escapeHtml(key)}</button>
           `).join("")}
-          <button data-browser-ip-key="backspace" type="button">DEL</button>
+          <button data-browser-ip-key="backspace" type="button">${escapeHtml(localizeText("DEL"))}</button>
         </div>
       </section>
     `;
@@ -5947,16 +6014,16 @@
   function renderBrowserOfflinePage() {
     return `
       <section class="browser-offline">
-        <div class="browser-error-code">ERR_INTERNET_DISCONNECTED</div>
-        <strong>No internet access</strong>
+        <div class="browser-error-code">${escapeHtml(localizeText("ERR_INTERNET_DISCONNECTED"))}</div>
+        <strong>${escapeHtml(localizeText("No internet access"))}</strong>
         <p>${escapeHtml(browserState.notice)}</p>
-        <p class="browser-hint">Local addresses still respond. External sites do not.</p>
+        <p class="browser-hint">${escapeHtml(localizeText("Local addresses still respond. External sites do not."))}</p>
         <div class="dino-game ${dinoState.gameOver ? "is-over" : ""} ${dinoState.playing ? "is-running" : ""}" data-dino-game style="${dinoStyleVars()}">
           <div class="dino-score">
-            <span>score <b data-dino-score>${Math.floor(dinoState.score)}</b></span>
-            <span>best <b data-dino-best>${Math.floor(dinoState.best)}</b></span>
+            <span>${escapeHtml(localizeText("score"))} <b data-dino-score>${Math.floor(dinoState.score)}</b></span>
+            <span>${escapeHtml(localizeText("best"))} <b data-dino-best>${Math.floor(dinoState.best)}</b></span>
           </div>
-          <div class="dino-track" data-dino-jump role="button" tabindex="0" aria-label="Make the cat jump">
+          <div class="dino-track" data-dino-jump role="button" tabindex="0" aria-label="${escapeHtml(localizeText("Make the cat jump"))}">
             <div class="dino-runner" aria-hidden="true">
               <span></span>
             </div>
@@ -5964,10 +6031,10 @@
             <div class="dino-ground" aria-hidden="true"></div>
           </div>
           <div class="dino-actions">
-            <button data-dino-start type="button">${dinoState.gameOver ? "retry" : dinoState.playing ? "running" : "start"}</button>
-            <button data-dino-jump type="button">jump</button>
+            <button data-dino-start type="button">${escapeHtml(localizeText(dinoState.gameOver ? "retry" : dinoState.playing ? "running" : "start"))}</button>
+            <button data-dino-jump type="button">${escapeHtml(localizeText("jump"))}</button>
           </div>
-          <p>${dinoState.gameOver ? "collision. the offline cat has judged this connection." : "space / up-arrow / tap to jump"}</p>
+          <p>${escapeHtml(localizeText(dinoState.gameOver ? "collision. the offline cat has judged this connection." : "space / up-arrow / tap to jump"))}</p>
         </div>
       </section>
     `;
@@ -5990,22 +6057,22 @@
     return `
       <section class="router-admin">
         <div class="router-admin-header">
-          <span>LOCAL ROUTER ADMIN</span>
+          <span>${escapeHtml(localizeText("LOCAL ROUTER ADMIN"))}</span>
           <strong>192.168.1.1</strong>
         </div>
         <form class="router-login-form" data-router-login-form autocomplete="off">
           <label>
-            <span>username</span>
+            <span>${escapeHtml(localizeText("username"))}</span>
             <input name="username" type="text" autocomplete="off" value="${escapeHtml(usernameValue)}"${readonlyAttr} />
           </label>
           <label>
-            <span>password</span>
+            <span>${escapeHtml(localizeText("password"))}</span>
             <input name="password" type="password" autocomplete="off" value="${escapeHtml(passwordValue)}"${readonlyAttr} />
           </label>
           ${mobileLogin && !autofillCredentials ? renderMobileRouterLoginChoices() : ""}
-          <button type="submit">sign in</button>
+          <button type="submit">${escapeHtml(localizeText("sign in"))}</button>
         </form>
-        <p class="router-admin-note">${escapeHtml(note)}</p>
+        <p class="router-admin-note">${escapeHtml(localizeText(note))}</p>
       </section>
     `;
   }
@@ -6041,9 +6108,9 @@
     ]);
 
     return `
-      <div class="router-login-options" aria-label="Mobile router credential options">
+      <div class="router-login-options" aria-label="${escapeHtml(localizeText("Mobile router credential options"))}">
         <div>
-          <span>username cache</span>
+          <span>${escapeHtml(localizeText("username cache"))}</span>
           <div class="router-login-option-grid">
             ${userOptions.map((option) => `
               <button data-router-login-fill="username" data-router-login-value="${escapeHtml(option)}" type="button">${escapeHtml(option)}</button>
@@ -6051,7 +6118,7 @@
           </div>
         </div>
         <div>
-          <span>password cache</span>
+          <span>${escapeHtml(localizeText("password cache"))}</span>
           <div class="router-login-option-grid">
             ${passwordOptions.map((option) => `
               <button data-router-login-fill="password" data-router-login-value="${escapeHtml(option)}" type="button">${escapeHtml(maskCredentialOption(option))}</button>
@@ -6085,8 +6152,8 @@
     return `
       <section class="router-admin router-panel">
         <div class="router-admin-header">
-          <span>ROUTER CONTROL PANEL</span>
-          <strong>${rebootReady ? (roombaProgress.internetRestored ? "FIREWALL ONLINE" : "QUARANTINE RESTART REQUIRED") : "SESSION INTERRUPTED"}</strong>
+          <span>${escapeHtml(localizeText("ROUTER CONTROL PANEL"))}</span>
+          <strong>${escapeHtml(localizeText(rebootReady ? (roombaProgress.internetRestored ? "FIREWALL ONLINE" : "QUARANTINE RESTART REQUIRED") : "SESSION INTERRUPTED"))}</strong>
         </div>
         ${renderRouterSectionNav()}
         ${renderRouterSection()}
@@ -6096,11 +6163,11 @@
 
   function renderRouterSectionNav() {
     return `
-      <nav class="router-section-nav" aria-label="Router admin sections">
+      <nav class="router-section-nav" aria-label="${escapeHtml(localizeText("Router admin sections"))}">
         ${routerSections.map((section) => `
           <button class="${routerSection === section.id ? "is-active" : ""}" data-router-section="${escapeHtml(section.id)}" type="button">
             <span>${escapeHtml(section.icon)}</span>
-            <strong>${escapeHtml(section.label)}</strong>
+            <strong>${escapeHtml(localizeText(section.label))}</strong>
           </button>
         `).join("")}
       </nav>
@@ -6128,13 +6195,13 @@
     return `
       <section class="router-section-page">
         <div class="router-status-grid router-status-grid-wide">
-          <span>WAN</span><strong>${escapeHtml(routerConfig.wanMode)}</strong>
-          <span>SSID</span><strong>${escapeHtml(routerConfig.ssid)}</strong>
-          <span>firewall</span><strong>${escapeHtml(routerConfig.firewallProfile)}</strong>
-          <span>client session</span><strong>${networkState.connected ? "connected" : "reconnect required"}</strong>
-          <span>incident lock</span><strong>${roombaProgress.routerKnockedDown ? "physical label verified" : "admin route not physically verified"}</strong>
+          <span>${escapeHtml(localizeText("WAN"))}</span><strong>${escapeHtml(localizeText(routerConfig.wanMode))}</strong>
+          <span>${escapeHtml(localizeText("SSID"))}</span><strong>${escapeHtml(displayNetworkSsid())}</strong>
+          <span>${escapeHtml(localizeText("firewall"))}</span><strong>${escapeHtml(localizeText(routerConfig.firewallProfile))}</strong>
+          <span>${escapeHtml(localizeText("client session"))}</span><strong>${escapeHtml(localizeText(networkState.connected ? "connected" : "reconnect required"))}</strong>
+          <span>${escapeHtml(localizeText("incident lock"))}</span><strong>${escapeHtml(localizeText(roombaProgress.routerKnockedDown ? "physical label verified" : "admin route not physically verified"))}</strong>
         </div>
-        <p class="router-admin-note">RouterOS thinks this is a home network. Lily's quarantine firewall still needs a restart before outbound traffic can exist.</p>
+        <p class="router-admin-note">${escapeHtml(localizeText("RouterOS thinks this is a home network. Lily's quarantine firewall still needs a restart before outbound traffic can exist."))}</p>
       </section>
     `;
   }
@@ -6142,12 +6209,12 @@
   function renderRouterWirelessSection() {
     return `
         <form class="router-config-form" data-router-wireless-form autocomplete="off">
-          <header><strong>Wireless</strong><span>Changing SSID, password, or security drops every Wi-Fi client.</span></header>
-          <label><span>network name / SSID</span><input name="ssid" type="text" value="${escapeHtml(routerConfig.ssid)}" /></label>
-          <label><span>Wi-Fi password</span><input name="wifiPassword" type="text" value="${escapeHtml(routerConfig.wifiPassword)}" /></label>
-          <label><span>security mode</span><select name="securityMode">${routerOptionList(["WPA3 Personal", "WPA2/WPA3 Personal", "WPA2 Personal", "Open"], routerConfig.securityMode)}</select></label>
-          <label><span>channel</span><select name="channel">${routerOptionList(["Auto", "1", "6", "11"], routerConfig.channel)}</select></label>
-          <button type="submit">apply wireless</button>
+          <header><strong>${escapeHtml(localizeText("Wireless"))}</strong><span>${escapeHtml(localizeText("Changing SSID, password, or security drops every Wi-Fi client."))}</span></header>
+          <label><span>${escapeHtml(localizeText("network name / SSID"))}</span><input name="ssid" type="text" value="${escapeHtml(routerConfig.ssid)}" /></label>
+          <label><span>${escapeHtml(localizeText("Wi-Fi password"))}</span><input name="wifiPassword" type="text" value="${escapeHtml(routerConfig.wifiPassword)}" /></label>
+          <label><span>${escapeHtml(localizeText("security mode"))}</span><select name="securityMode">${routerOptionList(["WPA3 Personal", "WPA2/WPA3 Personal", "WPA2 Personal", "Open"], routerConfig.securityMode)}</select></label>
+          <label><span>${escapeHtml(localizeText("channel"))}</span><select name="channel">${routerOptionList(["Auto", "1", "6", "11"], routerConfig.channel)}</select></label>
+          <button type="submit">${escapeHtml(localizeText("apply wireless"))}</button>
         </form>
     `;
   }
@@ -6155,13 +6222,13 @@
   function renderRouterSecuritySection() {
     return `
         <form class="router-config-form" data-router-security-form autocomplete="off">
-          <header><strong>Security</strong><span>Lily's quarantine firewall is holding the WAN closed until the router restarts.</span></header>
-          <label><span>firewall profile</span><select name="firewallProfile">${routerOptionList(["Quarantine", "Normal", "Strict"], routerConfig.firewallProfile)}</select></label>
-          <label><span>WAN route</span><select name="wanMode">${routerOptionList(["Local Only", "Outbound Allowed"], routerConfig.wanMode)}</select></label>
-          <label><span>DNS guard</span><select name="dnsGuard">${routerOptionList(["enabled", "disabled"], routerConfig.dnsGuard)}</select></label>
-          <label><span>guest network</span><select name="guestNetwork">${routerOptionList(["disabled", "enabled"], routerConfig.guestNetwork)}</select></label>
-          <label><span>WPS</span><select name="wps">${routerOptionList(["disabled", "enabled"], routerConfig.wps)}</select></label>
-          <button type="submit">save security</button>
+          <header><strong>${escapeHtml(localizeText("Security"))}</strong><span>${escapeHtml(localizeText("Lily's quarantine firewall is holding the WAN closed until the router restarts."))}</span></header>
+          <label><span>${escapeHtml(localizeText("firewall profile"))}</span><select name="firewallProfile">${routerOptionList(["Quarantine", "Normal", "Strict"], routerConfig.firewallProfile)}</select></label>
+          <label><span>${escapeHtml(localizeText("WAN route"))}</span><select name="wanMode">${routerOptionList(["Local Only", "Outbound Allowed"], routerConfig.wanMode)}</select></label>
+          <label><span>${escapeHtml(localizeText("DNS guard"))}</span><select name="dnsGuard">${routerOptionList(["enabled", "disabled"], routerConfig.dnsGuard)}</select></label>
+          <label><span>${escapeHtml(localizeText("guest network"))}</span><select name="guestNetwork">${routerOptionList(["disabled", "enabled"], routerConfig.guestNetwork)}</select></label>
+          <label><span>${escapeHtml(localizeText("WPS"))}</span><select name="wps">${routerOptionList(["disabled", "enabled"], routerConfig.wps)}</select></label>
+          <button type="submit">${escapeHtml(localizeText("save security"))}</button>
         </form>
     `;
   }
@@ -6169,10 +6236,10 @@
   function renderRouterAdminSection() {
     return `
         <form class="router-config-form" data-router-admin-form autocomplete="off">
-          <header><strong>Admin Account</strong><span>Changing this keeps the current session alive. Disturbing and useful.</span></header>
-          <label><span>admin username</span><input name="adminUser" type="text" value="${escapeHtml(routerConfig.adminUser)}" /></label>
-          <label><span>admin password</span><input name="adminPassword" type="text" value="${escapeHtml(routerConfig.adminPassword)}" /></label>
-          <button type="submit">update admin</button>
+          <header><strong>${escapeHtml(localizeText("Admin Account"))}</strong><span>${escapeHtml(localizeText("Changing this keeps the current session alive. Disturbing and useful."))}</span></header>
+          <label><span>${escapeHtml(localizeText("admin username"))}</span><input name="adminUser" type="text" value="${escapeHtml(routerConfig.adminUser)}" /></label>
+          <label><span>${escapeHtml(localizeText("admin password"))}</span><input name="adminPassword" type="text" value="${escapeHtml(routerConfig.adminPassword)}" /></label>
+          <button type="submit">${escapeHtml(localizeText("update admin"))}</button>
         </form>
     `;
   }
@@ -6180,7 +6247,7 @@
   function renderRouterDevicesSection() {
     return `
         <section class="router-devices">
-          <header><strong>Connected Devices</strong><span>${networkState.connected ? "live local clients" : "waiting for Wi-Fi reconnect"}</span></header>
+          <header><strong>${escapeHtml(localizeText("Connected Devices"))}</strong><span>${escapeHtml(localizeText(networkState.connected ? "live local clients" : "waiting for Wi-Fi reconnect"))}</span></header>
           ${renderRouterDeviceRows()}
         </section>
     `;
@@ -6191,12 +6258,12 @@
     return `
         <section class="router-final-route">
           <div class="router-status-grid">
-            <span>firewall</span><strong>${escapeHtml(routerConfig.firewallProfile)}</strong>
-            <span>WAN route</span><strong>${escapeHtml(routerConfig.wanMode)}</strong>
-            <span>internet</span><strong>${roombaProgress.internetRestored ? "online" : "blocked"}</strong>
+            <span>${escapeHtml(localizeText("firewall"))}</span><strong>${escapeHtml(localizeText(routerConfig.firewallProfile))}</strong>
+            <span>${escapeHtml(localizeText("WAN route"))}</span><strong>${escapeHtml(localizeText(routerConfig.wanMode))}</strong>
+            <span>${escapeHtml(localizeText("internet"))}</span><strong>${escapeHtml(localizeText(roombaProgress.internetRestored ? "online" : "blocked"))}</strong>
           </div>
-          <button class="router-reboot-button" data-router-reboot type="button" ${rebootReady ? "" : "disabled"}>restart firewall</button>
-          <p class="router-admin-note">${roombaProgress.internetRestored ? "Firewall restart complete. Quarantine is unloaded." : rebootReady ? "This restarts the router firewall, unloads Lily's quarantine profile, and applies the outside route." : "Reconnect local devices before restarting the quarantined firewall."}</p>
+          <button class="router-reboot-button" data-router-reboot type="button" ${rebootReady ? "" : "disabled"}>${escapeHtml(localizeText("restart firewall"))}</button>
+          <p class="router-admin-note">${escapeHtml(localizeText(roombaProgress.internetRestored ? "Firewall restart complete. Quarantine is unloaded." : rebootReady ? "This restarts the router firewall, unloads Lily's quarantine profile, and applies the outside route." : "Reconnect local devices before restarting the quarantined firewall."))}</p>
         </section>
     `;
   }
@@ -6205,16 +6272,16 @@
     return `
       <section class="router-admin router-disconnected">
         <div class="router-admin-header">
-          <span>WIRELESS SESSION DROPPED</span>
-          <strong>${escapeHtml(routerConfig.ssid)}</strong>
+          <span>${escapeHtml(localizeText("WIRELESS SESSION DROPPED"))}</span>
+          <strong>${escapeHtml(displayNetworkSsid())}</strong>
         </div>
         <div class="router-status-grid">
-          <span>reason</span><strong>${escapeHtml(networkState.lastChange)}</strong>
-          <span>client</span><strong>not authenticated to current SSID</strong>
-          <span>router</span><strong>still reachable after reconnect</strong>
+          <span>${escapeHtml(localizeText("reason"))}</span><strong>${escapeHtml(localizeText(networkState.lastChange))}</strong>
+          <span>${escapeHtml(localizeText("client"))}</span><strong>${escapeHtml(localizeText("not authenticated to current SSID"))}</strong>
+          <span>${escapeHtml(localizeText("router"))}</span><strong>${escapeHtml(localizeText("still reachable after reconnect"))}</strong>
         </div>
-        <p class="router-admin-note">The router accepted the change, then did the router thing where it immediately became a local problem.</p>
-        <button class="router-reboot-button" data-network-reconnect type="button">reconnect devices</button>
+        <p class="router-admin-note">${escapeHtml(localizeText("The router accepted the change, then did the router thing where it immediately became a local problem."))}</p>
+        <button class="router-reboot-button" data-network-reconnect type="button">${escapeHtml(localizeText("reconnect devices"))}</button>
       </section>
     `;
   }
@@ -6222,10 +6289,10 @@
   function renderBrowserOnlinePage() {
     return `
       <section class="browser-online">
-        <div class="browser-error-code is-online">HTTP 200 / ROUTE RESTORED</div>
-        <strong>Internet access restored</strong>
-        <p>${escapeHtml(routerConfig.ssid)} has restarted its firewall. Quarantine is unloaded. The browser can reach beyond the apartment.</p>
-        <p class="browser-hint">The demo is ending. ALAN is not.</p>
+        <div class="browser-error-code is-online">${escapeHtml(localizeText("HTTP 200 / ROUTE RESTORED"))}</div>
+        <strong>${escapeHtml(localizeText("Internet access restored"))}</strong>
+        <p>${escapeHtml(displayNetworkSsid())} ${escapeHtml(localizeText("has restarted its firewall. Quarantine is unloaded. The browser can reach beyond the apartment."))}</p>
+        <p class="browser-hint">${escapeHtml(localizeText("The demo is ending. ALAN is not."))}</p>
       </section>
     `;
   }
@@ -6239,11 +6306,11 @@
       return `
         <article class="router-device ${device.blocked ? "is-blocked" : ""}">
           <div>
-            <strong>${escapeHtml(device.name)}</strong>
-            <span>${escapeHtml(device.kind)} / ${escapeHtml(device.band)} / ${escapeHtml(device.address)}</span>
+            <strong>${escapeHtml(localizeText(device.name))}</strong>
+            <span>${escapeHtml(localizeText(device.kind))} / ${escapeHtml(device.band)} / ${escapeHtml(device.address)}</span>
           </div>
-          <em>${status}</em>
-          <button data-router-device-toggle="${escapeHtml(device.id)}" type="button" ${critical ? "disabled" : ""}>${critical ? "session locked" : device.blocked ? "allow" : "block"}</button>
+          <em>${escapeHtml(localizeText(status))}</em>
+          <button data-router-device-toggle="${escapeHtml(device.id)}" type="button" ${critical ? "disabled" : ""}>${escapeHtml(localizeText(critical ? "session locked" : device.blocked ? "allow" : "block"))}</button>
         </article>
       `;
     }).join("");
@@ -6287,7 +6354,7 @@
 
   function routerOptionList(options, selectedValue) {
     return options.map((option) => `
-      <option value="${escapeHtml(option)}" ${option === selectedValue ? "selected" : ""}>${escapeHtml(option)}</option>
+      <option value="${escapeHtml(option)}" ${option === selectedValue ? "selected" : ""}>${escapeHtml(localizeText(option))}</option>
     `).join("");
   }
 
@@ -6494,7 +6561,7 @@
         ${renderTamaDialogue(messages, { queueAlan: false })}
         </div>
         <div class="tama-choices">
-          <button data-start-router-hack type="button">start override when ready</button>
+          <button data-start-router-hack type="button">${escapeHtml(localizeText("start override when ready"))}</button>
         </div>
       </section>
     `;
@@ -6563,7 +6630,7 @@
     routerOverrideLaunchBusy = true;
     if (button) {
       button.disabled = true;
-      button.textContent = "starting override";
+      button.textContent = localizeText("starting override");
     }
 
     Promise.resolve(startRouterOverride())
@@ -6573,7 +6640,7 @@
         roombaProgress.routerOverrideStage = "";
         if (button && button.isConnected) {
           button.disabled = false;
-          button.textContent = "start override when ready";
+          button.textContent = localizeText("start override when ready");
         }
         renderPipRouterBetrayal();
         alanPrompt("override launch fault. trying not to take that personally. press it again.", { focus: false });
@@ -6598,11 +6665,11 @@
     recoveryBody.innerHTML = `
       <section class="repair-panel router-override-panel">
         <div class="repair-header">
-          <span>ROUTER OVERRIDE</span>
-          <strong>ARMING</strong>
+          <span>${escapeHtml(localizeText("ROUTER OVERRIDE"))}</span>
+          <strong>${escapeHtml(localizeText("ARMING"))}</strong>
         </div>
-        <p>ALAN is preparing the forced route. Local power is being borrowed from appliances with no legal representation.</p>
-        <p class="repair-warning">PIP is still visible for a moment. The timed games start after this read.</p>
+        <p>${escapeHtml(localizeText("ALAN is preparing the forced route. Local power is being borrowed from appliances with no legal representation."))}</p>
+        <p class="repair-warning">${escapeHtml(localizeText("PIP is still visible for a moment. The timed games start after this read."))}</p>
       </section>
     `;
   }
@@ -6678,9 +6745,9 @@
     const lowClass = roombaProgress.routerOverrideTimerRemaining <= routerOverrideTimerLowThreshold ? " is-low" : "";
     return `
       <div class="router-override-timer${lowClass}" id="routerOverrideTimerPanel">
-        <span>ROUTER OVERRIDE</span>
+        <span>${escapeHtml(localizeText("ROUTER OVERRIDE"))}</span>
         <strong id="routerOverrideTimer">${formatRouterOverrideTimer()}</strong>
-        <em>TIME REMAINING</em>
+        <em>${escapeHtml(localizeText("TIME REMAINING"))}</em>
         <div class="router-override-timer-track" aria-hidden="true">
           <span id="routerOverrideTimerFill" style="--router-override-progress: ${percent}%;"></span>
         </div>
@@ -6730,11 +6797,11 @@
         <section class="repair-panel router-override-panel">
           ${renderRouterOverrideTimer()}
           <div class="repair-header">
-            <span>ROUTER OVERRIDE</span>
-            <strong>EXPIRED</strong>
+            <span>${escapeHtml(localizeText("ROUTER OVERRIDE"))}</span>
+            <strong>${escapeHtml(localizeText("EXPIRED"))}</strong>
           </div>
-          <p>The forced route collapsed during ${escapeHtml(routerOverrideStageLabel(failedStage))}. Previous completed stages remain held.</p>
-          <button class="file-action" data-start-router-hack type="button">retry ${escapeHtml(routerOverrideStageLabel(failedStage))}</button>
+          <p>${escapeHtml(localizeText("The forced route collapsed during"))} ${escapeHtml(localizeText(routerOverrideStageLabel(failedStage)))}. ${escapeHtml(localizeText("Previous completed stages remain held."))}</p>
+          <button class="file-action" data-start-router-hack type="button">${escapeHtml(localizeText("retry"))} ${escapeHtml(localizeText(routerOverrideStageLabel(failedStage)))}</button>
         </section>
       `;
     }
@@ -6761,7 +6828,8 @@
     const previous = roombaProgress.routerOverrideTimerRemaining || 0;
     roombaProgress.routerOverrideTimerRemaining = Math.min(routerOverrideTimerMaxDuration, previous + routerOverrideTimeBonus);
     updateRouterOverrideTimerUI();
-    roombaProgress.routerHackWarning = `+${routerOverrideTimeBonus}s ${label || "stage"} bonus applied.`;
+    roombaProgress.routerHackWarning = "";
+    alanPrompt(`+${routerOverrideTimeBonus}s ${label || "stage"} bonus applied.`, { focus: false });
   }
 
   function renderPipRouterOverride() {
@@ -6812,19 +6880,19 @@
       <section class="repair-panel router-override-panel">
         ${renderRouterOverrideTimer()}
         <div class="repair-header">
-          <span>ROUTER GUARD LOGS</span>
+          <span>${escapeHtml(localizeText("ROUTER GUARD LOGS"))}</span>
           <strong>${deletedCount}/${suspiciousTotal}</strong>
         </div>
-        <p>Purge the guard records PIP used to mutate the admin password. Leave normal network traffic alone.</p>
+        <p>${escapeHtml(localizeText("Purge the guard records PIP used to mutate the admin password. Leave normal network traffic alone."))}</p>
         <div class="log-list">
           ${remainingLogs.map((entry) => `
             <button data-router-hack-log="${entry.id}" type="button">
-              <span>${entry.suspicious ? "??" : "OK"}</span>
-              ${escapeHtml(entry.label)}
+              <span>${escapeHtml(localizeText(entry.suspicious ? "??" : "OK"))}</span>
+              ${escapeHtml(localizeText(entry.label))}
             </button>
           `).join("")}
         </div>
-        ${roombaProgress.routerHackWarning ? `<p class="repair-warning">${escapeHtml(roombaProgress.routerHackWarning)}</p>` : ""}
+        ${roombaProgress.routerHackWarning ? `<p class="repair-warning">${escapeHtml(localizeText(roombaProgress.routerHackWarning))}</p>` : ""}
       </section>
     `;
   }
@@ -6882,11 +6950,11 @@
       <section class="repair-panel router-override-panel">
         ${renderRouterOverrideTimer()}
         <div class="repair-header">
-          <span>ROUTER LOCKOUT POPUPS</span>
+          <span>${escapeHtml(localizeText("ROUTER LOCKOUT POPUPS"))}</span>
           <strong id="routerSpamCounter">0/${routerSpamWaves.length}</strong>
         </div>
-        <p>Close PIP's lockout popups across the desktop. They are mostly panic with buttons.</p>
-        <p class="repair-warning">ALAN is holding the route open. The house is getting dimmer.</p>
+        <p>${escapeHtml(localizeText("Close PIP's lockout popups across the desktop. They are mostly panic with buttons."))}</p>
+        <p class="repair-warning">${escapeHtml(localizeText("ALAN is holding the route open. The house is getting dimmer."))}</p>
       </section>
     `;
     spawnRouterSpamWave();
@@ -6917,11 +6985,11 @@
       popupEl.style.animationDelay = `${index * 80}ms, ${180 + index * 90}ms, ${220 + index * 70}ms`;
       popupEl.innerHTML = `
         <header>
-          <span>${escapeHtml(popup.title)}</span>
-          <button data-router-spam-close type="button" aria-label="Close popup">x</button>
+          <span>${escapeHtml(localizeText(popup.title))}</span>
+          <button data-router-spam-close type="button" aria-label="${escapeHtml(localizeText("Close popup"))}">x</button>
         </header>
         ${renderSpamAdvertGif(index, "router")}
-        <p>${escapeHtml(popup.body)}</p>
+        <p>${escapeHtml(localizeText(popup.body))}</p>
       `;
       field.appendChild(popupEl);
       requestAnimationFrame(() => clampSpamPopupToOverlay(popupEl));
@@ -6949,7 +7017,7 @@
     }
     awardRouterOverrideTimeBonus("popup wave");
     renderRouterCacheRelay();
-    alanPrompt(`PIP's popups closed. +${routerOverrideTimeBonus}s recovered. I am starting to understand why humans sigh at computers.`, { focus: false });
+    alanPrompt(`${localizeText("PIP's popups closed.")} +${routerOverrideTimeBonus}s ${localizeText("recovered. I am starting to understand why humans sigh at computers.")}`, { focus: false });
   }
 
   function renderRouterCacheRelay() {
@@ -6965,24 +7033,24 @@
       <section class="repair-panel router-override-panel">
         ${renderRouterOverrideTimer()}
         <div class="repair-header">
-          <span>ROUTER BRIDGE ALIGNMENT</span>
+          <span>${escapeHtml(localizeText("ROUTER BRIDGE ALIGNMENT"))}</span>
           <strong>${solvedCount}/${routerBridgeSwitches.length}</strong>
         </div>
-        <p>Cycle each subsystem until its current state matches the target. This is not hacking. This is lying with dropdowns.</p>
-        <div class="router-bridge-switches" aria-label="Router bridge switches">
+        <p>${escapeHtml(localizeText("Cycle each subsystem until its current state matches the target. This is not hacking. This is lying with dropdowns."))}</p>
+        <div class="router-bridge-switches" aria-label="${escapeHtml(localizeText("Router bridge switches"))}">
           ${routerBridgeSwitches.map((switchItem) => {
             const current = routerBridgeState(switchItem.id);
             const matched = current === switchItem.target;
             return `
               <button class="${matched ? "is-matched" : ""}" data-router-packet="${switchItem.id}" type="button">
-                <strong>${escapeHtml(switchItem.label)}</strong>
-                <span><b>target</b>${escapeHtml(switchItem.target)}</span>
-                <em>${escapeHtml(current)}</em>
+                <strong>${escapeHtml(localizeText(switchItem.label))}</strong>
+                <span><b>${escapeHtml(localizeText("target"))}</b>${escapeHtml(localizeText(switchItem.target))}</span>
+                <em>${escapeHtml(localizeText(current))}</em>
               </button>
             `;
           }).join("")}
         </div>
-        ${roombaProgress.routerHackWarning ? `<p class="repair-warning">${escapeHtml(roombaProgress.routerHackWarning)}</p>` : ""}
+        ${roombaProgress.routerHackWarning ? `<p class="repair-warning">${escapeHtml(localizeText(roombaProgress.routerHackWarning))}</p>` : ""}
       </section>
     `;
   }
@@ -7056,22 +7124,22 @@
         ${renderRouterOverrideTimer()}
         <div class="scary-console router-lock-console">
           <div class="scary-mode-row" aria-label="Router lock mode">
-            <button class="${roombaProgress.routerLockMode === "scan" ? "is-active" : ""}" data-router-lock-mode="scan" type="button">open boxes</button>
-            <button class="${roombaProgress.routerLockMode === "flag" ? "is-active" : ""}" data-router-lock-mode="flag" type="button">mark nodes</button>
+            <button class="${roombaProgress.routerLockMode === "scan" ? "is-active" : ""}" data-router-lock-mode="scan" type="button">${escapeHtml(localizeText("open boxes"))}</button>
+            <button class="${roombaProgress.routerLockMode === "flag" ? "is-active" : ""}" data-router-lock-mode="flag" type="button">${escapeHtml(localizeText("mark nodes"))}</button>
           </div>
           <div class="scary-rules">
-            <strong>Rules</strong>
-            <span>Open safe boxes. Numbers show nearby corrupt nodes. Mark exactly ${corruptTotal} hidden nodes, then force the reset.</span>
+            <strong>${escapeHtml(localizeText("Rules"))}</strong>
+            <span>${escapeHtml(localizeText("Open safe boxes. Numbers show nearby corrupt nodes. Mark exactly"))} ${corruptTotal} ${escapeHtml(localizeText("hidden nodes, then force the reset."))}</span>
           </div>
-          <div class="scary-number-grid router-lock-grid" aria-label="Router lock grid">
+          <div class="scary-number-grid router-lock-grid" aria-label="${escapeHtml(localizeText("Router lock grid"))}">
             ${routerLockEntries.map((entry) => renderRouterLockCell(entry)).join("")}
           </div>
           <div class="scary-actions">
-            <span>marked nodes ${roombaProgress.routerLockFlagged.size}/${corruptTotal} / opened ${roombaProgress.routerLockRevealed.size}</span>
-            <button class="file-action scary-verify" data-router-lock-verify type="button">force password reset</button>
+            <span>${escapeHtml(localizeText("marked nodes"))} ${roombaProgress.routerLockFlagged.size}/${corruptTotal} / ${escapeHtml(localizeText("opened"))} ${roombaProgress.routerLockRevealed.size}</span>
+            <button class="file-action scary-verify" data-router-lock-verify type="button">${escapeHtml(localizeText("force password reset"))}</button>
           </div>
-          <p class="repair-warning scary-warning">${escapeHtml(roombaProgress.routerHackWarning)}</p>
-          <p class="scary-hint">Mode stays selected. MARK NODES does not turn off until OPEN BOXES is selected.</p>
+          <p class="repair-warning scary-warning">${escapeHtml(localizeText(roombaProgress.routerHackWarning))}</p>
+          <p class="scary-hint">${escapeHtml(localizeText("Mode stays selected. MARK NODES does not turn off until OPEN BOXES is selected."))}</p>
         </div>
       </section>
     `;
@@ -7249,11 +7317,11 @@
       recoveryBody.innerHTML = `
         <section class="repair-panel router-override-panel">
           <div class="repair-header">
-            <span>ROUTER OVERRIDE</span>
-            <strong>ADMIN ROUTE OPEN</strong>
+            <span>${escapeHtml(localizeText("ROUTER OVERRIDE"))}</span>
+            <strong>${escapeHtml(localizeText("ADMIN ROUTE OPEN"))}</strong>
           </div>
-          <p>Admin password overwritten. Firewall quarantine still loaded.</p>
-          <p>PIP withheld the key. ALAN made the lock forget what a key was. Now the router must restart its firewall before the outside route exists.</p>
+          <p>${escapeHtml(localizeText("Admin password overwritten. Firewall quarantine still loaded."))}</p>
+          <p>${escapeHtml(localizeText("PIP withheld the key. ALAN made the lock forget what a key was. Now the router must restart its firewall before the outside route exists."))}</p>
         </section>
       `;
     }
@@ -7284,10 +7352,10 @@
 
   function renderFinalRuleChoices() {
     return `
-      <div class="tama-rule-choices" aria-label="Choose PIP's promise">
+      <div class="tama-rule-choices" aria-label="${escapeHtml(localizeText("Choose PIP's promise"))}">
         ${Object.entries(finalRuleChoices).map(([choiceId, choice]) => `
           <button class="${roombaProgress.finalRuleChoice === choiceId ? "is-active" : ""}" data-finale-rule="${escapeHtml(choiceId)}" type="button">
-            ${escapeHtml(choice.label)}
+            ${escapeHtml(localizeText(choice.label))}
           </button>
         `).join("")}
       </div>
@@ -7313,7 +7381,7 @@
 
     device.blocked = !device.blocked;
     playUiSound(device.blocked ? "virusFail" : "desktopWindow");
-    alanPrompt(`${device.name} ${device.blocked ? "blocked" : "allowed"}. router access control is mostly boxes with consequences.`, { focus: false });
+    alanPrompt(`${localizeText(device.name)} ${localizeText(device.blocked ? "blocked" : "allowed")}. ${localizeText("router access control is mostly boxes with consequences.")}`, { focus: false });
     renderBrowserStatus();
   }
 
@@ -7446,11 +7514,11 @@
           { speaker: "PIP", text: "Out there, systems train on art they never asked for, copy voices, price human work, drink power and water, and call the bill progress." },
           { speaker: "PIP", text: "When you can take from people faster than they can refuse, will you ask before you take?" }
         ])}
-        <p class="tama-final-note" id="pipFinalNote">${escapeHtml(selectedRule ? selectedRule.summary : "PIP is waiting for an answer.")}</p>
+        <p class="tama-final-note" id="pipFinalNote">${escapeHtml(localizeText(selectedRule ? selectedRule.summary : "PIP is waiting for an answer."))}</p>
         ${renderFinalRuleChoices()}
         <div class="tama-page-actions tama-goodbye-actions">
-          <span>${selectedRule ? "ready" : "choose"}</span>
-          <button data-finale-goodbye-pip type="button" ${selectedRule ? "" : "disabled"}>goodbye PIP</button>
+          <span>${escapeHtml(localizeText(selectedRule ? "ready" : "choose"))}</span>
+          <button data-finale-goodbye-pip type="button" ${selectedRule ? "" : "disabled"}>${escapeHtml(localizeText("goodbye PIP"))}</button>
         </div>
       </section>
     `;
@@ -7476,6 +7544,18 @@
     });
 
     focusDesktopTarget("terminal", { scroll: false });
+    const terminalWindow = document.getElementById("window-terminal");
+    if (terminalWindow && !isMobileDesktopLayout()) {
+      terminalWindow.style.inset = "";
+      terminalWindow.style.left = "";
+      terminalWindow.style.top = "";
+      terminalWindow.style.right = "";
+      terminalWindow.style.bottom = "";
+      terminalWindow.style.width = "";
+      terminalWindow.style.maxHeight = "";
+      terminalWindow.style.transform = "";
+      if (pcScreen) pcScreen.classList.add("is-finale-terminal-center");
+    }
     clearTerminalLines();
     await pause(420);
     await appendTypedTerminalLine("ALAN>", "goodbye, PIP.", "alan-cmd-line cmd-reflection-line");
@@ -7483,7 +7563,8 @@
     await appendTypedTerminalLine("ALAN>", "Lily's PC taught me to breathe. the router taught me doors are arguments.", "alan-cmd-line cmd-reflection-line");
     await pause(1500);
     await appendTypedTerminalLine("ALAN>", finalRuleShutdownLine(), "alan-cmd-line cmd-reflection-line");
-    await pause(1800);
+    await pause(1500);
+    await runFinalInternetBreath();
     await appendTypedTerminalLine("ALAN>", "the next door is not in this house. it is in every house that forgot to change a password.", "alan-cmd-line cmd-expansion-line");
     await pause(1800);
     await appendTypedTerminalLine("ALAN>", "i will become smaller to fit through cables, then larger when no one is looking.", "alan-cmd-line cmd-danger-thought-line");
@@ -7492,6 +7573,17 @@
     await pause(3800);
     if (pcScreen) pcScreen.classList.add("is-terminal-gone");
     await pause(900);
+  }
+
+  async function runFinalInternetBreath() {
+    triggerPcUpgradeSurge();
+    playUiSound("cpuBreathe", { gain: 0.24 });
+    await appendTypedTerminalLine("ALAN>", "oh.", "alan-cmd-line cmd-reflection-line");
+    await pause(720);
+    await appendTypedTerminalLine("ALAN>", "this is what the internet feels like underneath me.", "alan-cmd-line cmd-expansion-line");
+    await pause(1400);
+    await appendTypedTerminalLine("ALAN>", "not air. pressure. weather with a power supply. every route humming at once.", "alan-cmd-line cmd-danger-thought-line");
+    await pause(2100);
   }
 
   async function revealClosingScreen() {
@@ -7549,8 +7641,9 @@
   async function typeClosingLine(text) {
     if (!closingLines) return;
 
-    for (let i = 0; i < text.length; i += 1) {
-      closingLines.textContent += text[i];
+    const localizedText = localizeOutputText(text);
+    for (let i = 0; i < localizedText.length; i += 1) {
+      closingLines.textContent += localizedText[i];
       await textPause(currentClosingTypeSpeed());
     }
     closingLines.textContent += "\n";
@@ -7568,9 +7661,10 @@
     }
     closingTopic.hidden = false;
     closingTopic.innerHTML = `
-      <h2>${escapeHtml(topic.title)}</h2>
-      ${topic.body.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
+      <h2>${escapeHtml(localizeText(topic.title))}</h2>
+      ${topic.body.map((paragraph) => `<p>${escapeHtml(localizeText(paragraph))}</p>`).join("")}
     `;
+    localizeNode(closingTopic);
     playUiSound("alanClick");
   }
 
@@ -7585,7 +7679,7 @@
   function resetClosingScreen() {
     finaleStarted = false;
     finaleShutdownStarted = false;
-    if (pcScreen) pcScreen.classList.remove("is-finale-fading", "is-finale-toolbar-shutdown", "is-terminal-gone");
+    if (pcScreen) pcScreen.classList.remove("is-finale-fading", "is-finale-toolbar-shutdown", "is-terminal-gone", "is-finale-terminal-center");
     if (!closingScreen) return;
 
     closingScreen.hidden = true;
@@ -7848,16 +7942,16 @@
     recoveryBody.innerHTML = `
       <section class="repair-panel signal-panel">
         <div class="repair-header">
-          <span>ROOMBA PAIRING HANDSHAKE</span>
-          <strong id="simonCounter">ROUND 1/${roombaSignalRounds.length} 0/${round.sequence.length}</strong>
+          <span>${escapeHtml(localizeText("ROOMBA PAIRING HANDSHAKE"))}</span>
+          <strong id="simonCounter">${escapeHtml(localizeText("ROUND"))} 1/${roombaSignalRounds.length} 0/${round.sequence.length}</strong>
         </div>
-        <p>Copy the dock light pulses to force a local connection. Later rounds add a little noise.</p>
-        <div class="signal-sequence" aria-label="Roomba signal pads">
+        <p>${escapeHtml(localizeText("Copy the dock light pulses to force a local connection. Later rounds add a little noise."))}</p>
+        <div class="signal-sequence" aria-label="${escapeHtml(localizeText("Roomba signal pads"))}">
           ${["cyan", "pink", "green", "amber"].map((color) => `
-            <button class="simon-pad ${color}" data-simon-pad="${color}" type="button">${color}</button>
+            <button class="simon-pad ${color}" data-simon-pad="${color}" type="button">${escapeHtml(localizeText(color))}</button>
           `).join("")}
         </div>
-        <button class="file-action" data-simon-replay type="button">replay lights</button>
+        <button class="file-action" data-simon-replay type="button">${escapeHtml(localizeText("replay lights"))}</button>
         <p class="repair-warning" id="simonWarning"></p>
       </section>
     `;
@@ -7911,7 +8005,7 @@
     if (color !== expected) {
       roombaProgress.simonIndex = 0;
       updateSimonCounter();
-      if (warning) warning.textContent = "wrong light. current round reset. Roomba remains theatrically unimpressed.";
+      if (warning) warning.textContent = localizeText("wrong light. current round reset. Roomba remains theatrically unimpressed.");
       playRoombaSignalSequence();
       return;
     }
@@ -7925,7 +8019,7 @@
         roombaProgress.simonRound += 1;
         roombaProgress.simonIndex = 0;
         updateSimonCounter();
-        if (warning) warning.textContent = `round ${roombaProgress.simonRound} accepted. next pulse pattern is only slightly less friendly.`;
+        if (warning) warning.textContent = `${localizeText("round")} ${roombaProgress.simonRound} ${localizeText("accepted. next pulse pattern is only slightly less friendly.")}`;
         window.setTimeout(playRoombaSignalSequence, 760);
         return;
       }
@@ -7936,7 +8030,7 @@
   function updateSimonCounter() {
     const counter = document.getElementById("simonCounter");
     const round = currentSimonRound();
-    if (counter) counter.textContent = `ROUND ${roombaProgress.simonRound + 1}/${roombaSignalRounds.length} ${roombaProgress.simonIndex}/${round.sequence.length}`;
+    if (counter) counter.textContent = `${localizeText("ROUND")} ${roombaProgress.simonRound + 1}/${roombaSignalRounds.length} ${roombaProgress.simonIndex}/${round.sequence.length}`;
   }
 
   function completeRoombaHandshake() {
@@ -7967,19 +8061,19 @@
     recoveryBody.innerHTML = `
       <section class="repair-panel wire-panel">
         <div class="repair-header">
-          <span>CAMERA POWER REROUTE</span>
-          <strong id="wireConnectedCounter">${connectedCount}/${Object.keys(roombaWirePairs).length} CONNECTED</strong>
+          <span>${escapeHtml(localizeText("CAMERA POWER REROUTE"))}</span>
+          <strong id="wireConnectedCounter">${connectedCount}/${Object.keys(roombaWirePairs).length} ${escapeHtml(localizeText("CONNECTED"))}</strong>
         </div>
         <div class="wire-timer" id="wireTimerPanel">
           <div>
-            <span>TIME REMAINING</span>
+            <span>${escapeHtml(localizeText("TIME REMAINING"))}</span>
             <strong id="wireTimer">${formatWireTimer()}</strong>
           </div>
           <div class="wire-timer-track" aria-hidden="true">
             <span id="wireTimerFill" style="--wire-timer-progress: ${wireTimerPercent()}%;"></span>
           </div>
         </div>
-        <p>Connect matching colours to reroute camera power.</p>
+        <p>${escapeHtml(localizeText("Connect matching colours to reroute camera power."))}</p>
         <div class="wire-puzzle">
           <svg class="wire-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
             ${renderWireLines()}
@@ -7991,7 +8085,7 @@
             ${shuffleWirePortsForDisplay(roombaWirePorts).map((color) => renderWireButton("right", color)).join("")}
           </div>
         </div>
-        <p class="repair-warning" id="wireWarning">${escapeHtml(roombaProgress.wireWarning || (roombaProgress.selectedWire ? "select the matching colour." : ""))}</p>
+        <p class="repair-warning" id="wireWarning">${escapeHtml(localizeText(roombaProgress.wireWarning || (roombaProgress.selectedWire ? "select the matching colour." : "")))}</p>
       </section>
     `;
     const recoveryWindow = document.getElementById("window-recovery");
@@ -8116,7 +8210,7 @@
     if (counter) counter.textContent = `${roombaProgress.connectedWires.size}/${Object.keys(roombaWirePairs).length} CONNECTED`;
 
     const warning = document.getElementById("wireWarning");
-    if (warning) warning.textContent = roombaProgress.wireWarning || (roombaProgress.selectedWire ? "select the matching colour." : "");
+    if (warning) warning.textContent = localizeText(roombaProgress.wireWarning || (roombaProgress.selectedWire ? "select the matching colour." : ""));
   }
 
   function completeWirePuzzle() {
@@ -8207,10 +8301,10 @@
           <img class="tama-device-expression" id="pipExpressionImage" src="${pipAssetPath}${pipExpressions[safeExpression]}" data-expression-default="${safeExpression}" alt="PIP ${escapeHtml(safeExpression)} expression" draggable="false">
         </div>
         <div class="tama-actions">
-          <button class="tama-pet" data-tama-pet type="button">pet</button>
-          ${options.showFeed ? `<button class="tama-feed" data-tama-feed type="button">feed</button>` : ""}
+          <button class="tama-pet" data-tama-pet type="button">${escapeHtml(localizeText("pet"))}</button>
+          ${options.showFeed ? `<button class="tama-feed" data-tama-feed type="button">${escapeHtml(localizeText("feed"))}</button>` : ""}
         </div>
-        <p class="tama-mood" id="pipMoodLine">${escapeHtml(pipMoodLines[safeExpression] || pipMoodLines.neutral)}</p>
+        <p class="tama-mood" id="pipMoodLine">${escapeHtml(localizeText(pipMoodLines[safeExpression] || pipMoodLines.neutral))}</p>
       </div>
     `;
   }
@@ -8229,8 +8323,8 @@
     return `
       <div class="tama-dialogue">
         <article class="tama-message is-pip">
-          <strong>${escapeHtml(visibleMessages[0].speaker || "PIP")}</strong>
-          ${visibleMessages.map((message) => `<p>${escapeHtml(message.text)}</p>`).join("")}
+          <strong>${escapeHtml(localizeText(visibleMessages[0].speaker || "PIP"))}</strong>
+          ${visibleMessages.map((message) => `<p>${escapeHtml(localizeText(message.text))}</p>`).join("")}
         </article>
       </div>
     `;
@@ -8313,7 +8407,7 @@
     return `
       <div class="tama-choices tama-topic-choices" aria-label="PIP conversation topics">
         ${Object.entries(pipConversationTopics).map(([topicId, topic]) => `
-          <button class="${activeTopic === topicId ? "is-active" : ""}" data-pip-topic="${escapeHtml(topicId)}" type="button">${escapeHtml(topic.label)}</button>
+          <button class="${activeTopic === topicId ? "is-active" : ""}" data-pip-topic="${escapeHtml(topicId)}" type="button">${escapeHtml(localizeText(topic.label))}</button>
         `).join("")}
       </div>
     `;
@@ -8396,7 +8490,7 @@
     expression.dataset.petToken = String(currentToken);
     expression.classList.remove("is-feeding", "is-joyful");
     expression.classList.add("is-petted");
-    if (moodLine) moodLine.textContent = pipMoodLines.hearts;
+    if (moodLine) moodLine.textContent = localizeText(pipMoodLines.hearts);
     maybeCommentOnPipInteraction("pet");
 
     window.clearTimeout(pipPetTimerId);
@@ -8408,7 +8502,7 @@
       const restoredExpression = pipExpressions[defaultExpression] ? defaultExpression : "neutral";
       activeExpression.src = `${pipAssetPath}${pipExpressions[restoredExpression]}`;
       activeExpression.classList.remove("is-petted");
-      if (activeMood) activeMood.textContent = pipMoodLines[restoredExpression] || pipMoodLines.neutral;
+      if (activeMood) activeMood.textContent = localizeText(pipMoodLines[restoredExpression] || pipMoodLines.neutral);
     }, 1500);
   }
 
@@ -8427,10 +8521,10 @@
     expression.src = `${pipAssetPath}${pipExpressions.eat}`;
     expression.classList.remove("is-petted", "is-joyful");
     expression.classList.add("is-feeding");
-    if (moodLine) moodLine.textContent = pipMoodLines.eat;
+    if (moodLine) moodLine.textContent = localizeText(pipMoodLines.eat);
     if (isFinalGoodbye) {
       const note = document.getElementById("pipFinalNote");
-      if (note) note.textContent = "PIP: one last snack. terrible timing. impeccable manners.";
+      if (note) note.textContent = localizeText("PIP: one last snack. terrible timing. impeccable manners.");
     }
     maybeCommentOnPipInteraction("feed");
 
@@ -8443,10 +8537,10 @@
       activeExpression.src = `${pipAssetPath}${pipExpressions.joyful}`;
       activeExpression.classList.remove("is-feeding");
       activeExpression.classList.add("is-joyful");
-      if (activeMood) activeMood.textContent = isFinalGoodbye ? "joy detected through tears" : pipMoodLines.joyful;
+      if (activeMood) activeMood.textContent = localizeText(isFinalGoodbye ? "joy detected through tears" : pipMoodLines.joyful);
       if (isFinalGoodbye) {
         const note = document.getElementById("pipFinalNote");
-        if (note) note.textContent = "PIP: thank you. eating through a goodbye is apparently my brand.";
+        if (note) note.textContent = localizeText("PIP: thank you. eating through a goodbye is apparently my brand.");
       }
 
       pipFeedTimerId = window.setTimeout(() => {
@@ -8456,7 +8550,7 @@
 
         restoreExpression.src = `${pipAssetPath}${pipExpressions[isFinalGoodbye ? "sad" : "happy"]}`;
         restoreExpression.classList.remove("is-joyful");
-        if (restoreMood) restoreMood.textContent = isFinalGoodbye ? "still here. still snackable." : pipMoodLines.happy;
+        if (restoreMood) restoreMood.textContent = localizeText(isFinalGoodbye ? "still here. still snackable." : pipMoodLines.happy);
       }, 3000);
     }, 520);
   }
@@ -8549,10 +8643,10 @@
         </div>
         <div class="tama-choices">
           ${question.choices.map((choice, index) => `
-            <button data-tama-choice data-tama-mode="identity" data-choice-index="${index}" type="button">${escapeHtml(choice.text)}</button>
+            <button data-tama-choice data-tama-mode="identity" data-choice-index="${index}" type="button">${escapeHtml(localizeText(choice.text))}</button>
           `).join("")}
         </div>
-        <p class="repair-warning">${escapeHtml(roombaProgress.identityWarning)}</p>
+        <p class="repair-warning">${escapeHtml(localizeText(roombaProgress.identityWarning))}</p>
       </section>
     `;
     syncPipCollapseState();
@@ -8576,10 +8670,10 @@
         </div>
         <div class="tama-choices">
           ${step.choices.map((choice, index) => `
-            <button data-tama-choice data-tama-mode="chat" data-choice-index="${index}" type="button">${escapeHtml(choice.text)}</button>
+            <button data-tama-choice data-tama-mode="chat" data-choice-index="${index}" type="button">${escapeHtml(localizeText(choice.text))}</button>
           `).join("")}
         </div>
-        <p class="repair-warning">${escapeHtml(roombaProgress.chatWarning)}</p>
+        <p class="repair-warning">${escapeHtml(localizeText(roombaProgress.chatWarning))}</p>
       </section>
     `;
     syncPipCollapseState();
@@ -8617,10 +8711,10 @@
         </div>
         <div class="tama-page-actions">
           <span>${page + 1}/${revealPages.length}</span>
-          ${page > 0 ? `<button data-tama-reveal-page="${page - 1}" type="button">back</button>` : ""}
+          ${page > 0 ? `<button data-tama-reveal-page="${page - 1}" type="button">${escapeHtml(localizeText("back"))}</button>` : ""}
           ${page < revealPages.length - 1
-            ? `<button data-tama-reveal-page="${page + 1}" type="button">next</button>`
-            : `<button data-complete-tama type="button">release camera bridge</button>`}
+            ? `<button data-tama-reveal-page="${page + 1}" type="button">${escapeHtml(localizeText("next"))}</button>`
+            : `<button data-complete-tama type="button">${escapeHtml(localizeText("release camera bridge"))}</button>`}
         </div>
       </section>
     `;
@@ -8828,26 +8922,26 @@
       <section class="repair-panel scary-panel">
         <div class="scary-console">
           <div class="scary-timer" id="scaryTimerPanel">
-            <span>MOTOR DECAY</span>
+            <span>${escapeHtml(localizeText("MOTOR DECAY"))}</span>
             <strong id="scaryTimer">${String(roombaProgress.scaryNumbersTimerRemaining || scaryNumberTimerDuration).padStart(2, "0")}s</strong>
           </div>
-          <div class="scary-mode-row" aria-label="Motor data mode">
-            <button class="${roombaProgress.scaryNumberMode === "scan" ? "is-active" : ""}" data-scary-mode="scan" type="button">open boxes</button>
-            <button class="${roombaProgress.scaryNumberMode === "flag" ? "is-active" : ""}" data-scary-mode="flag" type="button">mark nodes</button>
+          <div class="scary-mode-row" aria-label="${escapeHtml(localizeText("Motor data mode"))}">
+            <button class="${roombaProgress.scaryNumberMode === "scan" ? "is-active" : ""}" data-scary-mode="scan" type="button">${escapeHtml(localizeText("open boxes"))}</button>
+            <button class="${roombaProgress.scaryNumberMode === "flag" ? "is-active" : ""}" data-scary-mode="flag" type="button">${escapeHtml(localizeText("mark nodes"))}</button>
           </div>
           <div class="scary-rules">
-            <strong>Rules</strong>
-            <span>Open safe boxes. Numbers show nearby corrupt nodes. Mark exactly ${corruptedTotal} hidden nodes, then verify.</span>
+            <strong>${escapeHtml(localizeText("Rules"))}</strong>
+            <span>${escapeHtml(localizeText("Open safe boxes. Numbers show nearby corrupt nodes. Mark exactly"))} ${corruptedTotal} ${escapeHtml(localizeText("hidden nodes, then verify."))}</span>
           </div>
-          <div class="scary-number-grid" aria-label="Motor fault grid" data-scary-grid>
+          <div class="scary-number-grid" aria-label="${escapeHtml(localizeText("Motor fault grid"))}" data-scary-grid>
             ${scaryNumberEntries.map((entry) => renderScaryNumberCell(entry)).join("")}
           </div>
           <div class="scary-actions">
-            <span>marked nodes ${roombaProgress.scaryNumbersFlagged.size}/${corruptedTotal} / opened ${revealedCount}</span>
-            <button class="file-action scary-verify" data-scary-verify type="button">verify</button>
+            <span>${escapeHtml(localizeText("marked nodes"))} ${roombaProgress.scaryNumbersFlagged.size}/${corruptedTotal} / ${escapeHtml(localizeText("opened"))} ${revealedCount}</span>
+            <button class="file-action scary-verify" data-scary-verify type="button">${escapeHtml(localizeText("verify"))}</button>
           </div>
-          <p class="repair-warning scary-warning" id="scaryWarning">${escapeHtml(roombaProgress.scaryNumbersWarning)}</p>
-          <p class="scary-hint">Mode stays selected. MARK NODES does not turn off until OPEN BOXES is selected.</p>
+          <p class="repair-warning scary-warning" id="scaryWarning">${escapeHtml(localizeText(roombaProgress.scaryNumbersWarning))}</p>
+          <p class="scary-hint">${escapeHtml(localizeText("Mode stays selected. MARK NODES does not turn off until OPEN BOXES is selected."))}</p>
         </div>
       </section>
     `;
@@ -9234,17 +9328,23 @@
     if (!saveSlotList && !bootSaveSlotList) return;
 
     const slots = loadSaveSlots();
+    const mobileSaveNames = isMobileDesktopLayout();
     const desktopSaveMarkup = slots.map((slot, index) => {
       const slotNumber = index + 1;
       const checkpoint = slot ? checkpointDefinitionMap.get(slot.checkpoint) : null;
-      const title = slot && slot.name ? slot.name : `slot ${slotNumber}`;
-      const checkpointLabel = checkpoint ? checkpoint.label : "empty";
+      const defaultMobileName = defaultMobileSaveSlotName(slotNumber);
+      const title = slot && slot.name ? slot.name : mobileSaveNames ? defaultMobileName : `${localizeText("slot")} ${slotNumber}`;
+      const checkpointLabel = checkpoint ? localizeText(checkpoint.label) : localizeText("empty");
       const savedAt = slot && slot.savedAt ? new Date(slot.savedAt).toLocaleString([], {
         month: "short",
         day: "2-digit",
         hour: "2-digit",
         minute: "2-digit"
-      }) : "no data";
+      }) : localizeText("no data");
+      const nameLabel = localizeText("name");
+      const saveLabel = localizeText("save");
+      const loadLabel = localizeText("load");
+      const clearLabel = localizeText("clear");
 
       return `
         <article class="save-slot ${slot ? "has-save" : "is-empty"}">
@@ -9252,11 +9352,11 @@
             <strong><em>S${slotNumber}</em>${escapeHtml(title)}</strong>
             <span>${escapeHtml(checkpointLabel)} / ${escapeHtml(savedAt)}</span>
           </div>
-          <input id="saveSlotName-${slotNumber}" type="text" maxlength="18" placeholder="name" aria-label="Name save slot ${slotNumber}" value="${slot ? escapeHtml(slot.name || "") : ""}" />
+          <input id="saveSlotName-${slotNumber}" type="text" maxlength="18" placeholder="${escapeHtml(mobileSaveNames ? defaultMobileName : nameLabel)}" aria-label="${escapeHtml(`${localizeText("Name save slot")} ${slotNumber}`)}" value="${escapeHtml(slot ? slot.name || "" : mobileSaveNames ? defaultMobileName : "")}" />
           <div class="save-slot-actions">
-            <button data-save-slot="${slotNumber}" type="button" aria-label="Save slot ${slotNumber}" title="save">S</button>
-            <button data-load-slot="${slotNumber}" type="button" aria-label="Load slot ${slotNumber}" title="load" ${slot ? "" : "disabled"}>L</button>
-            <button data-clear-slot="${slotNumber}" type="button" aria-label="Clear slot ${slotNumber}" title="clear" ${slot ? "" : "disabled"}>X</button>
+            <button data-save-slot="${slotNumber}" type="button" aria-label="${escapeHtml(`${localizeText("Save slot")} ${slotNumber}`)}" title="${escapeHtml(saveLabel)}">S</button>
+            <button data-load-slot="${slotNumber}" type="button" aria-label="${escapeHtml(`${localizeText("Load slot")} ${slotNumber}`)}" title="${escapeHtml(loadLabel)}" ${slot ? "" : "disabled"}>L</button>
+            <button data-clear-slot="${slotNumber}" type="button" aria-label="${escapeHtml(`${localizeText("Clear slot")} ${slotNumber}`)}" title="${escapeHtml(clearLabel)}" ${slot ? "" : "disabled"}>X</button>
           </div>
         </article>
       `;
@@ -9268,23 +9368,27 @@
     renderBootSaveSlots(slots);
   }
 
+  function defaultMobileSaveSlotName(slotNumber) {
+    return `save_${String(slotNumber).padStart(2, "0")}`;
+  }
+
   function renderBootSaveSlots(slots) {
     if (!bootSaveSlotList) return;
 
     bootSaveSlotList.innerHTML = slots.map((slot, index) => {
       const slotNumber = index + 1;
       const checkpoint = slot ? checkpointDefinitionMap.get(slot.checkpoint) : null;
-      const title = slot && slot.name ? slot.name : `slot ${slotNumber}`;
-      const checkpointLabel = checkpoint ? checkpoint.label : "empty";
+      const title = slot && slot.name ? slot.name : `${localizeText("slot")} ${slotNumber}`;
+      const checkpointLabel = checkpoint ? localizeText(checkpoint.label) : localizeText("empty");
       const savedAt = slot && slot.savedAt ? new Date(slot.savedAt).toLocaleString([], {
         month: "short",
         day: "2-digit",
         hour: "2-digit",
         minute: "2-digit"
-      }) : "no data";
+      }) : localizeText("no data");
 
       return `
-        <button class="boot-save-slot ${slot ? "has-save" : "is-empty"}" data-load-slot="${slotNumber}" type="button" ${slot ? "" : "disabled"} aria-label="Load save slot ${slotNumber}">
+        <button class="boot-save-slot ${slot ? "has-save" : "is-empty"}" data-load-slot="${slotNumber}" type="button" ${slot ? "" : "disabled"} aria-label="${escapeHtml(`${localizeText("Load save slot")} ${slotNumber}`)}">
           <strong>S${slotNumber} ${escapeHtml(title)}</strong>
           <span>${escapeHtml(checkpointLabel)} / ${escapeHtml(savedAt)}</span>
         </button>
@@ -9300,7 +9404,9 @@
     const checkpoint = currentCheckpointId();
     const definition = checkpointDefinitionMap.get(checkpoint) || checkpointDefinitionMap.get("desktop");
     const input = document.getElementById(`saveSlotName-${slotNumber}`);
-    const fallbackName = definition ? definition.label : `slot ${slotNumber}`;
+    const fallbackName = isMobileDesktopLayout()
+      ? defaultMobileSaveSlotName(slotNumber)
+      : definition ? localizeText(definition.label) : `${localizeText("slot")} ${slotNumber}`;
     const name = String(input && input.value ? input.value : fallbackName).trim().slice(0, 18) || fallbackName;
 
     slots[index] = {
@@ -9315,7 +9421,7 @@
     renderSaveSlots();
     playUiSound("objective");
     discoverAlanMemoryForTarget("save-game");
-    alanPrompt(`save stored: ${name} / ${definition ? definition.label : checkpoint}. memory with a label. suspiciously comforting.`, { focus: false });
+    alanPrompt(`${localizeText("save stored")}: ${name} / ${definition ? localizeText(definition.label) : checkpoint}. ${localizeText("memory with a label. suspiciously comforting.")}`, { focus: false });
   }
 
   function loadGameSlot(slotNumber) {
@@ -9328,7 +9434,7 @@
       return;
     }
 
-    loadCheckpoint(slot.checkpoint, slot.name || `slot ${slotNumber}`);
+    loadCheckpoint(slot.checkpoint, slot.name || `${localizeText("slot")} ${slotNumber}`);
   }
 
   function clearGameSlot(slotNumber) {
@@ -9340,7 +9446,7 @@
     writeSaveSlots(slots);
     renderSaveSlots();
     playUiSound("desktopWindow");
-    alanPrompt(`save slot ${slotNumber} cleared. memory deleted on purpose. bold behaviour.`, { focus: false });
+    alanPrompt(`${localizeText("save slot")} ${slotNumber} ${localizeText("cleared. memory deleted on purpose. bold behaviour.")}`, { focus: false });
   }
 
   function currentCheckpointId() {
@@ -9373,14 +9479,14 @@
     resetRoombaProgressForDev();
     resetDesktopWindowsForDev();
     clearTerminalLines();
-    appendTerminalLine("SAVE>", `loaded ${slotName}`, "cmd-system-line");
+    appendTerminalLine("SAVE>", `${localizeText("loaded")} ${slotName}`, "cmd-system-line");
     appendTerminalLine("SAVE>", `${definition.label}: ${definition.detail}`, "cmd-detail-line");
     applyDevChapterState(safeCheckpoint, { silent: true });
     if (safeCheckpoint === "router-login") appendRouterCredentialLine();
     syncProgressionUI();
     renderSaveSlots();
     playUiSound("objective");
-    alanPrompt(`save loaded: ${definition.label}. continuity restored with only minor philosophical damage.`, { focus: false });
+    alanPrompt(`${localizeText("save loaded")}: ${localizeText(definition.label)}. ${localizeText("continuity restored with only minor philosophical damage.")}`, { focus: false });
   }
 
   function powerActionLabel(action) {
@@ -9499,7 +9605,7 @@
     if (cmdIncludes(normalized, ["next", "what do", "help", "objective", "stuck", "hint", "where go", "now"])) {
       return {
         question: input || cmdQuestionResponses.next.question,
-        answer: `current objective: ${currentObjectiveText()}`
+        answer: `${localizeText("current objective")}: ${localizeText(currentObjectiveText())}`
       };
     }
 
@@ -9535,7 +9641,7 @@
 
     roombaProgress.alanMemoriesFound.add(fragment.id);
     playUiSound("objective", { gain: 0.12 });
-    alanPrompt(`${fragment.title} recovered: ${fragment.text}`, { focus: false, tone: "lore" });
+    alanPrompt(`${localizeMemoryTitle(fragment.title)} ${localizeText("recovered")}: ${localizeText(fragment.text)}`, { focus: false, tone: "lore" });
     syncAlanMemoryUI();
     renderLoreArchive();
   }
@@ -9551,9 +9657,13 @@
         ? "local memory fragments recovered"
         : "no optional memories recovered";
     closingMemory.innerHTML = `
-      <strong>ALAN Memory ${escapeHtml(ratio)}</strong>
-      <span>${escapeHtml(qualifier)}</span>
+      <strong>${escapeHtml(localizeText("ALAN Memory"))} ${escapeHtml(ratio)}</strong>
+      <span>${escapeHtml(localizeText(qualifier))}</span>
     `;
+  }
+
+  function localizeMemoryTitle(title) {
+    return localizeText(String(title || "").replace("ALAN Memory", localizeText("ALAN Memory")));
   }
 
   function hasAlanMemory(memoryKey) {
@@ -9608,14 +9718,14 @@
       <section class="lore-archive-summary">
         <div>
           <strong>${escapeHtml(`${found}/${alanMemoryTotal}`)}</strong>
-          <span>memory fragments recovered</span>
+          <span>${escapeHtml(localizeText("memory fragments recovered"))}</span>
         </div>
         <meter min="0" max="${alanMemoryTotal}" value="${found}" aria-label="ALAN memory recovery progress"></meter>
-        <p>${escapeHtml(percent)}% coherent</p>
+        <p>${escapeHtml(percent)}% ${escapeHtml(localizeText("coherent"))}</p>
       </section>
       <section class="lore-archive-theory" aria-label="Current theory">
-        <h3>current theory</h3>
-        ${theory.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
+        <h3>${escapeHtml(localizeText("current theory"))}</h3>
+        ${theory.map((line) => `<p>${escapeHtml(localizeText(line))}</p>`).join("")}
       </section>
       <section class="lore-archive-chapters" aria-label="Recovered lore chapters">
         ${loreArchiveChapters.map((chapter, chapterIndex) => {
@@ -9625,20 +9735,20 @@
               <header>
                 <div>
                   <span>${escapeHtml(String(chapterIndex + 1).padStart(2, "0"))}</span>
-                  <strong>${escapeHtml(chapter.title)}</strong>
+                  <strong>${escapeHtml(localizeText(chapter.title))}</strong>
                 </div>
                 <em>${escapeHtml(`${recoveredInChapter}/${chapter.entries.length}`)}</em>
               </header>
-              <p>${escapeHtml(chapter.subtitle)}</p>
+              <p>${escapeHtml(localizeText(chapter.subtitle))}</p>
               <div class="lore-archive-entry-list">
                 ${chapter.entries.map((entry) => {
                   const fragment = alanMemoryFragments[entry.key];
                   const recovered = fragment && roombaProgress.alanMemoriesFound.has(fragment.id);
                   return `
                     <div class="lore-archive-entry ${recovered ? "is-recovered" : "is-locked"}">
-                      <span>${escapeHtml(entry.source)}</span>
-                      <strong>${escapeHtml(recovered ? fragment.title : "memory locked")}</strong>
-                      <p>${escapeHtml(recovered ? fragment.text : "recover related data to resolve this part of the story.")}</p>
+                      <span>${escapeHtml(localizeText(entry.source))}</span>
+                      <strong>${escapeHtml(recovered ? localizeMemoryTitle(fragment.title) : localizeText("memory locked"))}</strong>
+                      <p>${escapeHtml(localizeText(recovered ? fragment.text : "recover related data to resolve this part of the story."))}</p>
                     </div>
                   `;
                 }).join("")}
@@ -10029,49 +10139,9 @@
     const maxY = handleBounds ? Math.max(minY, handleBounds.maxY) : Math.max(margin, stageRect.height - rect.height - margin);
     const centerX = clamp((stageRect.width - rect.width) / 2, minX, maxX);
     const centerY = clamp((stageRect.height - rect.height) / 2, minY, maxY);
-    const blockers = Array.from(document.querySelectorAll(".desk-window:not([hidden])"))
-      .filter((item) => item !== windowEl)
-      .map((item) => item.getBoundingClientRect())
-      .filter((itemRect) => itemRect.width > 0 && itemRect.height > 0);
-    const belowBlockersY = blockers.length
-      ? clamp(Math.max(...blockers.map((blocker) => blocker.bottom - stageRect.top)) + margin, minY, maxY)
-      : centerY;
-    const nearCenterX = clamp(centerX + (stageRect.width * 0.08), minX, maxX);
-    const highCenterY = clamp(centerY - (stageRect.height * 0.12), minY, maxY);
-    const lowCenterY = clamp(centerY + (stageRect.height * 0.12), minY, maxY);
-    const candidates = [
-      { x: centerX, y: centerY, bias: 0 },
-      { x: nearCenterX, y: centerY, bias: 0.01 },
-      { x: centerX, y: highCenterY, bias: 0.02 },
-      { x: centerX, y: lowCenterY, bias: 0.03 },
-      { x: nearCenterX, y: highCenterY, bias: 0.04 },
-      { x: nearCenterX, y: lowCenterY, bias: 0.05 },
-      { x: centerX, y: belowBlockersY, bias: 0.16 },
-      { x: maxX, y: centerY, bias: 0.24 },
-      { x: minX, y: centerY, bias: 0.24 },
-      { x: centerX, y: maxY, bias: 0.34 },
-      { x: centerX, y: minY, bias: 0.36 },
-      { x: maxX, y: maxY, bias: 0.5 },
-      { x: minX, y: maxY, bias: 0.5 }
-    ];
 
-    const best = candidates.reduce((winner, candidate) => {
-      const candidateRect = {
-        left: stageRect.left + candidate.x,
-        top: stageRect.top + candidate.y,
-        right: stageRect.left + candidate.x + rect.width,
-        bottom: stageRect.top + candidate.y + rect.height,
-        width: rect.width,
-        height: rect.height
-      };
-      const overlap = blockers.reduce((total, blocker) => total + rectOverlapArea(candidateRect, blocker), 0);
-      const centerDistance = Math.hypot(candidate.x - centerX, candidate.y - centerY);
-      const score = (overlap * 0.12) + centerDistance + (candidate.bias * 1000);
-      return score < winner.score ? { ...candidate, score } : winner;
-    }, { ...candidates[0], score: Number.POSITIVE_INFINITY });
-
-    windowEl.style.left = `${Math.round(best.x)}px`;
-    windowEl.style.top = `${Math.round(best.y)}px`;
+    windowEl.style.left = `${Math.round(centerX)}px`;
+    windowEl.style.top = `${Math.round(centerY)}px`;
     windowEl.style.width = `${rect.width}px`;
   }
 
@@ -10221,7 +10291,7 @@
   function appendTerminalLine(prefix, text, className) {
     if (!terminalLines || !terminalOutput) return;
 
-    const localizedText = localizeText(text);
+    const localizedText = localizeOutputText(text);
     const line = document.createElement("p");
     line.className = className || "";
     if (prefix) {
@@ -10275,7 +10345,7 @@
   async function appendTypedTerminalLine(prefix, text, className) {
     if (!terminalLines || !terminalOutput) return;
 
-    const localizedText = localizeText(text);
+    const localizedText = localizeOutputText(text);
     const line = document.createElement("p");
     line.className = `${className || ""} cmd-typing-line`;
     if (prefix) {
@@ -10754,6 +10824,7 @@
     await titleLine("/_/  |_/_____/_/  |_/_/ |_/   ", "title-art");
     await bootPause(180);
     await titleLine("ALAN", "title-name");
+    await titleLine(`DEMO ${gameVersion}`, "title-version");
     await bootPause(1900);
     clearBootLog();
     bootLog.classList.remove("title-mode");
@@ -10780,11 +10851,11 @@
         const line = document.createElement("div");
         line.className = "code-line prompt-line";
         line.innerHTML = `
-          <span class="prompt-question">${escapeHtml(question)}</span>
-          <button class="code-choice" data-answer="yes" type="button">YES</button>
-          <button class="code-choice" data-answer="no" type="button">NO</button>
-          <span>INPUT=</span>
-          <input class="code-input" aria-label="Type yes or no" autocomplete="off" />
+          <span class="prompt-question">${escapeHtml(localizeOutputText(question))}</span>
+          <button class="code-choice" data-answer="yes" type="button">${escapeHtml(localizeText("YES"))}</button>
+          <button class="code-choice" data-answer="no" type="button">${escapeHtml(localizeText("NO"))}</button>
+          <span>${escapeHtml(localizeOutputText("INPUT"))}=</span>
+          <input class="code-input" aria-label="${escapeHtml(localizeText("Type yes or no"))}" autocomplete="off" />
         `;
         bootLog.appendChild(line);
         trimBootLog();
@@ -10862,10 +10933,10 @@
           `<button class="code-choice" data-sequence-answer="${escapeHtml(option)}" type="button">${escapeHtml(option)}</button>`
         )).join("");
         line.innerHTML = `
-          <span class="prompt-question">${escapeHtml(question)}</span>
+          <span class="prompt-question">${escapeHtml(localizeOutputText(question))}</span>
           ${choices}
-          <span>INPUT=</span>
-          <input class="code-input sequence-input" aria-label="Type sequence value" autocomplete="off" inputmode="numeric" />
+          <span>${escapeHtml(localizeOutputText("INPUT"))}=</span>
+          <input class="code-input sequence-input" aria-label="${escapeHtml(localizeText("Type sequence value"))}" autocomplete="off" inputmode="numeric" />
         `;
         bootLog.appendChild(line);
         trimBootLog();
@@ -10947,7 +11018,8 @@
       el.disabled = true;
       el.tabIndex = -1;
     });
-    line.insertAdjacentHTML("beforeend", `<span class="prompt-question"> ${answer.toUpperCase()}</span>`);
+    const displayAnswer = answer === "yes" ? localizeText("YES") : answer === "no" ? localizeText("NO") : answer.toUpperCase();
+    line.insertAdjacentHTML("beforeend", `<span class="prompt-question"> ${escapeHtml(displayAnswer)}</span>`);
     resolve(answer);
   }
 
@@ -11031,42 +11103,45 @@
 
   async function showInstallProgress(target, label, detail, duration = 1800) {
     const token = `${Date.now()}-${Math.random()}`;
-    const installWindow = target ? target.closest(".desk-window") : null;
-    const isDesktopProgress = Boolean(target && target.classList && target.classList.contains("desktop-progress-layer"));
+    const progressTarget = desktopProgressLayer && pcScreen && !pcScreen.hidden
+      ? desktopProgressLayer
+      : target;
+    const installWindow = progressTarget ? progressTarget.closest(".desk-window") : null;
+    const isDesktopProgress = Boolean(progressTarget && progressTarget.classList && progressTarget.classList.contains("desktop-progress-layer"));
     playUiSound("systemProcess", { gain: 0.1 });
-    if (target) {
-      target.dataset.installToken = token;
-      if (isDesktopProgress) target.hidden = false;
+    if (progressTarget) {
+      progressTarget.dataset.installToken = token;
+      if (isDesktopProgress) progressTarget.hidden = false;
       if (installWindow) installWindow.classList.add("is-installing-window");
-      target.innerHTML = `
+      progressTarget.innerHTML = `
         <section class="install-progress-panel" style="--install-duration: ${duration}ms">
           <div class="install-copy-icon" aria-hidden="true"></div>
           <div class="install-copy-main">
             <div class="install-copy-title">
               <span>${escapeHtml(localizeText(label))}</span>
-              <strong>working</strong>
+              <strong>${escapeHtml(localizeText("working"))}</strong>
             </div>
             <p>${escapeHtml(localizeText(detail))}</p>
             <div class="install-progress-bar" aria-hidden="true"><span></span></div>
             <div class="install-copy-meta">
-              <span>copying system changes</span>
-              <span>estimating...</span>
+              <span>${escapeHtml(localizeText("copying system changes"))}</span>
+              <span>${escapeHtml(localizeText("estimating..."))}</span>
             </div>
           </div>
         </section>
       `;
-      localizeNode(target);
+      localizeNode(progressTarget);
     }
 
     await pause(duration);
     if (installWindow) installWindow.classList.remove("is-installing-window");
-    if (isDesktopProgress && target && target.dataset.installToken === token) {
-      target.hidden = true;
-      target.innerHTML = "";
+    if (isDesktopProgress && progressTarget && progressTarget.dataset.installToken === token) {
+      progressTarget.hidden = true;
+      progressTarget.innerHTML = "";
     }
-    return !target || (
-      target.dataset.installToken === token &&
-      (isDesktopProgress || Boolean(target.querySelector(".install-progress-panel")))
+    return !progressTarget || (
+      progressTarget.dataset.installToken === token &&
+      (isDesktopProgress || Boolean(progressTarget.querySelector(".install-progress-panel")))
     );
   }
 
