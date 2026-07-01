@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/app.css?v=20260630-pip-i18n-v3" />
+    <link rel="stylesheet" href="css/app.css?v=20260701-hud-mini-v1" />
   </head>
   <body>
     <main class="boot-screen" id="bootScreen" aria-label="ALAN boot sequence">
@@ -79,6 +79,13 @@
       <div class="desktop-noise" aria-hidden="true"></div>
       <div class="spam-overlay" id="spamOverlay" aria-label="Spam popup layer" hidden></div>
       <div class="desktop-progress-layer" id="desktopProgressLayer" aria-live="polite" hidden></div>
+      <aside class="compact-objective-hud" id="compactObjectiveHud" aria-live="polite">
+        <div class="compact-objective-header">
+          <span>OBJECTIVE</span>
+          <button class="compact-objective-clear" data-clear-non-objective-windows type="button">clear windows</button>
+        </div>
+        <strong id="compactObjectiveText">waking desktop shell...</strong>
+      </aside>
       <div class="screensaver-overlay" id="screensaverOverlay" aria-label="MeowOS screen saver" hidden>
         <canvas id="screensaverCanvas" aria-hidden="true"></canvas>
         <div class="screensaver-hud">
@@ -1007,6 +1014,6 @@
     </section>
 
     <script src="js/i18n.js?v=20260630-pip-i18n-v3"></script>
-    <script src="js/app.js?v=20260630-pip-i18n-v3"></script>
+    <script src="js/app.js?v=20260701-finale-hud-clean-v1"></script>
   </body>
 </html>

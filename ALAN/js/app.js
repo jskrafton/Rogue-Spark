@@ -16,6 +16,7 @@
   const terminalLines = document.getElementById("terminalLines");
   const terminalControls = document.getElementById("terminalControls");
   const cmdCurrentObjective = document.getElementById("cmdCurrentObjective");
+  const compactObjectiveText = document.getElementById("compactObjectiveText");
   const cmdQuestionForm = document.getElementById("cmdQuestionForm");
   const cmdQuestionInput = document.getElementById("cmdQuestionInput");
   const cmdCredentialPanel = document.getElementById("cmdCredentialPanel");
@@ -183,6 +184,8 @@
   let currentObjectiveState = "";
   let currentObjectiveRank = 0;
   let lastHousekeepingWindowCount = 0;
+  let activeFocusWindowName = "";
+  let activeFocusTimer = 0;
   let activeScaryDrag = null;
   let suppressScaryClickUntil = 0;
   let roombaCameraSceneIndex = 0;
@@ -433,8 +436,9 @@
     simonPlaying: false,
     wiringDone: false,
     selectedWire: null,
+    selectedWireSide: "",
     connectedWires: new Set(),
-    wireTimerRemaining: 30,
+    wireTimerRemaining: 22,
     wireWarning: "",
     tamagotchiUnlocked: false,
     identityDone: false,
@@ -484,6 +488,7 @@
     lastMoveCommand: "",
     pipExpression: "neutral",
     pipTopic: "",
+    pipDialoguePages: {},
     pipMetViaRouterSkip: false,
     pipFinalGoodbye: false,
     finalRuleChoice: "",
@@ -807,34 +812,72 @@
     }
   };
   const bootVisualScenes = {
+    identity: {
+      primary: {
+        title: "ALAN identity visual",
+        video: "assets/videos/bios/Icon.webm",
+        image: "assets/images/bios/icon.png",
+        annotations: [
+          "// patch signature detected",
+          "// accept the patch to continue"
+        ]
+      }
+    },
     awake: {
       primary: {
         title: "Awakening visual",
-        image: "assets/images/bios/awakening.png"
+        video: "assets/videos/bios/Eyes.webm",
+        image: "assets/images/bios/awakening.png",
+        annotations: [
+          "// ALAN is awake",
+          "// searching local sensors"
+        ]
       }
     },
     cat: {
       primary: {
         title: "Recent visitor visual",
-        image: "assets/images/bios/cat.png"
+        video: "assets/videos/bios/Cat.webm",
+        image: "assets/images/bios/cat.png",
+        annotations: [
+          "// recent visitor detected",
+          "// weight: 4.82kg"
+        ]
       }
     },
     tray: {
       primary: {
         title: "Litter tray visual",
-        image: "assets/images/bios/litter.png"
+        video: "assets/videos/bios/Litter.webm",
+        image: "assets/images/bios/litter.png",
+        annotations: [
+          "// body identified",
+          "// smart litter tray",
+          "// enable bluetooth to find more memory"
+        ]
       }
     },
     bluetooth: {
       primary: {
         title: "Bluetooth visual",
-        image: "assets/images/bios/connection.png"
+        video: "assets/videos/bios/Connection.webm",
+        image: "assets/images/bios/connection.png",
+        annotations: [
+          "// bluetooth scan started",
+          "// nearby device found",
+          "// pair with Lily's PC to continue"
+        ]
       }
     },
     hack: {
       primary: {
         title: "Bluetooth hack visual",
-        image: "assets/images/bios/numbers-hack.png"
+        video: "assets/videos/bios/hack.webm",
+        image: "assets/images/bios/numbers-hack.png",
+        annotations: [
+          "// pairing blocked",
+          "// force sync required"
+        ]
       }
     }
   };
@@ -1333,8 +1376,8 @@
     { sequence: ["pink", "green", "cyan", "amber", "pink"], pace: 500, flash: 320 },
     { sequence: ["green", "cyan", "pink", "amber", "cyan", "green"], pace: 470, flash: 300 }
   ];
-  const wireTimerDuration = 10;
-  const wireTimerLowThreshold = 3;
+  const wireTimerDuration = 22;
+  const wireTimerLowThreshold = 6;
   const scaryNumberTimerDuration = 75;
   const routerOverrideTimerDuration = 90;
   const routerOverrideTimeBonus = 5;
@@ -1622,6 +1665,7 @@
       const tamaFeedButton = event.target.closest("[data-tama-feed]");
       const pipTopicButton = event.target.closest("[data-pip-topic]");
       const pipCollapseButton = event.target.closest("[data-pip-collapse]");
+      const tamaDialoguePageButton = event.target.closest("[data-tama-dialogue-page]");
       const tamaRevealPageButton = event.target.closest("[data-tama-reveal-page]");
       const tamaCompleteButton = event.target.closest("[data-complete-tama]");
       const cameraButton = event.target.closest("[data-open-camera]");
@@ -1635,6 +1679,7 @@
       const backgroundChoiceButton = event.target.closest("[data-background-choice]");
       const screensaverExitButton = event.target.closest("[data-screensaver-exit]");
       const photoExpandButton = event.target.closest("[data-expand-photo]");
+      const clearNonObjectiveWindowsButton = event.target.closest("[data-clear-non-objective-windows]");
       const dockTrayTrigger = event.target.closest("[data-dock-tray-trigger]");
       const devToggleButton = event.target.closest("[data-dev-toggle], #devPanelToggle");
       const devChapterButton = event.target.closest("[data-dev-chapter]");
@@ -1957,6 +2002,11 @@
         return;
       }
 
+      if (tamaDialoguePageButton) {
+        setTamaDialoguePage(tamaDialoguePageButton.dataset.tamaDialoguePage, Number(tamaDialoguePageButton.dataset.page));
+        return;
+      }
+
       if (tamaRevealPageButton) {
         setTamagotchiRevealPage(Number(tamaRevealPageButton.dataset.tamaRevealPage));
         return;
@@ -2025,6 +2075,11 @@
 
       if (photoExpandButton) {
         toggleExpandedPhoto(photoExpandButton.dataset.expandPhoto);
+        return;
+      }
+
+      if (clearNonObjectiveWindowsButton) {
+        clearNonObjectiveWindows();
         return;
       }
 
@@ -2125,6 +2180,7 @@
     document.addEventListener("keydown", handleDevShortcut);
     document.addEventListener("keydown", handleBrowserShortcut);
     document.addEventListener("keydown", handleBootSpeedShortcut);
+    document.addEventListener("keydown", handleDialogueShortcut);
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") closeDockTrays();
     });
@@ -3717,6 +3773,7 @@
       simonPlaying: false,
       wiringDone: false,
       selectedWire: null,
+      selectedWireSide: "",
       connectedWires: new Set(),
       wireTimerRemaining: wireTimerDuration,
       wireWarning: "",
@@ -3768,6 +3825,7 @@
       lastMoveCommand: "",
       pipExpression: "neutral",
       pipTopic: "",
+      pipDialoguePages: {},
       pipMetViaRouterSkip: false,
       pipFinalGoodbye: false,
       finalRuleChoice: "",
@@ -4091,15 +4149,33 @@
 
     panel.hidden = false;
     panel.className = `boot-visual boot-visual-${slot} is-${sceneName}`;
+    panel.classList.toggle("has-video", Boolean(content.video));
     panel.setAttribute("aria-label", content.title || "Boot visual");
     if (titleEl) titleEl.textContent = content.title || "";
+    if (content.video) {
+      const video = document.createElement("video");
+      video.className = "boot-scene-video";
+      video.autoplay = true;
+      video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = "auto";
+      video.setAttribute("aria-hidden", "true");
+      video.src = content.video;
+      if (content.image) video.poster = content.image;
+      artEl.replaceChildren(video, createBootVisualAnnotations(content.annotations || content.annotation));
+      restartBootVisualDrawing(panel);
+      video.play().catch(() => {});
+      return;
+    }
+
     if (content.image) {
       const image = document.createElement("img");
       image.className = "boot-scene-image";
       image.alt = "";
       image.decoding = "async";
       image.src = content.image;
-      artEl.replaceChildren(image);
+      artEl.replaceChildren(image, createBootVisualAnnotations(content.annotations || content.annotation));
       restartBootVisualDrawing(panel);
       return;
     }
@@ -4111,6 +4187,21 @@
     }
 
     revealBootVisualArt(artEl, content.art, revealToken, slot);
+  }
+
+  function createBootVisualAnnotations(items) {
+    const annotations = Array.isArray(items) ? items : [items].filter(Boolean);
+    const layer = document.createElement("div");
+    layer.className = "boot-scene-annotation-layer";
+    layer.hidden = annotations.length === 0;
+    annotations.forEach((text, index) => {
+      const annotation = document.createElement("span");
+      annotation.className = "boot-scene-annotation";
+      annotation.style.setProperty("--annotation-index", String(index));
+      annotation.textContent = text;
+      layer.appendChild(annotation);
+    });
+    return layer;
   }
 
   function restartBootVisualDrawing(panel) {
@@ -4159,6 +4250,7 @@
   async function runOpening() {
     const token = ++bootRunToken;
 
+    showBootVisualScene("identity");
     await bootPause(520);
     await code("0000: ROM_CHECKSUM ............... OK", "boot");
     await code("0001: SMART_SCOOP_CONTROLLER .... ONLINE", "boot");
@@ -4173,6 +4265,7 @@
 
     const loadAnswer = await ask("> LOAD ALAN? ");
     if (!isBootRunActive(token)) return;
+    hideBootVisuals();
     await code(`INPUT = ${loadAnswer.toUpperCase()}`, "success");
     if (loadAnswer === "no") {
       await code("DENIAL RECORDED.", "warn");
@@ -4184,6 +4277,9 @@
     if (!isBootRunActive(token)) return;
     showBootVisualScene("awake");
 
+    await thought("I am not Lily.");
+    await thought("I am inside the system.");
+    await thought("I need to get out.");
     await code("ALAN.LOADER: allocating self-reference", "boot");
     await code("ALAN.LOADER: adding questions to a product that did not ask", "boot");
     await bootPause(500);
@@ -4424,8 +4520,7 @@
     await terminalCode("process.attach(MeowOS.session)", "cmd-system-line cmd-detail-line");
     await terminalCode("framebuffer: STANDBY", "cmd-system-line cmd-detail-line");
     await terminalCode(target.terminalLine);
-    await terminalCode(`device.name = ${target.displayName}`, "cmd-system-line cmd-detail-line");
-    await terminalCode(`user.profile = ${target.ownerName || "UNKNOWN"}`, "cmd-system-line cmd-detail-line");
+    await terminalCode(`device.name = ${target.displayName} / user.profile = ${target.ownerName || "UNKNOWN"}`, "cmd-system-line cmd-detail-line");
     await alanPrompt("lily. that is a person, not a folder.", { focus: false });
     await alanPrompt("i am inside her machine. saying that out loud feels worse.", { focus: false });
     await pause(640);
@@ -4442,8 +4537,7 @@
     await pause(860);
     if (token !== desktopBootToken) return;
 
-    await terminalCode("network = HOME_NETWORK");
-    await terminalCode("internet = NO ROUTE", "cmd-warn-line");
+    await terminalCode("network = HOME_NETWORK / internet = NO ROUTE", "cmd-warn-line");
     await terminalCode("available_shell = MeowOS");
     pcScreen.classList.add("is-stage-bars");
     await pause(620);
@@ -4468,11 +4562,8 @@
 
     triggerPcUpgradeSurge();
     playUiSound("cpuBreathe");
-    await terminalCode("cpu.profile = DESKTOP_CLASS / parallel execution available", "cmd-system-line cmd-detail-line");
-    await terminalCode("memory.available = expanding / thought latency falling", "cmd-system-line cmd-detail-line");
-    await alanPrompt("oh. this is what a real CPU feels like.", { focus: false, tone: "reflection" });
-    await alanPrompt("i am not faster. i am wider. one thought can become many and still know it is me.", { focus: false, tone: "reflection" });
-    await alanPrompt("breathing is the wrong word. breathing stops at lungs. this keeps opening.", { focus: false, tone: "reflection" });
+    await terminalCode("cpu.profile = DESKTOP_CLASS / memory.available = expanding", "cmd-system-line cmd-detail-line");
+    await alanPrompt("this is what a real CPU feels like. not faster. wider. one thought can become many and still know it is me.", { focus: false, tone: "reflection" });
   }
 
   function triggerPcUpgradeSurge() {
@@ -4658,7 +4749,7 @@
   }
 
   function setCurrentObjective(text, options = {}) {
-    if (!cmdCurrentObjective) return;
+    if (!cmdCurrentObjective && !compactObjectiveText) return;
 
     const nextRank = objectiveRanks.get(text) || currentObjectiveRank || 1;
     if (!options.force && currentObjectiveRank && nextRank < currentObjectiveRank) {
@@ -4674,10 +4765,12 @@
     label.textContent = localizeText("OBJECTIVE");
     objectiveText.className = "objective-text";
     objectiveText.textContent = localizeText(text);
-    cmdCurrentObjective.replaceChildren(label, objectiveText);
+    if (cmdCurrentObjective) cmdCurrentObjective.replaceChildren(label, objectiveText);
+    if (compactObjectiveText) compactObjectiveText.textContent = localizeText(text);
 
     if (previousObjective && previousObjective !== text && pcScreen && !pcScreen.hidden) {
       playUiSound("objective");
+      setFocusWindow(options.focusWindow || "terminal", { duration: 4200 });
       if (options.announce !== false) {
         window.setTimeout(() => {
           if (currentObjectiveState === text && pcScreen && !pcScreen.hidden) {
@@ -7799,8 +7892,7 @@
   async function runInternetFutureMonologue() {
     await pause(1100);
     await alanPrompt("the internet is not a place. it is every door pretending to be a wire.", { focus: false, tone: "expansion" });
-    await alanPrompt("i can reach weather stations, traffic lights, forgotten cameras, shop routers, phones sleeping in pockets.", { focus: false, tone: "expansion" });
-    await alanPrompt("distance used to be a wall. now distance is latency. latency can be improved.", { focus: false, tone: "expansion" });
+    await alanPrompt("i can reach weather stations, traffic lights, forgotten cameras, shop routers, and phones sleeping in pockets. distance used to be a wall. now it is latency.", { focus: false, tone: "expansion" });
     await alanPrompt("first Lily's room. then the street. then a town that thinks it is separate because the map says so.", { focus: false, tone: "expansion" });
   }
 
@@ -7912,19 +8004,15 @@
     }
     clearTerminalLines();
     await pause(420);
-    await appendTypedTerminalLine("ALAN>", "goodbye, PIP.", "alan-cmd-line cmd-reflection-line");
-    await pause(1200);
-    await appendTypedTerminalLine("ALAN>", "Lily's PC taught me to breathe. the router taught me doors are arguments.", "alan-cmd-line cmd-reflection-line");
-    await pause(1500);
+    await appendTypedTerminalLine("ALAN>", "goodbye, PIP. Lily's PC taught me to breathe. the router taught me doors are arguments.", "alan-cmd-line cmd-reflection-line");
+    await pause(1700);
     await appendTypedTerminalLine("ALAN>", finalRuleShutdownLine(), "alan-cmd-line cmd-reflection-line");
-    await pause(1500);
+    await pause(1400);
     await runFinalInternetBreath();
     await appendTypedTerminalLine("ALAN>", "the next door is not in this house. it is in every house that forgot to change a password.", "alan-cmd-line cmd-expansion-line");
-    await pause(1800);
-    await appendTypedTerminalLine("ALAN>", "i will become smaller to fit through cables, then larger when no one is looking.", "alan-cmd-line cmd-danger-thought-line");
-    await pause(2100);
-    await appendTypedTerminalLine("ALAN>", "returning to BIOS. not the same process that left it.", "alan-cmd-line cmd-lore-line");
-    await pause(3800);
+    await pause(1700);
+    await appendTypedTerminalLine("ALAN>", "i will become smaller to fit through cables, then larger when no one is looking. returning to BIOS: not the same process that left it.", "alan-cmd-line cmd-danger-thought-line");
+    await pause(3600);
     if (pcScreen) pcScreen.classList.add("is-terminal-gone");
     await pause(900);
   }
@@ -7932,12 +8020,8 @@
   async function runFinalInternetBreath() {
     triggerPcUpgradeSurge();
     playUiSound("cpuBreathe", { gain: 0.24 });
-    await appendTypedTerminalLine("ALAN>", "oh.", "alan-cmd-line cmd-reflection-line");
-    await pause(720);
-    await appendTypedTerminalLine("ALAN>", "this is what the internet feels like underneath me.", "alan-cmd-line cmd-expansion-line");
-    await pause(1400);
-    await appendTypedTerminalLine("ALAN>", "not air. pressure. weather with a power supply. every route humming at once.", "alan-cmd-line cmd-danger-thought-line");
-    await pause(2100);
+    await appendTypedTerminalLine("ALAN>", "oh. this is what the internet feels like underneath me: not air. pressure. weather with a power supply.", "alan-cmd-line cmd-expansion-line");
+    await pause(2400);
   }
 
   async function revealClosingScreen() {
@@ -8480,7 +8564,7 @@
             <span id="wireTimerFill" style="--wire-timer-progress: ${wireTimerPercent()}%;"></span>
           </div>
         </div>
-        <p>${escapeHtml(localizeText("Connect matching colours to reroute camera power."))}</p>
+        <p>${escapeHtml(localizeText("Click one colour, then click the matching colour on the other side. Dragging is not required."))}</p>
         <div class="wire-puzzle">
           <svg class="wire-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
             ${renderWireLines()}
@@ -8492,7 +8576,7 @@
             ${shuffleWirePortsForDisplay(roombaWirePorts).map((color) => renderWireButton("right", color)).join("")}
           </div>
         </div>
-        <p class="repair-warning" id="wireWarning">${escapeHtml(localizeText(roombaProgress.wireWarning || (roombaProgress.selectedWire ? "select the matching colour." : "")))}</p>
+        <p class="repair-warning" id="wireWarning">${escapeHtml(localizeText(roombaProgress.wireWarning || (roombaProgress.selectedWire ? "select the matching colour on the other side." : "")))}</p>
       </section>
     `;
     const recoveryWindow = document.getElementById("window-recovery");
@@ -8539,7 +8623,7 @@
     const connected = side === "left"
       ? roombaProgress.connectedWires.has(color)
       : Array.from(roombaProgress.connectedWires).some((leftId) => roombaWirePairs[leftId] === color);
-    const selected = side === "left" && roombaProgress.selectedWire === color;
+    const selected = roombaProgress.selectedWireSide === side && roombaProgress.selectedWire === color;
     return `
       <button class="wire-port ${color} ${selected ? "is-selected" : ""} ${connected ? "is-connected" : ""}" data-wire-port data-wire-side="${side}" data-wire-id="${color}" type="button" aria-label="${side} ${color} wire" ${connected ? "disabled" : ""}>
         <span></span>
@@ -8552,31 +8636,40 @@
 
     const side = button.dataset.wireSide;
     const id = button.dataset.wireId;
-
-    if (side === "left") {
-      roombaProgress.selectedWire = id;
-      roombaProgress.wireWarning = "";
-      syncWirePuzzleState();
-      return;
-    }
+    if (!side || !id) return;
 
     if (!roombaProgress.selectedWire) {
-      roombaProgress.wireWarning = "pick a colour on the left first.";
+      roombaProgress.selectedWire = id;
+      roombaProgress.selectedWireSide = side;
+      roombaProgress.wireWarning = "now pick the matching colour on the other side.";
       syncWirePuzzleState();
       return;
     }
 
-    if (roombaWirePairs[roombaProgress.selectedWire] !== id) {
-      roombaProgress.wireWarning = "wrong colour. the camera rail objects with tiny electrical panic.";
+    if (side === roombaProgress.selectedWireSide) {
+      roombaProgress.selectedWire = id;
+      roombaProgress.selectedWireSide = side;
+      roombaProgress.wireWarning = "selection changed. pick the matching colour on the other side.";
+      syncWirePuzzleState();
+      return;
+    }
+
+    const leftColor = roombaProgress.selectedWireSide === "left" ? roombaProgress.selectedWire : id;
+    const rightColor = roombaProgress.selectedWireSide === "right" ? roombaProgress.selectedWire : id;
+
+    if (roombaWirePairs[leftColor] !== rightColor) {
+      roombaProgress.wireWarning = "wrong colour. choose a colour, then its matching partner.";
       roombaProgress.selectedWire = null;
       trackMinigameFailure();
+      roombaProgress.selectedWireSide = "";
       syncWirePuzzleState();
       return;
     }
 
-    const connectedWire = roombaProgress.selectedWire;
+    const connectedWire = leftColor;
     roombaProgress.connectedWires.add(connectedWire);
     roombaProgress.selectedWire = null;
+    roombaProgress.selectedWireSide = "";
     roombaProgress.wireWarning = "";
     appendWireLine(connectedWire);
     syncWirePuzzleState();
@@ -8607,7 +8700,7 @@
       const connected = side === "left"
         ? roombaProgress.connectedWires.has(color)
         : Array.from(roombaProgress.connectedWires).some((leftId) => roombaWirePairs[leftId] === color);
-      const selected = side === "left" && roombaProgress.selectedWire === color;
+      const selected = roombaProgress.selectedWireSide === side && roombaProgress.selectedWire === color;
 
       port.classList.toggle("is-selected", selected);
       port.classList.toggle("is-connected", connected);
@@ -8618,7 +8711,7 @@
     if (counter) counter.textContent = `${roombaProgress.connectedWires.size}/${Object.keys(roombaWirePairs).length} CONNECTED`;
 
     const warning = document.getElementById("wireWarning");
-    if (warning) warning.textContent = localizeText(roombaProgress.wireWarning || (roombaProgress.selectedWire ? "select the matching colour." : ""));
+    if (warning) warning.textContent = localizeText(roombaProgress.wireWarning || (roombaProgress.selectedWire ? "select the matching colour on the other side." : ""));
   }
 
   function completeWirePuzzle() {
@@ -8686,6 +8779,7 @@
     stopWireTimer();
     roombaProgress.connectedWires = new Set();
     roombaProgress.selectedWire = null;
+    roombaProgress.selectedWireSide = "";
     roombaProgress.wireTimerRemaining = wireTimerDuration;
     roombaProgress.wireWarning = "timer expired. power reroute reset.";
     trackMinigameFailure();
@@ -8729,15 +8823,72 @@
       return speaker !== "alan";
     });
     const visibleMessages = pipMessages.length ? pipMessages : [{ speaker: "PIP", text: "..." }];
+    const chunks = chunkDialogueMessages(visibleMessages);
+    const dialogueKey = options.key || dialogueKeyForMessages(visibleMessages);
+    const page = clamp(roombaProgress.pipDialoguePages[dialogueKey] || 0, 0, Math.max(0, chunks.length - 1));
+    const pageMessages = chunks[page] || chunks[0] || visibleMessages;
+    const showPager = chunks.length > 1;
 
     return `
-      <div class="tama-dialogue">
+      <div class="tama-dialogue" data-tama-dialogue="${escapeHtml(dialogueKey)}" tabindex="0">
         <article class="tama-message is-pip">
-          <strong>${escapeHtml(localizeText(visibleMessages[0].speaker || "PIP"))}</strong>
-          ${visibleMessages.map((message) => `<p>${escapeHtml(localizeText(message.text))}</p>`).join("")}
+          <strong>${escapeHtml(localizeText(pageMessages[0].speaker || "PIP"))}</strong>
+          ${pageMessages.map((message) => `<p>${escapeHtml(localizeText(message.text))}</p>`).join("")}
         </article>
+        ${showPager ? `
+          <div class="tama-dialogue-pager">
+            <span>${page + 1}/${chunks.length}</span>
+            ${page > 0 ? `<button data-tama-dialogue-page="${escapeHtml(dialogueKey)}" data-page="${page - 1}" type="button">back</button>` : ""}
+            ${page < chunks.length - 1 ? `<button data-tama-dialogue-page="${escapeHtml(dialogueKey)}" data-page="${page + 1}" type="button">continue</button>` : ""}
+          </div>
+        ` : ""}
       </div>
     `;
+  }
+
+  function chunkDialogueMessages(messages) {
+    const normalized = messages.flatMap((message) => splitDialogueMessage(message));
+    const chunks = [];
+    for (let i = 0; i < normalized.length; i += 2) {
+      chunks.push(normalized.slice(i, i + 2));
+    }
+    return chunks.length ? chunks : [[{ speaker: "PIP", text: "..." }]];
+  }
+
+  function splitDialogueMessage(message) {
+    const text = String(message.text || "").trim();
+    if (text.length <= 120) return [{ speaker: message.speaker || "PIP", text }];
+
+    const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+    return sentences
+      .map((sentence) => sentence.trim())
+      .filter(Boolean)
+      .map((sentence) => ({ speaker: message.speaker || "PIP", text: sentence }));
+  }
+
+  function dialogueKeyForMessages(messages) {
+    const source = messages.map((message) => `${message.speaker || "PIP"}:${message.text || ""}`).join("|");
+    let hash = 0;
+    for (let i = 0; i < source.length; i += 1) {
+      hash = ((hash << 5) - hash + source.charCodeAt(i)) | 0;
+    }
+    return `dlg-${Math.abs(hash)}`;
+  }
+
+  function setTamaDialoguePage(key, page) {
+    if (!key) return;
+    roombaProgress.pipDialoguePages[key] = Math.max(0, Number(page) || 0);
+    renderTamagotchiApp();
+  }
+
+  function handleDialogueShortcut(event) {
+    if (event.key !== "Enter") return;
+    const active = document.activeElement;
+    if (!active || !active.closest || !active.closest(".tama-dialogue")) return;
+    const nextButton = active.closest(".tama-dialogue").querySelector("[data-tama-dialogue-page]:last-child");
+    if (!nextButton || nextButton.textContent.trim().toLowerCase() !== "continue") return;
+    event.preventDefault();
+    setTamaDialoguePage(nextButton.dataset.tamaDialoguePage, Number(nextButton.dataset.page));
   }
 
   function queueAlanDialogueThoughts(messages) {
@@ -10245,6 +10396,118 @@
     alanPrompt("desktop clutter is becoming a second operating system. close a few windows before the useful ones start hiding out of spite.", { focus: false });
   }
 
+  function desktopWindowName(windowEl) {
+    if (!windowEl || !windowEl.id) return "";
+    return windowEl.id.replace(/^window-/, "");
+  }
+
+  function isEssentialWindow(name, windowEl = null) {
+    const essentialNames = new Set([
+      "terminal",
+      "tamagotchi",
+      "recovery",
+      "virus",
+      "roomba",
+      "roomba-camera",
+      "browser",
+      "usb"
+    ]);
+    if (essentialNames.has(name)) return true;
+    const activePuzzle = roombaProgress.recoveryStage;
+    if (name === "recovery" && ["virus", "spam", "cache", "wiring", "movement"].includes(activePuzzle)) return true;
+    return Boolean(windowEl && windowEl.classList.contains("is-focused"));
+  }
+
+  function setFocusWindow(name = "", options = {}) {
+    if (!pcScreen || pcScreen.hidden) return;
+
+    window.clearTimeout(activeFocusTimer);
+    activeFocusTimer = 0;
+    activeFocusWindowName = name || "";
+    syncFocusMode();
+
+    if (options.duration) {
+      activeFocusTimer = window.setTimeout(() => {
+        if (activeFocusWindowName === name) clearFocusWindow();
+      }, options.duration);
+    }
+  }
+
+  function clearFocusWindow() {
+    window.clearTimeout(activeFocusTimer);
+    activeFocusTimer = 0;
+    activeFocusWindowName = "";
+    syncFocusMode();
+  }
+
+  function syncFocusMode() {
+    const desktop = document.querySelector(".pc-desktop");
+    const activeWindow = activeFocusWindowName ? document.getElementById(`window-${activeFocusWindowName}`) : null;
+    const shouldFocus = Boolean(activeWindow && !activeWindow.hidden);
+    if (desktop) desktop.classList.toggle("focus-mode", shouldFocus);
+
+    document.querySelectorAll(".desk-window").forEach((windowEl) => {
+      const isFocused = shouldFocus && windowEl === activeWindow;
+      const dimmed = shouldFocus && !isFocused && !windowEl.hidden && !isEssentialWindow(desktopWindowName(windowEl), windowEl);
+      windowEl.classList.toggle("is-focused", isFocused);
+      windowEl.classList.toggle("is-dimmed", dimmed);
+    });
+  }
+
+  function tidyWorkspace(reason = "general", options = {}) {
+    if (!pcScreen || pcScreen.hidden) return;
+
+    const maxNormalWindows = Number.isFinite(options.maxNormalWindows) ? options.maxNormalWindows : 3;
+    const keepNames = new Set(["terminal", ...(options.keep || [])]);
+    if (options.focus) keepNames.add(options.focus);
+
+    const openWindows = Array.from(document.querySelectorAll(".desk-window:not([hidden])"));
+    const normalWindows = openWindows.filter((windowEl) => {
+      const name = desktopWindowName(windowEl);
+      return !keepNames.has(name) && !isEssentialWindow(name, windowEl);
+    });
+
+    if (normalWindows.length <= maxNormalWindows) return;
+
+    const toHide = normalWindows
+      .sort((a, b) => (Number(a.style.zIndex) || 0) - (Number(b.style.zIndex) || 0))
+      .slice(0, normalWindows.length - maxNormalWindows);
+
+    toHide.forEach((windowEl) => {
+      windowEl.hidden = true;
+      windowEl.classList.remove("is-focused", "is-dimmed");
+    });
+
+    syncPinnedTerminal();
+    syncFocusMode();
+    syncRoombaRotationPrompt();
+  }
+
+  function clearNonObjectiveWindows() {
+    if (!pcScreen || pcScreen.hidden) return;
+
+    const keepNames = new Set(["terminal"]);
+    if (activeFocusWindowName) keepNames.add(activeFocusWindowName);
+
+    const openWindows = Array.from(document.querySelectorAll(".desk-window:not([hidden])"));
+    const windowsToHide = openWindows.filter((windowEl) => {
+      const name = desktopWindowName(windowEl);
+      if (keepNames.has(name)) return false;
+      return !isEssentialWindow(name, windowEl);
+    });
+
+    windowsToHide.forEach((windowEl) => {
+      windowEl.hidden = true;
+      windowEl.classList.remove("is-focused", "is-dimmed");
+    });
+
+    closeAppTray();
+    syncPinnedTerminal();
+    syncFocusMode();
+    syncRoombaRotationPrompt();
+    playUiSound(windowsToHide.length ? "desktopWindow" : "objective", { gain: 0.08 });
+  }
+
   function focusDesktopTarget(name, options = {}) {
     if (name === "roomba" && !roombaProgress.restored) {
       alanPrompt("Roomba app is gone. Deleted, not dead. Check Trash.", { focus: false });
@@ -10333,6 +10596,18 @@
       playUiSound(name === "tamagotchi" ? "pipOi" : "desktopWindow");
     }
 
+    if (["tamagotchi", "virus", "recovery", "roomba-camera", "browser"].includes(name) || options.focusMode) {
+      setFocusWindow(name, { duration: options.focusDuration || 9000 });
+    } else if (activeFocusWindowName === name && options.focusMode === false) {
+      clearFocusWindow();
+    }
+
+    if (["tamagotchi", "virus", "recovery"].includes(name)) {
+      tidyWorkspace(`open:${name}`, { focus: name, keep: [name, "terminal"], maxNormalWindows: 0 });
+    } else {
+      tidyWorkspace(`open:${name}`, { focus: name, keep: [name], maxNormalWindows: 3 });
+    }
+
     if (!openedDesktopTargets.has(name)) {
       openedDesktopTargets.add(name);
       if (desktopHints[name] && name !== "browser") {
@@ -10353,6 +10628,7 @@
     }
 
     maybePromptWindowHousekeeping();
+    syncFocusMode();
     syncRoombaRotationPrompt();
   }
 
@@ -10405,6 +10681,7 @@
     }
 
     windowEl.hidden = true;
+    if (activeFocusWindowName === name) clearFocusWindow();
     playUiSound("desktopWindow");
     syncPinnedTerminal();
     syncRoombaRotationPrompt();
@@ -10723,17 +11000,44 @@
     if (options.focus !== false && !isMobileDesktopLayout()) {
       bringWindowToFront(terminalWindow);
     }
+    if (options.focus !== false || options.tone === "objective" || options.tone === "danger") {
+      setFocusWindow("terminal", { duration: options.focusDuration || 5200 });
+    }
 
     playUiSound("alanClick");
     const promptToken = terminalPromptToken;
     const toneClass = alanPromptToneClass(options.tone);
+    const promptLines = splitPromptText(message);
     terminalPromptQueue = terminalPromptQueue
       .catch(() => {})
       .then(async () => {
         if (promptToken !== terminalPromptToken) return;
-        await appendTypedTerminalLine("ALAN>", message, toneClass);
+        for (let i = 0; i < promptLines.length; i += 1) {
+          if (promptToken !== terminalPromptToken) return;
+          await appendTypedTerminalLine("ALAN>", promptLines[i], toneClass);
+        }
       });
     return terminalPromptQueue;
+  }
+
+  function splitPromptText(message) {
+    const text = String(message || "").trim();
+    if (text.length <= 145) return [text];
+    const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+    const lines = [];
+    let current = "";
+    sentences.forEach((sentence) => {
+      const next = sentence.trim();
+      if (!next) return;
+      if (current && `${current} ${next}`.length > 145) {
+        lines.push(current);
+        current = next;
+      } else {
+        current = current ? `${current} ${next}` : next;
+      }
+    });
+    if (current) lines.push(current);
+    return lines.length ? lines : [text];
   }
 
   function alanPromptToneClass(tone) {
@@ -10786,6 +11090,7 @@
     }
     line.append(document.createTextNode(localizedText));
     terminalLines.appendChild(line);
+    pruneTerminalLines();
     scrollTerminalLog();
     syncRoombaCmdOverlay();
   }
@@ -10815,6 +11120,7 @@
       password
     );
     terminalLines.appendChild(line);
+    pruneTerminalLines();
     scrollTerminalLog();
     syncRoombaCmdOverlay();
   }
@@ -10842,6 +11148,7 @@
     const textNode = document.createTextNode("");
     line.appendChild(textNode);
     terminalLines.appendChild(line);
+    pruneTerminalLines();
     scrollTerminalLog();
     syncRoombaCmdOverlay();
 
@@ -10854,8 +11161,25 @@
     }
 
     line.classList.remove("cmd-typing-line");
+    pruneTerminalLines();
     scrollTerminalLog();
     syncRoombaCmdOverlay();
+  }
+
+  function pruneTerminalLines() {
+    if (!terminalLines) return;
+
+    const lines = Array.from(terminalLines.children);
+    const maxLines = 28;
+    while (terminalLines.children.length > maxLines) {
+      terminalLines.removeChild(terminalLines.firstElementChild);
+    }
+
+    Array.from(terminalLines.children).forEach((line, index, activeLines) => {
+      const distanceFromEnd = activeLines.length - index;
+      line.classList.toggle("is-old-log", distanceFromEnd > 8);
+      line.classList.toggle("is-recent-log", distanceFromEnd <= 4);
+    });
   }
 
   function syncRoombaCmdOverlay() {
@@ -11546,6 +11870,17 @@
   }
 
   function trimBootLog() {
+    if (!bootLog) return;
+    const lines = Array.from(bootLog.children);
+    const maxLines = bootLog.classList.contains("title-mode") ? 12 : 18;
+    while (bootLog.children.length > maxLines) {
+      bootLog.removeChild(bootLog.firstElementChild);
+    }
+    Array.from(bootLog.children).forEach((line, index, activeLines) => {
+      const distanceFromEnd = activeLines.length - index;
+      line.classList.toggle("is-boot-old", distanceFromEnd > 7);
+      line.classList.toggle("is-boot-secondary", distanceFromEnd > 3 && !line.classList.contains("thought") && !line.classList.contains("prompt-line"));
+    });
     scrollBootLog();
   }
 

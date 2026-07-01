@@ -726,6 +726,59 @@ html:not([lang="en"]) .tama-screen {
   transform-origin: center;
 }
 
+.boot-scene-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: transparent;
+  filter: none;
+  transform-origin: center;
+}
+
+.boot-scene-annotation-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+}
+
+.boot-scene-annotation-layer[hidden] {
+  display: none;
+}
+
+.boot-scene-annotation {
+  position: absolute;
+  display: block;
+  max-width: min(34ch, 56%);
+  padding: 0.5rem 0.68rem;
+  border: 1px solid rgba(134, 255, 148, 0.22);
+  background: rgba(0, 0, 0, 0.95);
+  color: rgba(202, 255, 207, 0.66);
+  font: 600 clamp(0.62rem, 0.95vw, 0.82rem) / 1.35 var(--mono);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-shadow: none;
+  opacity: 0;
+}
+
+.boot-scene-annotation:nth-child(1) {
+  top: 18%;
+  left: 10%;
+  animation-delay: 1500ms;
+}
+
+.boot-scene-annotation:nth-child(2) {
+  right: 8%;
+  bottom: 16%;
+  animation-delay: 2220ms;
+}
+
+.boot-scene-annotation:nth-child(3) {
+  top: 46%;
+  left: 28%;
+  animation-delay: 2940ms;
+}
+
 .boot-svg {
   width: 100%;
   height: 100%;
@@ -784,6 +837,14 @@ html:not([lang="en"]) .tama-screen {
   animation: visualSceneIn 680ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+.boot-visual.has-video.is-drawing {
+  animation: bootVideoPanelIn 1600ms ease both;
+}
+
+.boot-visual.is-identity.has-video.is-drawing {
+  animation-duration: 3200ms;
+}
+
 .boot-visual.is-drawing::after {
   animation: visualScanIn 960ms cubic-bezier(0.16, 1, 0.3, 1) 90ms both;
 }
@@ -792,8 +853,40 @@ html:not([lang="en"]) .tama-screen {
   animation: visualDustIn 1200ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+.boot-visual.has-video.is-drawing::before {
+  animation: none;
+  opacity: 0;
+}
+
+.boot-visual.has-video.is-drawing::after {
+  animation: none;
+  opacity: 0;
+}
+
 .boot-visual.is-drawing .boot-scene-image {
   animation: bootImageResolve 1300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.boot-visual.is-drawing .boot-scene-video {
+  animation: bootVideoResolve 1600ms ease both;
+}
+
+.boot-visual.is-identity.is-drawing .boot-scene-video {
+  animation-name: bootIdentityVideoResolve;
+  animation-duration: 3200ms;
+  animation-fill-mode: both;
+}
+
+.boot-visual.is-identity .boot-scene-video {
+  opacity: 0.5;
+}
+
+.boot-visual.is-drawing .boot-scene-annotation {
+  animation-name: bootAnnotationFloat;
+  animation-duration: 11s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
 }
 
 .boot-visual.is-drawing .boot-fill,
@@ -814,6 +907,11 @@ html:not([lang="en"]) .tama-screen {
 .boot-visual.is-bluetooth,
 .boot-visual.is-hack {
   animation: visualSceneIn 680ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.boot-visual.has-video.is-bluetooth,
+.boot-visual.has-video.is-hack {
+  animation: bootVideoPanelIn 1600ms ease both;
 }
 
 @keyframes visualPop {
@@ -839,6 +937,18 @@ html:not([lang="en"]) .tama-screen {
     opacity: 1;
     filter: blur(0);
     transform: var(--visual-transform) translateX(0) scale(1);
+  }
+}
+
+@keyframes bootVideoPanelIn {
+  from {
+    opacity: 0;
+    transform: var(--visual-transform);
+  }
+
+  to {
+    opacity: 1;
+    transform: var(--visual-transform);
   }
 }
 
@@ -907,6 +1017,51 @@ html:not([lang="en"]) .tama-screen {
       drop-shadow(0 0 9px rgba(134, 255, 148, 0.22))
       drop-shadow(0 0 24px rgba(126, 252, 255, 0.12));
     transform: scale(1);
+  }
+}
+
+@keyframes bootVideoResolve {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes bootIdentityVideoResolve {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes bootAnnotationFloat {
+  0% {
+    opacity: 0;
+    transform: translate3d(-8px, 6px, 0);
+  }
+
+  14% {
+    opacity: 0.72;
+  }
+
+  50% {
+    opacity: 0.72;
+    transform: translate3d(10px, -8px, 0);
+  }
+
+  86% {
+    opacity: 0.72;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(-8px, 6px, 0);
   }
 }
 
@@ -1085,6 +1240,17 @@ html:not([lang="en"]) .tama-screen {
   min-height: 1.58em;
   white-space: pre-wrap;
   overflow-wrap: break-word;
+  transition: opacity 220ms ease;
+}
+
+.code-line.is-boot-old {
+  max-height: 1.7em;
+  overflow: hidden;
+  opacity: 0.22;
+}
+
+.code-line.is-boot-secondary {
+  opacity: 0.48;
 }
 
 .code-line.boot {
@@ -1293,9 +1459,8 @@ html:not([lang="en"]) .tama-screen {
 
 .pc-screen.is-cpu-surge .pc-wallpaper,
 .pc-screen.is-cpu-surge .desktop-noise,
-.pc-screen.is-cpu-surge .terminal-window,
 .pc-screen.is-cpu-surge .desktop-icons,
-.pc-screen.is-cpu-surge .desk-window,
+.pc-screen.is-cpu-surge .desk-window:not(.terminal-window),
 .pc-screen.is-cpu-surge .os-topbar,
 .pc-screen.is-cpu-surge .os-dock,
 .pc-screen.is-cpu-surge .app-tray,
@@ -2391,6 +2556,91 @@ html:not([lang="en"]) .tama-screen {
     0 0 28px rgba(255, 139, 213, 0.2);
 }
 
+.pc-desktop.focus-mode .desk-window.is-dimmed,
+.desktop.focus-mode .window.is-dimmed,
+.desk-window.is-dimmed {
+  opacity: 0.48;
+  filter: brightness(0.72) saturate(0.82);
+  transform: translateZ(0);
+}
+
+.pc-desktop.focus-mode .desk-window.is-focused,
+.desktop.focus-mode .window.is-focused {
+  opacity: 1;
+  filter: none;
+}
+
+.pc-desktop.focus-mode .desktop-icons,
+.pc-desktop.focus-mode .app-tray:not([hidden]) {
+  opacity: 0.55;
+  filter: brightness(0.82);
+}
+
+.compact-objective-hud {
+  position: fixed;
+  z-index: 255;
+  top: 54px;
+  right: 16px;
+  display: grid;
+  gap: 2px;
+  width: min(170px, calc(100vw - 32px));
+  padding: 5px 6px;
+  border: 1px solid rgba(114, 222, 255, 0.28);
+  background: rgba(8, 9, 20, 0.82);
+  color: var(--desktop-cream);
+  font: 0.52rem / 1.25 var(--mono);
+  pointer-events: none;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+}
+
+.compact-objective-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+}
+
+.compact-objective-hud span {
+  color: var(--desktop-cyan);
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.compact-objective-clear {
+  flex: 0 0 auto;
+  min-height: 15px;
+  padding: 2px 4px;
+  border: 1px solid rgba(114, 222, 255, 0.32);
+  background: rgba(0, 0, 0, 0.36);
+  color: rgba(255, 248, 214, 0.82);
+  cursor: pointer;
+  font: 0.44rem / 1 var(--mono);
+  pointer-events: auto;
+}
+
+.compact-objective-clear:hover,
+.compact-objective-clear:focus-visible {
+  border-color: rgba(157, 255, 118, 0.5);
+  color: var(--desktop-green);
+}
+
+.compact-objective-hud strong {
+  color: var(--desktop-cream);
+  font-size: 0.56rem;
+  font-weight: 600;
+}
+
+@media (max-width: 760px) {
+  .compact-objective-hud {
+    top: 46px;
+    right: 8px;
+    left: auto;
+    width: min(190px, calc(100vw - 16px));
+    padding: 5px 6px;
+    font-size: 0.5rem;
+  }
+}
+
 .window-titlebar {
   display: flex;
   align-items: center;
@@ -2561,6 +2811,19 @@ html:not([lang="en"]) .tama-screen {
   scrollbar-width: thin;
 }
 
+.terminal-lines p {
+  margin-top: 0;
+  margin-bottom: 0.38rem;
+}
+
+.terminal-lines p.is-old-log {
+  opacity: 0.38;
+}
+
+.terminal-lines p.is-recent-log {
+  opacity: 1;
+}
+
 .terminal-lines::-webkit-scrollbar,
 .boot-log::-webkit-scrollbar {
   display: block;
@@ -2689,6 +2952,13 @@ html:not([lang="en"]) .tama-screen {
   line-height: 1.35;
   overflow-wrap: break-word;
   word-break: normal;
+}
+
+.terminal-window .cmd-current-objective {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  box-shadow: 0 8px 16px rgba(6, 8, 20, 0.34);
 }
 
 .cmd-current-objective span {
@@ -3118,10 +3388,12 @@ html:not([lang="en"]) .tama-screen {
   outline: 0;
 }
 
-.pip-trust-window {
-  top: 124px;
-  right: 520px;
-  width: 236px;
+.desk-window.pip-trust-window {
+  top: 306px;
+  right: clamp(248px, 22vw, 320px);
+  left: auto;
+  width: 190px;
+  min-height: 0;
 }
 
 .pip-trust-copy {
@@ -3131,8 +3403,8 @@ html:not([lang="en"]) .tama-screen {
 
 .pip-trust-panel {
   display: grid;
-  gap: 8px;
-  padding: 10px;
+  gap: 5px;
+  padding: 7px;
   color: var(--desktop-cream);
   background: linear-gradient(180deg, rgba(10, 12, 28, 0.96), rgba(18, 13, 34, 0.96));
 }
@@ -3141,7 +3413,7 @@ html:not([lang="en"]) .tama-screen {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
 }
 
 .pip-trust-header div,
@@ -3155,7 +3427,7 @@ html:not([lang="en"]) .tama-screen {
 .pip-trust-history > strong,
 .pip-trust-last b {
   color: var(--desktop-cyan);
-  font-size: 0.56rem;
+  font-size: 0.48rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -3163,13 +3435,13 @@ html:not([lang="en"]) .tama-screen {
 
 .pip-trust-header strong {
   color: var(--desktop-green);
-  font-size: 1.45rem;
+  font-size: 0.96rem;
   line-height: 1;
   text-shadow: 0 0 18px rgba(157, 255, 118, 0.26);
 }
 
 .pip-trust-meter {
-  height: 8px;
+  height: 6px;
   overflow: hidden;
   border: 1px solid rgba(255, 242, 216, 0.24);
   border-radius: 999px;
@@ -3188,7 +3460,7 @@ html:not([lang="en"]) .tama-screen {
 
 .pip-trust-state strong {
   color: var(--desktop-cream);
-  font-size: 0.72rem;
+  font-size: 0.58rem;
   text-transform: uppercase;
 }
 
@@ -3196,20 +3468,16 @@ html:not([lang="en"]) .tama-screen {
 .pip-trust-last,
 .pip-trust-history li {
   color: rgba(255, 242, 216, 0.78);
-  font-size: 0.62rem;
+  font-size: 0.54rem;
   line-height: 1.35;
 }
 
 .pip-trust-last {
-  margin: 0;
+  display: none;
 }
 
-.pip-trust-history ol {
-  display: grid;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.pip-trust-history {
+  display: none;
 }
 
 .pip-trust-history li {
@@ -4874,9 +5142,9 @@ html:not([lang="en"]) .tama-screen {
   position: relative;
   z-index: 4;
   display: grid;
-  width: 54px;
-  height: 34px;
-  min-height: 34px;
+  width: 72px;
+  height: 50px;
+  min-height: 50px;
   place-items: center;
   justify-self: center;
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -4884,6 +5152,7 @@ html:not([lang="en"]) .tama-screen {
   background: rgba(255, 255, 255, 0.08);
   cursor: pointer;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.28);
+  touch-action: manipulation;
 }
 
 .wire-port:hover,
@@ -4901,9 +5170,14 @@ html:not([lang="en"]) .tama-screen {
   cursor: default;
 }
 
+.wire-port.is-selected {
+  background: rgba(255, 242, 216, 0.14);
+  transform: scale(1.05);
+}
+
 .wire-port span {
-  width: 32px;
-  height: 18px;
+  width: 42px;
+  height: 24px;
   border-radius: 999px;
   background: currentColor;
   box-shadow: 0 0 14px currentColor;
@@ -5862,19 +6136,20 @@ html:not([lang="en"]) .tama-screen {
 }
 
 .usb-window {
-  top: 116px;
-  left: 214px;
-  width: min(620px, 50vw);
-  min-height: 390px;
+  top: 128px;
+  left: 232px;
+  width: min(500px, 42vw);
+  min-height: 310px;
 }
 
 .usb-copy {
   color: var(--desktop-cream);
+  font-size: 0.8rem;
 }
 
 .usb-panel {
   display: grid;
-  gap: 11px;
+  gap: 8px;
   min-height: 100%;
   padding: 2px;
 }
@@ -5883,24 +6158,24 @@ html:not([lang="en"]) .tama-screen {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 9px;
+  gap: 8px;
+  padding-bottom: 7px;
   border-bottom: 1px solid rgba(114, 222, 255, 0.2);
 }
 
 .usb-panel header span {
   color: var(--desktop-cyan);
-  font-size: 0.72rem;
+  font-size: 0.64rem;
 }
 
 .usb-panel header strong {
   color: var(--desktop-green);
-  font-size: 0.76rem;
+  font-size: 0.68rem;
 }
 
 .usb-panel p {
   margin: 0;
-  line-height: 1.48;
+  line-height: 1.38;
 }
 
 .usb-panel b,
@@ -5915,16 +6190,16 @@ html:not([lang="en"]) .tama-screen {
 
 .usb-lore-grid {
   display: grid;
-  grid-template-columns: 118px minmax(0, 1fr);
-  gap: 7px 10px;
-  padding: 10px;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 5px 8px;
+  padding: 8px;
   border: 1px solid rgba(114, 222, 255, 0.14);
   background: rgba(0, 0, 0, 0.18);
 }
 
 .usb-lore-grid span {
   color: var(--desktop-green);
-  font-size: 0.66rem;
+  font-size: 0.58rem;
   text-transform: uppercase;
 }
 
@@ -5935,12 +6210,12 @@ html:not([lang="en"]) .tama-screen {
 .usb-key-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 4px;
+  gap: 6px;
+  margin-top: 2px;
 }
 
 .usb-key-grid button {
-  min-height: 34px;
+  min-height: 30px;
   border: 1px solid rgba(157, 255, 118, 0.28);
   background: rgba(157, 255, 118, 0.07);
   color: var(--desktop-cream);
@@ -5962,10 +6237,10 @@ html:not([lang="en"]) .tama-screen {
 
 .usb-stamp {
   justify-self: start;
-  padding: 4px 7px;
+  padding: 3px 6px;
   border: 1px solid rgba(255, 95, 109, 0.5);
   color: var(--desktop-red);
-  font-size: 0.66rem;
+  font-size: 0.58rem;
 }
 
 .usb-document blockquote {
@@ -7028,6 +7303,35 @@ html:not([lang="en"]) .tama-screen {
 
 .tama-message p + p {
   margin-top: 0.52rem;
+}
+
+.tama-dialogue-pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.tama-dialogue-pager span {
+  margin-right: auto;
+  color: rgba(255, 242, 216, 0.52);
+  font-size: 0.68rem;
+}
+
+.tama-dialogue-pager button {
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid rgba(114, 222, 255, 0.32);
+  border-radius: 6px;
+  background: rgba(114, 222, 255, 0.08);
+  color: var(--desktop-cream);
+  cursor: pointer;
+}
+
+.tama-dialogue-pager button:hover,
+.tama-dialogue-pager button:focus-visible {
+  border-color: var(--desktop-cyan);
+  outline: 0;
 }
 
 .tama-message.is-alan {
@@ -10154,14 +10458,14 @@ html:not([lang="en"]) .tama-screen {
   }
 
   .wire-port {
-    width: 46px;
-    height: 32px;
-    min-height: 32px;
+    width: 58px;
+    height: 44px;
+    min-height: 44px;
   }
 
   .wire-port span {
-    width: 27px;
-    height: 16px;
+    width: 34px;
+    height: 20px;
   }
 
   .wire-line {
@@ -12169,17 +12473,17 @@ html:not([lang="en"]) .tama-screen {
     line-height: 1;
   }
 
-  .pip-trust-window {
-    width: min(300px, calc(100dvw - var(--phone-safe-left, 0px) - var(--phone-safe-right, 0px) - 18px));
+  .desk-window.pip-trust-window {
+    width: min(230px, calc(100dvw - var(--phone-safe-left, 0px) - var(--phone-safe-right, 0px) - 18px));
   }
 
   .pip-trust-panel {
-    gap: 9px;
-    padding: 10px;
+    gap: 6px;
+    padding: 8px;
   }
 
   .pip-trust-header strong {
-    font-size: 1.45rem;
+    font-size: 1rem;
   }
 
   .pip-trust-history li {
