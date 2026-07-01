@@ -184,6 +184,7 @@
   let currentObjectiveState = "";
   let currentObjectiveRank = 0;
   let lastHousekeepingWindowCount = 0;
+  let housekeepingPromptIndex = 0;
   let activeFocusWindowName = "";
   let activeFocusTimer = 0;
   let activeScaryDrag = null;
@@ -10393,7 +10394,12 @@
     if (count <= 4 || count <= lastHousekeepingWindowCount) return;
 
     lastHousekeepingWindowCount = count;
-    alanPrompt("desktop clutter is becoming a second operating system. close a few windows before the useful ones start hiding out of spite.", { focus: false });
+    const prompts = [
+      "I need more space to think clearly.",
+      "Too much information on the screen, i should close some windows."
+    ];
+    alanPrompt(prompts[housekeepingPromptIndex % prompts.length], { focus: false });
+    housekeepingPromptIndex += 1;
   }
 
   function desktopWindowName(windowEl) {
